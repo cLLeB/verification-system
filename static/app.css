@@ -96,6 +96,9 @@ body {
     cursor: pointer; transition: transform .12s var(--ease), filter .2s var(--ease); }
 .btn:active { transform: scale(.97); }
 .btn-primary { background: var(--grad); color: #06231f; box-shadow: 0 6px 18px rgba(34,211,238,.22); }
+.btn:disabled { opacity: .55; }
+.actions { display: flex; gap: 12px; }
+.actions .btn { flex: 1; }
 
 /* Progress */
 .progress { height: 6px; border-radius: 999px; background: var(--bg-1); overflow: hidden; border: 1px solid var(--line); }
