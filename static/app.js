@@ -51,7 +51,7 @@ async function initCamera() {
     }
 }
 
-function setHint(t) { hint.textContent = t; }
+function setHint(t, kind = '') { hint.textContent = t; hint.className = 'hint' + (kind ? ' ' + kind : ''); }
 function grabFrame() {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return null;
@@ -85,7 +85,7 @@ async function enrollCapture() {
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
-    } catch (e) { clearInterval(anim); reset('Network error — is the server running?'); }
+    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
 }
 
 async function verify() {
@@ -94,7 +94,7 @@ async function verify() {
     startBusy('Liveness');
     let ch;
     try { ch = await (await fetch('/api/challenge')).json(); }
-    catch (e) { reset('Network error — is the server running?'); return; }
+    catch (e) { reset('Network error — is the server running?', 'warn'); return; }
 
     if (!ch || !ch.active) {                       // active liveness off -> single shot
         return singleVerify(img0);
@@ -109,7 +109,7 @@ async function verify() {
         const frac = (i + 1) / BURST_FRAMES;
         setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
               : frac < 0.85 ? 'Now turn your head RIGHT  ⟶'
-              :               'Look at the camera');
+              :               'Look at the camera', 'info');
         bar.style.width = Math.round(frac * 100) + '%';
         await wait(BURST_GAP_MS);
     }
@@ -119,7 +119,7 @@ async function verify() {
             body: JSON.stringify({ frames, token: ch.token }) });
         const data = await res.json();
         setTimeout(() => handle(data), 120);
-    } catch (e) { reset('Network error — is the server running?'); }
+    } catch (e) { reset('Network error — is the server running?', 'warn'); }
 }
 
 async function singleVerify(img) {
@@ -131,20 +131,20 @@ async function singleVerify(img) {
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
-    } catch (e) { clearInterval(anim); reset('Network error — is the server running?'); }
+    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
 }
 
 function handle(data) {
     statusText.textContent = 'Ready'; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
-    if (['liveness', 'low_quality', 'multiple_faces'].includes(data.code)) { reset(data.message); return; }
+    if (['liveness', 'low_quality', 'multiple_faces'].includes(data.code)) { reset(data.message, 'warn'); return; }
 
     if (mode === 'enroll') {
         const n = data.samples || 0;
         renderDots(n);
         if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} — tap Capture again`); return; }
         if (data.success) { show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify`); userId.value = ''; renderDots(0); return; }
-        if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message); return; }
+        if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message, 'warn'); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || ''); return;
     }
     if (data.success) show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}` : '');
@@ -158,10 +158,10 @@ function show(kind, icon, title, sub) {
     resultSvg.innerHTML = icon; resultTitle.textContent = title; resultSub.textContent = sub || '';
     result.classList.remove('hidden');
 }
-function reset(msg) {
+function reset(msg, kind = '') {
     busy = false; captureBtn.disabled = false; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
-    setHint(msg || defaultHint());
+    setHint(msg || defaultHint(), kind);
 }
 function defaultHint() {
     return mode === 'enroll' ? 'Center your face, then tap Capture (3 times)'
