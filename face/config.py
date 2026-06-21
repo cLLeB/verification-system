@@ -28,9 +28,17 @@ class FaceConfig:
     identify_margin: float = 0.06            # 1:N: best must beat 2nd identity by this
     samples_per_user: int = 3                # embeddings stored per identity
 
-    # --- passive anti-spoofing (liveness) ---
+    # --- passive anti-spoofing (single-shot) ---
     liveness_enabled: bool = True            # reject photos/screens of a face
     liveness_threshold: float = 0.55         # min live-probability to accept
+
+    # --- active liveness (head-turn challenge on verify) ---
+    active_liveness: bool = True             # require a live head-turn to verify
+    live_min_frames: int = 4                 # min frames with a detected face
+    live_frontal_yaw: float = 15.0           # |yaw| <= this counts as facing camera
+    live_turn_yaw: float = 18.0              # need a frame with |yaw| >= this (real turn)
+    live_swing_yaw: float = 22.0             # need max-min yaw span >= this
+    live_identity_min: float = 0.45          # same-person cosine across the sequence
 
     # --- storage ---
     db_path: str = "face_db"

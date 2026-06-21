@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------------------
-// Face Verify — front-camera client (tap to capture).
-// Live selfie preview; you center your face and tap the button. The frame is
-// sent, the server detects the face, (optionally) checks liveness, and matches.
-// No motion guessing — capture happens exactly when you tap.
+// Face Verify — front-camera client.
+//   Enroll : center your face, tap Capture (x3).
+//   Verify : tap Verify -> server issues a head-turn challenge -> we record a
+//            short burst while you turn your head -> server checks liveness +
+//            matches. A flat photo can't perform a real 3D head turn.
 // ---------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -11,7 +12,7 @@ const scanner = document.querySelector('.scanner');
 const modeVerify = $('mode-verify'), modeEnroll = $('mode-enroll'), segThumb = $('seg-thumb');
 const enrollRow = $('enroll-row'), userId = $('user-id'), dots = $('dots');
 const hint = $('hint'), bar = $('bar'), progressWrap = $('progress-wrap'), statusText = $('status-text');
-const actions = $('actions'), captureBtn = $('capture-btn');
+const captureBtn = $('capture-btn');
 const result = $('result'), resultSvg = $('result-svg');
 const resultTitle = $('result-title'), resultSub = $('result-sub'), againBtn = $('again');
 
@@ -20,7 +21,9 @@ const ICON_BAD = '<path d="M18 6 6 18M6 6l12 12"/>';
 
 const ENROLL_TARGET = 3;
 const OUT_W = 720;
+const BURST_FRAMES = 12, BURST_GAP_MS = 240;   // ~2.9s head-turn recording
 let mode = 'verify', busy = false;
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function initCamera() {
     try {
@@ -37,34 +40,76 @@ async function initCamera() {
 }
 
 function setHint(t) { hint.textContent = t; }
-
 function grabFrame() {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return null;
     const w = Math.min(OUT_W, vw), h = Math.round(w * vh / vw);
     canvas.width = w; canvas.height = h;
-    ctx.drawImage(video, 0, 0, w, h);            // true (un-mirrored) frame for matching
-    return canvas.toDataURL('image/jpeg', 0.92);
+    ctx.drawImage(video, 0, 0, w, h);            // true (un-mirrored) frame
+    return canvas.toDataURL('image/jpeg', 0.9);
 }
 
-async function capture() {
-    if (busy) return;
-    if (mode === 'enroll' && !userId.value.trim()) { setHint('Enter a name or ID to enrol first'); userId.focus(); return; }
-    const img = grabFrame();
-    if (!img) { setHint('Camera not ready yet — try again in a second.'); return; }
-
+function startBusy(status) {
     busy = true; captureBtn.disabled = true; scanner.classList.add('busy');
-    statusText.textContent = 'Checking';
-    progressWrap.classList.remove('hidden');
+    statusText.textContent = status; progressWrap.classList.remove('hidden');
+}
+
+async function onCapture() {
+    if (busy) return;
+    if (mode === 'enroll') return enrollCapture();
+    return verify();
+}
+
+async function enrollCapture() {
+    if (!userId.value.trim()) { setHint('Enter a name or ID to enrol first'); userId.focus(); return; }
+    const img = grabFrame();
+    if (!img) { setHint('Camera not ready — try again.'); return; }
+    startBusy('Checking');
     let p = 25; bar.style.width = '25%'; setHint('Checking…');
     const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
-
-    const payload = { image: img };
-    if (mode === 'enroll') payload.user_id = userId.value.trim();
     try {
-        const res = await fetch(mode === 'enroll' ? '/api/enroll' : '/api/verify', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        });
+        const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img, user_id: userId.value.trim() }) });
+        const data = await res.json();
+        clearInterval(anim); bar.style.width = '100%';
+        setTimeout(() => handle(data), 150);
+    } catch (e) { clearInterval(anim); reset('Network error — is the server running?'); }
+}
+
+async function verify() {
+    const img0 = grabFrame();
+    if (!img0) { setHint('Camera not ready — try again.'); return; }
+    startBusy('Liveness');
+    let ch;
+    try { ch = await (await fetch('/api/challenge')).json(); }
+    catch (e) { reset('Network error — is the server running?'); return; }
+
+    if (!ch || !ch.active) {                       // active liveness off -> single shot
+        return singleVerify(img0);
+    }
+    // Record a burst while the user performs the head turn.
+    setHint(ch.instruction || 'Slowly turn your head left and right');
+    const frames = [];
+    for (let i = 0; i < BURST_FRAMES; i++) {
+        const f = grabFrame(); if (f) frames.push(f);
+        bar.style.width = Math.round(((i + 1) / BURST_FRAMES) * 100) + '%';
+        await wait(BURST_GAP_MS);
+    }
+    statusText.textContent = 'Checking'; setHint('Checking…');
+    try {
+        const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames, token: ch.token }) });
+        const data = await res.json();
+        setTimeout(() => handle(data), 120);
+    } catch (e) { reset('Network error — is the server running?'); }
+}
+
+async function singleVerify(img) {
+    let p = 25; bar.style.width = '25%'; setHint('Checking…');
+    const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
+    try {
+        const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img }) });
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
@@ -74,7 +119,6 @@ async function capture() {
 function handle(data) {
     statusText.textContent = 'Ready'; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
-
     if (['liveness', 'low_quality', 'multiple_faces'].includes(data.code)) { reset(data.message); return; }
 
     if (mode === 'enroll') {
@@ -101,11 +145,12 @@ function reset(msg) {
     setHint(msg || defaultHint());
 }
 function defaultHint() {
-    return mode === 'enroll' ? 'Center your face, then tap Capture (3 times)' : 'Center your face in the circle, then tap Verify';
+    return mode === 'enroll' ? 'Center your face, then tap Capture (3 times)'
+                             : 'Center your face, tap Verify, then turn your head';
 }
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
-captureBtn.addEventListener('click', capture);
+captureBtn.addEventListener('click', onCapture);
 
 function renderDots(n) {
     dots.innerHTML = '';

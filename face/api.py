@@ -6,7 +6,10 @@ from typing import Optional
 
 import numpy as np
 
+from typing import List
+
 from . import engine as _engine
+from . import liveness_active as _live
 from . import matcher as _matcher
 from .config import FaceConfig, CONFIG
 from .errors import FaceError
@@ -83,6 +86,32 @@ def identify(image: np.ndarray, cfg: FaceConfig = CONFIG,
             "user_id": dec.user_id, "score": round(dec.score, 4),
             "margin": round(dec.margin, 4),
             "candidates": [{"user_id": c.user_id, "score": c.score} for c in dec.candidates]}
+
+
+def _match_embedding(emb, user_id: str, st: FaceStore, cfg: FaceConfig) -> dict:
+    if user_id:
+        tmpl = st.load(user_id)
+        if tmpl is None:
+            return {"success": False, "message": f"User '{user_id}' is not enrolled.",
+                    "code": "not_enrolled"}
+        dec = _matcher.verify(emb, tmpl.embeddings, cfg)
+        return {"success": dec.granted, "message": dec.reason, "user_id": user_id,
+                "score": round(dec.score, 4)}
+    templates = [(t.user_id, t.embeddings) for t in st.load_all()]
+    dec = _matcher.identify(emb, templates, cfg)
+    return {"success": dec.granted, "message": dec.reason, "user_id": dec.user_id,
+            "score": round(dec.score, 4), "margin": round(dec.margin, 4)}
+
+
+def verify_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
+                store: Optional[FaceStore] = None) -> dict:
+    """Active-liveness verify: confirm a live head-turn, then match the frontal
+    frame (1:1 if user_id given, else 1:N)."""
+    st = _store(cfg, store)
+    res = _live.analyze(images, cfg)
+    if not res.passed:
+        return {"success": False, "message": res.reason, "code": "liveness"}
+    return _match_embedding(res.detection.embedding, (user_id or "").strip(), st, cfg)
 
 
 def list_users(cfg: FaceConfig = CONFIG, store: Optional[FaceStore] = None) -> dict:

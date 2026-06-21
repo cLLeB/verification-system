@@ -33,17 +33,22 @@ from flask_cors import CORS
 from face import api as engine
 from face import engine as _face_engine
 from face import liveness as _liveness
+from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
 
 app = Flask(__name__)
 CORS(app)
 
+import dataclasses
+
 CONFIG = load_config()
-# Liveness can be disabled for testing via env (default ON).
-if os.environ.get("FACE_LIVENESS", "1") == "0":
-    import dataclasses
+# Passive single-shot liveness (CelebA-Spoof model) — off by default until tuned.
+if os.environ.get("FACE_LIVENESS", "0") == "0":
     CONFIG = dataclasses.replace(CONFIG, liveness_enabled=False)
+# Active head-turn challenge liveness on verify — ON by default.
+if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
+    CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
 
 ENCRYPTED_AT_REST = FaceStore(CONFIG).encrypted
 SIGNING_SECRET = os.environ.get("FACE_SIGNING_SECRET", "")
@@ -103,8 +108,19 @@ def health():
     return jsonify({"success": True, "status": "ok",
                     "model_ready": MODEL_READY,
                     "liveness": CONFIG.liveness_enabled and LIVENESS_READY,
+                    "active_liveness": CONFIG.active_liveness,
                     "encrypted_at_rest": ENCRYPTED_AT_REST,
                     "signing": bool(SIGNING_SECRET)})
+
+
+@app.route("/api/challenge")
+def api_challenge():
+    """Issue a signed head-turn challenge for active-liveness verification."""
+    if not CONFIG.active_liveness:
+        return jsonify({"active": False})
+    ch = _active.new_challenge()
+    ch.update({"success": True, "active": True})
+    return jsonify(ch)
 
 
 @app.route("/api/enroll", methods=["POST"])
@@ -121,10 +137,25 @@ def api_enroll():
 @app.route("/api/verify", methods=["POST"])
 def api_verify():
     data = request.get_json(silent=True) or {}
+    user_id = (data.get("user_id") or "").strip()
+
+    # Active-liveness path: a burst of frames + a valid challenge token.
+    frames = data.get("frames")
+    if CONFIG.active_liveness and frames:
+        if not _active.valid_token(data.get("token", "")):
+            return jsonify({"success": False, "code": "liveness",
+                            "message": "Challenge expired — try again."})
+        imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
+        if not imgs:
+            return jsonify({"success": False, "message": "Failed to decode frames."})
+        result = engine.verify_live(user_id, imgs, CONFIG)
+        save_debug(imgs[len(imgs) // 2], "verify", result)
+        return jsonify(sign(result))
+
+    # Single-image fallback (used when active liveness is off).
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    user_id = (data.get("user_id") or "").strip()
     result = engine.verify(user_id, img, CONFIG) if user_id else engine.identify(img, CONFIG)
     save_debug(img, "verify", result)
     return jsonify(sign(result))
