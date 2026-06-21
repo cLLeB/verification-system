@@ -1,27 +1,35 @@
 /* Face Verify — mobile-first dark biometric UI
    Palette: deep navy base, teal→cyan accent, emerald/rose semantics. */
 :root {
-    --bg-0: #0a0e16;
-    --bg-1: #111826;
-    --bg-2: #18212f;
-    --line: rgba(148, 163, 184, 0.16);
-    --txt: #e8eef6;
-    --txt-2: #93a1b5;
-    --brand: #2dd4bf;
-    --brand-2: #22d3ee;
-    --ok: #34d399;
-    --bad: #fb7185;
+    --bg-0: #0B1020;          /* app background (deep ink navy) */
+    --bg-1: #141B2D;          /* surface: cards, pills, inputs */
+    --bg-2: #1C2538;          /* elevated: dots, chips */
+    --line: rgba(148,163,184,.14);    /* subtle border / divider */
+    --line-strong: rgba(148,163,184,.30); /* hover/active/focus border */
+    --txt: #EAF0F8;           /* primary text */
+    --txt-2: #9AA8BD;         /* secondary text */
+    --txt-muted: #67768D;     /* placeholders, captions */
+    --brand: #2DD4BF;         /* teal — primary / scanner ring */
+    --brand-2: #22D3EE;       /* cyan — gradient pair / active glow */
+    --brand-strong: #14B8A6;  /* pressed */
+    --ok: #34D399;            /* success / granted */
+    --bad: #FB7185;           /* danger / denied */
+    --warn: #FBBF24;          /* warning */
+    --info: #38BDF8;          /* info */
+    --ring: rgba(45,212,191,.45);     /* focus ring / capture pulse */
+    --on-brand: #06231F;      /* text on teal fills */
     --grad: linear-gradient(135deg, var(--brand-2), var(--brand));
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Light theme overrides (set data-theme="light" on <html>) */
 html[data-theme="light"] {
-    --bg-0: #eef2f8; --bg-1: #ffffff; --bg-2: #f1f5f9;
-    --line: rgba(15,23,42,.12);
-    --txt: #0f172a; --txt-2: #51607a;
-    --brand: #0d9488; --brand-2: #0891b2;
-    --ok: #059669; --bad: #e11d48;
+    --bg-0: #F5F8FC; --bg-1: #FFFFFF; --bg-2: #EEF3F9;
+    --line: rgba(15,23,42,.10); --line-strong: rgba(15,23,42,.20);
+    --txt: #0F1B2D; --txt-2: #51607A; --txt-muted: #7C8AA0;
+    --brand: #0D9488; --brand-2: #0891B2; --brand-strong: #0F766E;
+    --ok: #059669; --bad: #E11D48; --warn: #D97706; --info: #0284C7;
+    --ring: rgba(13,148,136,.32); --on-brand: #FFFFFF;
     --grad: linear-gradient(135deg, var(--brand-2), var(--brand));
 }
 html[data-theme="light"] body { background: radial-gradient(120% 80% at 50% -10%, #ffffff 0%, #e6edf6 60%); }
@@ -61,7 +69,7 @@ body {
 .seg-btn { position: relative; z-index: 1; border: 0; background: transparent; cursor: pointer;
     color: var(--txt-2); font-size: 0.95rem; font-weight: 600; padding: 11px 0; border-radius: 999px;
     min-height: 44px; transition: color .2s var(--ease); }
-.seg-btn.is-active { color: #06231f; }
+.seg-btn.is-active { color: var(--on-brand); }
 .seg-thumb { position: absolute; z-index: 0; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px);
     background: var(--grad); border-radius: 999px; transition: transform .28s var(--ease);
     box-shadow: 0 4px 14px rgba(34,211,238,.28); }
@@ -114,7 +122,7 @@ body {
 .btn { min-height: 48px; padding: 0 26px; border: 0; border-radius: 999px; font-size: 1rem; font-weight: 700;
     cursor: pointer; transition: transform .12s var(--ease), filter .2s var(--ease); }
 .btn:active { transform: scale(.97); }
-.btn-primary { background: var(--grad); color: #06231f; box-shadow: 0 6px 18px rgba(34,211,238,.22); }
+.btn-primary { background: var(--grad); color: var(--on-brand); box-shadow: 0 6px 18px rgba(34,211,238,.22); }
 .btn:disabled { opacity: .55; }
 .actions { display: flex; gap: 12px; }
 .actions .btn { flex: 1; }
