@@ -61,7 +61,13 @@ class LiveResult:
     detection: Optional[_engine.FaceDetection] = None   # frontal frame, for matching
 
 
+_MAX_ANALYZE = 8                   # cap CPU work: never detect on more than this many
+
+
 def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
+    if len(images) > _MAX_ANALYZE:                       # evenly subsample
+        step = len(images) / _MAX_ANALYZE
+        images = [images[int(i * step)] for i in range(_MAX_ANALYZE)]
     dets: List[_engine.FaceDetection] = []
     for im in images:
         try:

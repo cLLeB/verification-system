@@ -14,7 +14,7 @@ class FaceConfig:
     model_name: str = "buffalo_l"            # InsightFace model pack (ArcFace r50)
     providers: Tuple[str, ...] = ("CPUExecutionProvider",)
     ctx_id: int = -1                         # -1 = CPU
-    det_size: int = 640                      # detector input (square)
+    det_size: int = 480                      # detector input (smaller = faster on CPU)
 
     # --- capture quality gates (reject before enrolling/matching) ---
     min_det_score: float = 0.60              # detector confidence for a real face
@@ -34,10 +34,10 @@ class FaceConfig:
 
     # --- active liveness (head-turn challenge on verify) ---
     active_liveness: bool = True             # require a live head-turn to verify
-    live_min_frames: int = 4                 # min frames with a detected face
-    live_frontal_yaw: float = 15.0           # |yaw| <= this counts as facing camera
-    live_turn_yaw: float = 18.0              # need a frame with |yaw| >= this (real turn)
-    live_swing_yaw: float = 22.0             # need max-min yaw span >= this
+    live_min_frames: int = 3                 # min frames with a detected face
+    live_frontal_yaw: float = 16.0           # |yaw| <= this counts as facing camera
+    live_turn_yaw: float = 16.0              # need a frame with |yaw| >= this (real turn)
+    live_swing_yaw: float = 18.0             # need max-min yaw span >= this
     live_identity_min: float = 0.45          # same-person cosine across the sequence
 
     # --- storage ---

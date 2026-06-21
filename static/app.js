@@ -21,7 +21,7 @@ const ICON_BAD = '<path d="M18 6 6 18M6 6l12 12"/>';
 
 const ENROLL_TARGET = 3;
 const OUT_W = 720;
-const BURST_FRAMES = 12, BURST_GAP_MS = 240;   // ~2.9s head-turn recording
+const BURST_FRAMES = 7, BURST_GAP_MS = 280;    // ~2s head-turn recording
 let mode = 'verify', busy = false;
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
