@@ -15,6 +15,15 @@ class FaceConfig:
     providers: Tuple[str, ...] = ("CPUExecutionProvider",)
     ctx_id: int = -1                         # -1 = CPU
     det_size: int = 480                      # detector input (smaller = faster on CPU)
+    # Only load the sub-models we actually use: face detection, 3D-68 landmarks
+    # (gives head pose for liveness), and recognition (the embedding). Skipping
+    # the age/gender and 2D-106 landmark models cuts per-frame CPU work with no
+    # effect on matching or liveness.
+    modules: Tuple[str, ...] = ("detection", "landmark_3d_68", "recognition")
+    # Optional: also estimate age & gender (loads the genderage model). Never used
+    # for matching/liveness; enable only if an integration needs demographics or
+    # age-gating. Off by default to keep verification fast. (env FACE_ATTRIBUTES=1)
+    attributes: bool = False
 
     # --- capture quality gates (reject before enrolling/matching) ---
     min_det_score: float = 0.60              # detector confidence for a real face

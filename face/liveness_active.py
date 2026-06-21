@@ -58,35 +58,41 @@ def valid_token(token: str) -> bool:
 class LiveResult:
     passed: bool
     reason: str
-    detection: Optional[_engine.FaceDetection] = None   # frontal frame, for matching
+    embedding: Optional[np.ndarray] = None   # frontal frame's embedding, for matching
 
 
-_MAX_ANALYZE = 8                   # cap CPU work: never detect on more than this many
+_MAX_ANALYZE = 5                   # cap CPU work: never detect on more than this many
 
 
 def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
     if len(images) > _MAX_ANALYZE:                       # evenly subsample
         step = len(images) / _MAX_ANALYZE
         images = [images[int(i * step)] for i in range(_MAX_ANALYZE)]
-    dets: List[_engine.FaceDetection] = []
+
+    # Fast path: detection + head pose on every frame (no recognition yet).
+    frames: List[_engine.PoseFrame] = []
     for im in images:
         try:
-            dets.append(_engine.detect(im, cfg))
+            frames.append(_engine.detect_pose(im, cfg))
         except FaceError:
             continue
-    if len(dets) < cfg.live_min_frames:
+    if len(frames) < cfg.live_min_frames:
         return LiveResult(False, "Keep your face in view for the whole check.")
 
-    yaws = [d.yaw for d in dets]
-    frontal = min(dets, key=lambda d: abs(d.yaw))
+    yaws = [f.yaw for f in frames]
+    frontal = min(frames, key=lambda f: abs(f.yaw))
+    turned = max(frames, key=lambda f: abs(f.yaw))
     if abs(frontal.yaw) > cfg.live_frontal_yaw:
         return LiveResult(False, "Start by facing the camera straight on.")
-    if max(abs(min(yaws)), abs(max(yaws))) < cfg.live_turn_yaw or (max(yaws) - min(yaws)) < cfg.live_swing_yaw:
+    if abs(turned.yaw) < cfg.live_turn_yaw or (max(yaws) - min(yaws)) < cfg.live_swing_yaw:
         return LiveResult(False, "Turn your head a bit more, side to side.")
 
-    # Same identity throughout (an attacker can't swap faces mid-sequence).
-    base = frontal.embedding
-    if any(float(np.dot(base, d.embedding)) < cfg.live_identity_min for d in dets):
+    # Recognition only on the two frames that matter: the frontal frame (used for
+    # matching) and the most-turned frame — they must be the SAME person, so an
+    # attacker can't combine their own head-turn with a victim's frontal photo.
+    emb_front = _engine.embed_pose_frame(frontal, cfg)
+    emb_turn = _engine.embed_pose_frame(turned, cfg)
+    if float(np.dot(emb_front, emb_turn)) < cfg.live_identity_min:
         return LiveResult(False, "Keep the same face in view the whole time.")
 
-    return LiveResult(True, "live", frontal)
+    return LiveResult(True, "live", emb_front)

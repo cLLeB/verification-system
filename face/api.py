@@ -111,7 +111,7 @@ def verify_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
     res = _live.analyze(images, cfg)
     if not res.passed:
         return {"success": False, "message": res.reason, "code": "liveness"}
-    return _match_embedding(res.detection.embedding, (user_id or "").strip(), st, cfg)
+    return _match_embedding(res.embedding, (user_id or "").strip(), st, cfg)
 
 
 def list_users(cfg: FaceConfig = CONFIG, store: Optional[FaceStore] = None) -> dict:

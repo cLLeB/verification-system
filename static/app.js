@@ -12,7 +12,7 @@ const scanner = document.querySelector('.scanner');
 const modeVerify = $('mode-verify'), modeEnroll = $('mode-enroll'), segThumb = $('seg-thumb');
 const enrollRow = $('enroll-row'), userId = $('user-id'), dots = $('dots');
 const hint = $('hint'), bar = $('bar'), progressWrap = $('progress-wrap'), statusText = $('status-text');
-const captureBtn = $('capture-btn');
+const captureBtn = $('capture-btn'), swapBtn = $('swap-btn');
 const result = $('result'), resultSvg = $('result-svg');
 const resultTitle = $('result-title'), resultSub = $('result-sub'), againBtn = $('again');
 const themeBtn = $('theme-btn'), themeIcon = $('theme-icon');
@@ -37,18 +37,29 @@ const BURST_FRAMES = 7, BURST_GAP_MS = 280;    // ~2s head-turn recording
 let mode = 'verify', busy = false;
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function initCamera() {
+let facing = 'user';                         // 'user' = front (selfie), 'environment' = rear
+async function startCamera() {
     try {
+        const old = video.srcObject;
+        if (old) old.getTracks().forEach(t => t.stop());
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false,
+            video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false,
         });
         video.srcObject = stream;
+        video.classList.toggle('mirror', facing === 'user');   // mirror front only
         statusText.textContent = 'Ready';
+        captureBtn.disabled = false;
     } catch (err) {
         statusText.textContent = 'No camera';
-        setHint('Camera unavailable — allow camera access and reload.');
+        setHint('Camera unavailable — allow camera access and reload.', 'warn');
         captureBtn.disabled = true;
     }
+}
+async function swapCamera() {
+    if (busy) return;
+    facing = facing === 'user' ? 'environment' : 'user';
+    await startCamera();
+    setHint(facing === 'user' ? 'Front camera' : 'Back camera');
 }
 
 function setHint(t, kind = '') { hint.textContent = t; hint.className = 'hint' + (kind ? ' ' + kind : ''); }
@@ -190,5 +201,7 @@ function setMode(m) {
 modeEnroll.addEventListener('click', () => setMode('enroll'));
 modeVerify.addEventListener('click', () => setMode('verify'));
 
+swapBtn.addEventListener('click', swapCamera);
+
 setMode('verify');
-initCamera();
+startCamera();
