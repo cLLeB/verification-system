@@ -1,20 +1,24 @@
-# Contactless fingerprint system dependencies
+# Verification system dependencies
 # Install:  pip install -r requirements.txt
+
+# --- Face recognition (current focus) ---
+insightface>=0.7        # ArcFace embeddings + face detection (buffalo_l model pack)
+onnxruntime>=1.16       # CPU inference for the InsightFace ONNX models (no GPU needed)
+
+# --- Shared ---
 opencv-contrib-python>=4.8
 numpy>=1.24
+flask>=3.0
+flask-cors>=4.0
+cryptography>=42.0       # template encryption at rest (set FACE_DB_KEY to enable)
+pyopenssl>=23.0          # self-signed HTTPS (needed for the phone camera)
+
+# --- Archived fingerprint system (in ./fingerprint) ---
 scipy>=1.10
 scikit-image>=0.22
 fingerprint-enhancer>=0.0.14
 fingerprint-feature-extractor>=0.0.10
-flask>=3.0
-flask-cors>=4.0
-cryptography>=42.0       # template encryption at rest (set FP_DB_KEY to enable)
-pyopenssl>=23.0          # enables app.py self-signed HTTPS (needed for phone camera)
-jpype1>=1.5              # bridge to SourceAFIS (gold-standard matcher) for fusion
-# SourceAFIS also needs a Java 11+ runtime and the jars in ./libs (already
-# present). Install Java, e.g. Temurin/OpenJDK 21. If Java or the jars are
-# missing, the engine automatically falls back to the minutiae matcher alone.
+jpype1>=1.5              # bridge to SourceAFIS (needs Java 21 + jars in fingerprint/libs)
 
-# Dev/test
+# --- Dev/test ---
 pytest>=8.0
-vulture>=2.0             # dead-code detector (used to keep the codebase clean)

@@ -29,3 +29,9 @@ Thumbs.db
 
 # SourceAFIS jars (re-fetch via Maven; see libs/README.md)
 libs/*.jar
+
+# Face templates (runtime user data)
+face_db/
+
+# jars anywhere (re-fetchable)
+*.jar
