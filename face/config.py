@@ -28,6 +28,10 @@ class FaceConfig:
     identify_margin: float = 0.06            # 1:N: best must beat 2nd identity by this
     samples_per_user: int = 3                # embeddings stored per identity
 
+    # --- passive anti-spoofing (liveness) ---
+    liveness_enabled: bool = True            # reject photos/screens of a face
+    liveness_threshold: float = 0.55         # min live-probability to accept
+
     # --- storage ---
     db_path: str = "face_db"
 

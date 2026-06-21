@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0e16">
+    <title>Face Verify</title>
+    <link rel="stylesheet" href="/static/app.css?v=1">
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div class="brand">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/>
+                </svg>
+                <span>Face Verify</span>
+            </div>
+            <span class="status" id="status-pill"><span class="dot"></span><span id="status-text">Ready</span></span>
+        </header>
+
+        <div class="seg" role="tablist" aria-label="Mode">
+            <button class="seg-btn is-active" id="mode-verify" role="tab" aria-selected="true">Verify</button>
+            <button class="seg-btn" id="mode-enroll" role="tab" aria-selected="false">Enroll</button>
+            <span class="seg-thumb" id="seg-thumb" aria-hidden="true"></span>
+        </div>
+
+        <div class="enroll-row hidden" id="enroll-row">
+            <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
+                   autocapitalize="words" placeholder="Name or ID to enroll">
+            <div class="dots" id="dots" aria-label="Enrollment progress"></div>
+        </div>
+
+        <section class="scanner" aria-label="Face scanner">
+            <video id="video" autoplay playsinline muted></video>
+            <div class="face-ring" aria-hidden="true"></div>
+
+            <div class="result hidden" id="result" role="status" aria-live="polite">
+                <div class="result-badge" id="result-badge">
+                    <svg id="result-svg" viewBox="0 0 24 24" width="34" height="34" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+                </div>
+                <h2 id="result-title">—</h2>
+                <p id="result-sub" class="result-sub"></p>
+                <button class="btn btn-primary" id="again">Scan again</button>
+            </div>
+        </section>
+
+        <p class="hint" id="hint">Center your face in the circle and hold still</p>
+        <div class="progress" id="progress-wrap"><span class="progress-bar" id="bar"></span></div>
+    </main>
+
+    <canvas id="canvas" hidden></canvas>
+    <script src="/static/app.js?v=1"></script>
+</body>
+</html>

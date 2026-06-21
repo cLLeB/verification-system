@@ -13,6 +13,7 @@ from typing import List, Optional
 
 import numpy as np
 
+from . import liveness as _liveness
 from .config import FaceConfig, CONFIG
 from .errors import FaceError
 
@@ -56,6 +57,7 @@ class FaceSample:
     embedding: np.ndarray            # float32 (512,), L2-normalised
     det_score: float
     face_px: int                     # smaller side of the face box
+    live_score: float = 1.0          # passive anti-spoof prob (1.0 if disabled)
 
 
 def _bbox_px(face) -> int:
@@ -90,8 +92,19 @@ def embed(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceSample:
         raise FaceError("Face too small — move closer to the camera.")
     if not _pose_ok(face, cfg):
         raise FaceError("Look straight at the camera (face is turned too far).")
+
+    # Passive anti-spoofing: reject a printed photo or a replayed screen.
+    live = 1.0
+    if cfg.liveness_enabled and _liveness.available():
+        bbox = (int(face.bbox[0]), int(face.bbox[1]), int(face.bbox[2]), int(face.bbox[3]))
+        live = _liveness.real_score(image, bbox, cfg)
+        if live < cfg.liveness_threshold:
+            raise FaceError("Liveness check failed — use a live face, not a photo or screen.",
+                            code="liveness")
+
     emb = np.asarray(face.normed_embedding, dtype=np.float32)
     n = float(np.linalg.norm(emb))
     if n > 0:
         emb = emb / n               # ensure unit length for clean cosine = dot
-    return FaceSample(embedding=emb, det_score=float(face.det_score), face_px=px)
+    return FaceSample(embedding=emb, det_score=float(face.det_score), face_px=px,
+                      live_score=live)
