@@ -35,3 +35,7 @@ face_db/
 
 # jars anywhere (re-fetchable)
 *.jar
+
+# Local passphrase backup (NEVER commit)
+.face_db_key_BACKUP.txt
+.face_db_key*
