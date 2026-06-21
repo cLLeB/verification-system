@@ -103,15 +103,33 @@ def _match_embedding(emb, user_id: str, st: FaceStore, cfg: FaceConfig) -> dict:
             "score": round(dec.score, 4), "margin": round(dec.margin, 4)}
 
 
+def _maybe_adapt(out: dict, emb, claimed_uid: str, st: FaceStore, cfg: FaceConfig) -> dict:
+    """Fold this capture into the matched user's template IF the match is
+    confident (well above accept), unambiguous (1:N margin), and granted. Called
+    only on the LIVE path, so it never adapts on a photo. Anchors stay permanent."""
+    if not cfg.adaptive_enabled or not out.get("success"):
+        return out
+    uid = out.get("user_id")
+    score = out.get("score") or 0.0
+    if not uid or score < cfg.adaptive_update_threshold:
+        return out
+    if not claimed_uid and (out.get("margin") or 0.0) < cfg.adaptive_margin:
+        return out                               # ambiguous 1:N — don't adapt
+    out["adapted"] = st.add_adaptive(uid, emb)
+    return out
+
+
 def verify_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
                 store: Optional[FaceStore] = None) -> dict:
     """Active-liveness verify: confirm a live head-turn, then match the frontal
-    frame (1:1 if user_id given, else 1:N)."""
+    frame (1:1 if user_id given, else 1:N), then adaptively learn from it."""
     st = _store(cfg, store)
     res = _live.analyze(images, cfg)
     if not res.passed:
         return {"success": False, "message": res.reason, "code": "liveness"}
-    return _match_embedding(res.embedding, (user_id or "").strip(), st, cfg)
+    claimed = (user_id or "").strip()
+    out = _match_embedding(res.embedding, claimed, st, cfg)
+    return _maybe_adapt(out, res.embedding, claimed, st, cfg)
 
 
 def list_users(cfg: FaceConfig = CONFIG, store: Optional[FaceStore] = None) -> dict:

@@ -49,6 +49,13 @@ class FaceConfig:
     live_swing_yaw: float = 18.0             # need max-min yaw span >= this
     live_identity_min: float = 0.45          # same-person cosine across the sequence
 
+    # --- adaptive enrollment (track the user as they change, anti-drift) ---
+    adaptive_enabled: bool = True            # update template on confident live verifies
+    adaptive_update_threshold: float = 0.55  # only adapt when match is well above accept (0.40)
+    adaptive_margin: float = 0.10            # 1:N: only adapt if top beats 2nd by this
+    adaptive_max_samples: int = 8            # total stored embeddings cap (anchors + adaptive)
+    adaptive_novelty: float = 0.92           # skip near-duplicate captures (>= this cosine)
+
     # --- storage ---
     db_path: str = "face_db"
 

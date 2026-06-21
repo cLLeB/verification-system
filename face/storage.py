@@ -21,7 +21,13 @@ from .config import FaceConfig, CONFIG
 @dataclass
 class FaceTemplate:
     user_id: str
-    embeddings: List[np.ndarray] = field(default_factory=list)
+    anchors: List[np.ndarray] = field(default_factory=list)    # original enrolment (permanent)
+    adaptive: List[np.ndarray] = field(default_factory=list)   # rolling, learned over time
+
+    @property
+    def embeddings(self) -> List[np.ndarray]:
+        """All embeddings used for matching (anchors never evicted)."""
+        return self.anchors + self.adaptive
 
 
 def _enc(emb: np.ndarray) -> str:
@@ -50,7 +56,8 @@ class FaceStore:
     def _write(self, tmpl: FaceTemplate) -> None:
         payload = json.dumps({
             "user_id": tmpl.user_id,
-            "embeddings": [_enc(e) for e in tmpl.embeddings],
+            "anchors": [_enc(e) for e in tmpl.anchors],
+            "adaptive": [_enc(e) for e in tmpl.adaptive],
         }).encode("utf-8")
         if self._cipher is not None:
             payload = self._cipher.encrypt(payload)
@@ -72,8 +79,13 @@ class FaceStore:
             data = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             return None
-        return FaceTemplate(user_id=data["user_id"],
-                            embeddings=[_dec(s) for s in data.get("embeddings", [])])
+        if "anchors" in data or "adaptive" in data:
+            anchors = [_dec(s) for s in data.get("anchors", [])]
+            adaptive = [_dec(s) for s in data.get("adaptive", [])]
+        else:                                   # legacy format: all were anchors
+            anchors = [_dec(s) for s in data.get("embeddings", [])]
+            adaptive = []
+        return FaceTemplate(user_id=data["user_id"], anchors=anchors, adaptive=adaptive)
 
     def load(self, user_id: str) -> Optional[FaceTemplate]:
         return self._read(self._path(user_id))
@@ -88,13 +100,30 @@ class FaceStore:
         return out
 
     def add_embedding(self, user_id: str, emb: np.ndarray) -> FaceTemplate:
+        """Enrolment: store as a permanent anchor."""
         tmpl = self.load(user_id) or FaceTemplate(user_id=user_id)
-        tmpl.embeddings.append(np.asarray(emb, dtype=np.float32))
-        # keep only the most recent samples_per_user impressions
-        if len(tmpl.embeddings) > self.cfg.samples_per_user:
-            tmpl.embeddings = tmpl.embeddings[-self.cfg.samples_per_user:]
+        tmpl.anchors.append(np.asarray(emb, dtype=np.float32))
+        if len(tmpl.anchors) > self.cfg.samples_per_user:
+            tmpl.anchors = tmpl.anchors[-self.cfg.samples_per_user:]
         self._write(tmpl)
         return tmpl
+
+    def add_adaptive(self, user_id: str, emb: np.ndarray) -> bool:
+        """Fold a confident live verify into the rolling adaptive set (anti-drift:
+        anchors are never touched). Skips near-duplicates; caps total size."""
+        tmpl = self.load(user_id)
+        if tmpl is None:
+            return False
+        emb = np.asarray(emb, dtype=np.float32)
+        existing = tmpl.embeddings
+        if existing and max(float(np.dot(emb, e)) for e in existing) >= self.cfg.adaptive_novelty:
+            return False                         # too similar to add value
+        tmpl.adaptive.append(emb)
+        cap = max(0, self.cfg.adaptive_max_samples - len(tmpl.anchors))
+        if len(tmpl.adaptive) > cap:
+            tmpl.adaptive = tmpl.adaptive[-cap:]  # drop oldest adaptive, keep anchors
+        self._write(tmpl)
+        return True
 
     def list_users(self) -> List[str]:
         return [t.user_id for t in self.load_all()]
