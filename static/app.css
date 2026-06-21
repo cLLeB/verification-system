@@ -15,6 +15,17 @@
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Light theme overrides (set data-theme="light" on <html>) */
+html[data-theme="light"] {
+    --bg-0: #eef2f8; --bg-1: #ffffff; --bg-2: #f1f5f9;
+    --line: rgba(15,23,42,.12);
+    --txt: #0f172a; --txt-2: #51607a;
+    --brand: #0d9488; --brand-2: #0891b2;
+    --ok: #059669; --bad: #e11d48;
+    --grad: linear-gradient(135deg, var(--brand-2), var(--brand));
+}
+html[data-theme="light"] body { background: radial-gradient(120% 80% at 50% -10%, #ffffff 0%, #e6edf6 60%); }
+
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
@@ -39,6 +50,10 @@ body {
     font-size: 0.78rem; font-weight: 500; padding: 6px 11px; border-radius: 999px;
 }
 .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px rgba(45,212,191,.18); }
+.top-right { display: flex; align-items: center; gap: 10px; }
+.icon-btn { width: 38px; height: 38px; border-radius: 999px; background: var(--bg-1); border: 1px solid var(--line);
+    color: var(--txt-2); display: grid; place-items: center; cursor: pointer; transition: color .2s var(--ease), border-color .2s var(--ease); }
+.icon-btn:active { transform: scale(.94); }
 
 /* Segmented control */
 .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr;
@@ -74,8 +89,12 @@ body {
     display: flex; align-items: center; justify-content: center;
     transition: box-shadow .3s var(--ease), border-color .3s var(--ease);
 }
-/* mirror the preview for a natural selfie view (capture stays un-mirrored) */
-#video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+/* mirror the preview for a natural selfie view (capture stays un-mirrored).
+   border-radius on the video itself clips it to the ellipse — without this,
+   iOS Safari lets the transformed <video> corners escape the parent's round
+   mask (the "faded square" around the oval). */
+#video { width: 100%; height: 100%; object-fit: cover; display: block;
+    transform: scaleX(-1); border-radius: 50%; }
 /* during a check the ring glows/pulses */
 .scanner.busy { border-color: var(--brand-2); box-shadow: 0 0 0 6px rgba(34,211,238,.14), 0 14px 40px rgba(0,0,0,.55), 0 0 36px rgba(34,211,238,.5) inset; animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 6px rgba(34,211,238,.10), 0 14px 40px rgba(0,0,0,.55), 0 0 30px rgba(34,211,238,.35) inset; } 50% { box-shadow: 0 0 0 10px rgba(34,211,238,.20), 0 14px 40px rgba(0,0,0,.55), 0 0 48px rgba(34,211,238,.6) inset; } }
