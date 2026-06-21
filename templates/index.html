@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0e16">
+    <title>Fingerprint</title>
+    <link rel="stylesheet" href="/static/app.css?v=13">
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div class="brand">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 11c0 4-1 6-1 6"/><path d="M8 11a4 4 0 0 1 8 0c0 3-1 5-1 5"/>
+                    <path d="M5 12a7 7 0 0 1 13.3-3"/><path d="M9 12a3 3 0 0 1 5.6-1.5"/>
+                    <path d="M11 19c-.3-2 0-5 1-7"/>
+                </svg>
+                <span>Fingerprint</span>
+            </div>
+            <span class="status" id="status-pill"><span class="dot"></span><span id="status-text">Ready</span></span>
+        </header>
+
+        <div class="seg" role="tablist" aria-label="Mode">
+            <button class="seg-btn is-active" id="mode-verify" role="tab" aria-selected="true">Verify</button>
+            <button class="seg-btn" id="mode-enroll" role="tab" aria-selected="false">Enroll</button>
+            <span class="seg-thumb" id="seg-thumb" aria-hidden="true"></span>
+        </div>
+
+        <div class="enroll-row hidden" id="enroll-row">
+            <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
+                   autocapitalize="words" placeholder="Name or ID to enroll">
+            <div class="dots" id="dots" aria-label="Enrollment progress"></div>
+        </div>
+
+        <section class="scanner" aria-label="Fingerprint scanner">
+            <!-- The photo from the native camera is shown here so you can frame the pad. -->
+            <img id="preview" alt="">
+            <div class="scanner-empty" id="scanner-empty">
+                <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor"
+                     stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 11c0 4-1 6-1 6"/><path d="M8 11a4 4 0 0 1 8 0c0 3-1 5-1 5"/>
+                    <path d="M5 12a7 7 0 0 1 13.3-3"/><path d="M9 12a3 3 0 0 1 5.6-1.5"/>
+                </svg>
+            </div>
+
+            <div class="result hidden" id="result" role="status" aria-live="polite">
+                <div class="result-badge" id="result-badge">
+                    <svg id="result-svg" viewBox="0 0 24 24" width="34" height="34" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+                </div>
+                <h2 id="result-title">—</h2>
+                <p id="result-sub" class="result-sub"></p>
+                <button class="btn" id="again">Scan again</button>
+            </div>
+        </section>
+
+        <p class="hint" id="hint">Fill the circle with your fingertip pad, then capture</p>
+
+        <div class="actions" id="actions">
+            <button class="btn btn-primary" id="capture-btn">Scan fingerprint</button>
+        </div>
+        <div class="actions hidden" id="confirm-actions">
+            <button class="btn btn-ghost" id="retake-btn">Retake</button>
+            <button class="btn btn-primary" id="use-btn">Use this</button>
+        </div>
+
+        <div class="progress hidden" id="progress-wrap"><span class="progress-bar" id="bar"></span></div>
+
+        <!-- Hidden native-camera input: opens the iOS/Android camera at full resolution. -->
+        <input id="file-input" type="file" accept="image/*" capture="environment" hidden>
+    </main>
+
+    <canvas id="canvas" hidden></canvas>
+    <script src="/static/app.js?v=13"></script>
+</body>
+</html>

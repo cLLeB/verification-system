@@ -1,0 +1,20 @@
+# Contactless fingerprint system dependencies
+# Install:  pip install -r requirements.txt
+opencv-contrib-python>=4.8
+numpy>=1.24
+scipy>=1.10
+scikit-image>=0.22
+fingerprint-enhancer>=0.0.14
+fingerprint-feature-extractor>=0.0.10
+flask>=3.0
+flask-cors>=4.0
+cryptography>=42.0       # template encryption at rest (set FP_DB_KEY to enable)
+pyopenssl>=23.0          # enables app.py self-signed HTTPS (needed for phone camera)
+jpype1>=1.5              # bridge to SourceAFIS (gold-standard matcher) for fusion
+# SourceAFIS also needs a Java 11+ runtime and the jars in ./libs (already
+# present). Install Java, e.g. Temurin/OpenJDK 21. If Java or the jars are
+# missing, the engine automatically falls back to the minutiae matcher alone.
+
+# Dev/test
+pytest>=8.0
+vulture>=2.0             # dead-code detector (used to keep the codebase clean)

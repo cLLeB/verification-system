@@ -1,0 +1,12 @@
+{
+  "match_threshold": 0.225,
+  "_meta": {
+    "matcher": "count, seed3, k10 (benchmark-selected); fused OR with SourceAFIS",
+    "dataset": "SOCOFing-altered, 100 genuine / 250 impostor",
+    "genuine_mean": 0.363,
+    "impostor_mean": 0.107,
+    "impostor_p99": 0.215,
+    "d_prime": 2.69,
+    "note": "Our-matcher threshold. SourceAFIS uses saf_threshold (config). Filtering and residual-weighting were tested and REMOVED (they hurt separation)."
+  }
+}

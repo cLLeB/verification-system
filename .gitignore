@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environment (recreate from requirements.txt)
+venv/
+.venv/
+
+# Cloned reference repos & datasets (huge — not part of this project)
+references/
+
+# Runtime / debug artifacts
+debug/
+_dbgsrv.txt
+
+# Enrolled biometric templates & keys (never commit user data or secrets)
+database/
+*.pkl
+*.key
+fp_db.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SourceAFIS jars (re-fetch via Maven; see libs/README.md)
+libs/*.jar
