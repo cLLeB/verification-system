@@ -39,3 +39,7 @@ face_db/
 # Local passphrase backup (NEVER commit)
 .face_db_key_BACKUP.txt
 .face_db_key*
+
+# API keys (hashed, but never commit) + per-tenant template stores
+apikeys.json
+face_db/

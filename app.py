@@ -36,6 +36,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
+from face_service.v1 import bp as v1_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -49,6 +50,10 @@ if os.environ.get("FACE_LIVENESS", "0") == "0":
 # Active head-turn challenge liveness on verify — ON by default.
 if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
     CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
+
+# Mount the versioned, API-key-authenticated integration API (/v1).
+app.config["FACE_CONFIG"] = CONFIG
+app.register_blueprint(v1_bp)
 
 ENCRYPTED_AT_REST = FaceStore(CONFIG).encrypted
 SIGNING_SECRET = os.environ.get("FACE_SIGNING_SECRET", "")
