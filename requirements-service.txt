@@ -1,0 +1,9 @@
+# Face verification backbone — service/container deps only (no fingerprint stack).
+insightface>=0.7
+onnxruntime>=1.16
+opencv-python-headless>=4.8     # headless: no system GUI libs needed on a server
+numpy>=1.24
+flask>=3.0
+flask-cors>=4.0
+cryptography>=42.0              # encrypted templates (set FACE_DB_KEY)
+gunicorn>=21.0                  # production WSGI server

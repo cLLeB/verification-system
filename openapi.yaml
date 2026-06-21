@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Face Verification Backbone API
+  version: "1.0.0"
+  description: >
+    Identity verification as a service. Two integration models:
+    **managed** (we store encrypted templates per tenant) and **stateless**
+    (you keep your own data and pass it in). All endpoints except /v1/health
+    require an API key sent as the `X-API-Key` header. Verification/compare
+    results are HMAC-signed with your tenant's signing secret so your app can
+    trust the allow/deny outcome.
+servers:
+  - url: https://your-host:5000
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    ImageOrEmbedding:
+      type: object
+      description: Either a base64 image or a precomputed 512-d embedding.
+      properties:
+        image: { type: string, description: "base64 (or data-URL) JPEG/PNG" }
+        embedding: { type: array, items: { type: number } }
+    Signature:
+      type: object
+      properties:
+        alg: { type: string, example: HMAC-SHA256 }
+        ts: { type: string }
+        nonce: { type: string }
+        hmac: { type: string }
+security:
+  - ApiKeyAuth: []
+paths:
+  /v1/health:
+    get:
+      summary: Liveness/readiness probe (no auth)
+      security: []
+      responses: { "200": { description: OK } }
+  /v1/challenge:
+    get:
+      summary: Get an active-liveness head-turn challenge token
+      responses:
+        "200":
+          description: Challenge (or active=false if liveness disabled)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active: { type: boolean }
+                  token: { type: string }
+                  instruction: { type: string }
+  /v1/embed:
+    post:
+      summary: "Stateless: extract a 512-d face embedding from an image"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties: { image: { type: string } }
+      responses:
+        "200":
+          description: Embedding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  embedding: { type: array, items: { type: number } }
+                  det_score: { type: number }
+                  face_px: { type: integer }
+                  dims: { type: integer, example: 512 }
+  /v1/compare:
+    post:
+      summary: "Stateless: compare a probe against reference(s), no storage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [probe, references]
+              properties:
+                probe: { $ref: "#/components/schemas/ImageOrEmbedding" }
+                references:
+                  type: array
+                  items: { $ref: "#/components/schemas/ImageOrEmbedding" }
+                threshold: { type: number, description: "default = service match threshold (0.40)" }
+      responses:
+        "200":
+          description: Match result (signed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  match: { type: boolean }
+                  best_index: { type: integer }
+                  best_score: { type: number }
+                  scores: { type: array, items: { type: number } }
+                  signature: { $ref: "#/components/schemas/Signature" }
+  /v1/enroll:
+    post:
+      summary: "Managed: enroll a user from one or more images"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+                image: { type: string }
+                images: { type: array, items: { type: string } }
+      responses: { "200": { description: Enrolment summary } }
+  /v1/verify:
+    post:
+      summary: "Managed: verify a claimed user (1:1) or identify (1:N)"
+      description: >
+        Pass `image` for a single-shot check, or `frames` + `token` (from
+        /v1/challenge) for an active-liveness head-turn check. Omit `user_id`
+        to identify (1:N).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string }
+                image: { type: string }
+                frames: { type: array, items: { type: string } }
+                token: { type: string }
+      responses:
+        "200":
+          description: Verification result (signed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, description: granted }
+                  user_id: { type: string }
+                  score: { type: number }
+                  signature: { $ref: "#/components/schemas/Signature" }
+  /v1/identify:
+    post:
+      summary: "Managed: 1:N identify (image or frames+token)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image: { type: string }
+                frames: { type: array, items: { type: string } }
+                token: { type: string }
+      responses: { "200": { description: Identify result (signed) } }
+  /v1/users:
+    get:
+      summary: "Managed: list enrolled users for this tenant"
+      responses: { "200": { description: User list } }
+  /v1/users/delete:
+    post:
+      summary: "Managed: delete a user"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties: { user_id: { type: string } }
+      responses: { "200": { description: Deletion result } }

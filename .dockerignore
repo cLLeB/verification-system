@@ -1,0 +1,16 @@
+.git/
+venv/
+references/
+fingerprint/
+debug/
+face_db/
+__pycache__/
+**/__pycache__/
+*.pyc
+apikeys.json
+.face_db_key_BACKUP.txt
+sdk/
+docs/
+*.md
+.ruff_cache/
+.pytest_cache/
