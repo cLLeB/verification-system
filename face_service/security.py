@@ -63,8 +63,11 @@ def rate_limited_response(status: dict = None):
 
 def apply_security_headers(resp):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
-    resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
-    resp.headers.setdefault("Permissions-Policy", "camera=(self), microphone=()")
+    resp.headers.setdefault("Permissions-Policy", "camera=*, microphone=()")
+    # Modern clickjacking control that still lets the app be embedded by the
+    # Hugging Face Spaces preview iframe (X-Frame-Options: DENY would block it).
+    resp.headers.setdefault(
+        "Content-Security-Policy",
+        "frame-ancestors 'self' https://huggingface.co https://*.hf.space")
     return resp
