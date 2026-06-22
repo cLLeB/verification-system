@@ -46,6 +46,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 _log = logging.getLogger("face")
 
 app = Flask(__name__)
+# Behind a TLS-terminating proxy (Hugging Face / Caddy), trust X-Forwarded-* so
+# request.is_secure is correct and the admin session cookie gets the Secure flag.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 # CORS for /v1 is allow-listed: an origin is permitted if it's in FACE_CORS_ORIGINS
 # (env) OR registered by any tenant (admin console). The API key still scopes what
 # the caller can do — CORS only controls which browser origins may send the request.
@@ -260,7 +264,7 @@ def admin_login():
         return jsonify({"success": False, "message": "Incorrect username or password."}), 401
     resp = make_response(jsonify({"success": True, "user": user}))
     resp.set_cookie(admin.COOKIE, admin.issue_token(user), max_age=admin._MAX_AGE,
-                    httponly=True, samesite="Strict", secure=request.is_secure)
+                    httponly=True, samesite="Lax", secure=request.is_secure)
     return resp
 
 
