@@ -16,6 +16,10 @@ import pytest
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 _TMP = os.path.join(_ROOT, "tests", "_test_state")   # matches .gitignore tests/_test_*
+# Start every session from a clean slate so usage/quota/idempotency counters from a
+# previous run can't leak into tests that assert exact totals.
+import shutil
+shutil.rmtree(_TMP, ignore_errors=True)
 os.makedirs(_TMP, exist_ok=True)
 
 os.environ["FACE_KEYS_FILE"] = os.path.join(_TMP, "apikeys.json")
