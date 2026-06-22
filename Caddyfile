@@ -1,0 +1,15 @@
+# Caddy reverse proxy with automatic HTTPS.
+# Set DOMAIN in .env (e.g. face.example.com) and point its DNS at this server.
+# Caddy fetches + renews a free Let's Encrypt certificate automatically.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:5000
+}
+
+# No domain yet? Comment out the block above and uncomment this to serve the
+# server's IP over HTTPS with a self-signed cert (browser will warn, but the
+# camera works). Replace nothing — Caddy makes its own internal CA.
+# :443 {
+# 	tls internal
+# 	reverse_proxy app:5000
+# }

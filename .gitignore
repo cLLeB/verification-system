@@ -40,6 +40,9 @@ face_db/
 .face_db_key_BACKUP.txt
 .face_db_key*
 
+# Deployment secrets
+.env
+
 # API keys + operator accounts (hashed, but never commit) + per-tenant stores
 apikeys.json
 admins.json

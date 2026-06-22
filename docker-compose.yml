@@ -1,0 +1,47 @@
+# Production stack: the face service behind Caddy (automatic HTTPS via Let's Encrypt).
+# All runtime state (templates, index, keys, operators, tenants, usage, audit) lives
+# on one named volume so it survives restarts/redeploys.
+#
+#   1) copy .env.example -> .env and fill it in (DOMAIN + secrets)
+#   2) docker compose up -d --build
+#   3) point your domain's DNS A/AAAA record at this server's IP
+#
+# Mint an API key:  docker compose exec app python manage_keys.py create "App" --role verify
+# Add an operator:  docker compose exec app python manage_admins.py create alice
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # state is redirected onto the mounted volume (overrides app defaults)
+      FACE_DB_PATH: /data/face_db
+      FACE_KEYS_FILE: /data/apikeys.json
+      FACE_ADMINS_FILE: /data/admins.json
+      FACE_TENANTS_FILE: /data/tenants.json
+      FACE_USAGE_FILE: /data/usage.json
+      FACE_AUDIT_DIR: /data/audit_logs
+    volumes:
+      - facedata:/data
+    expose:
+      - "5000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  facedata:
+  caddydata:
+  caddyconfig:

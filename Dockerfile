@@ -24,7 +24,7 @@ COPY face ./face
 COPY face_service ./face_service
 COPY templates ./templates
 COPY static ./static
-COPY app.py manage_keys.py ./
+COPY app.py manage_keys.py manage_admins.py bulk_enroll.py ./
 
 EXPOSE 5000
 

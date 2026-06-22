@@ -53,26 +53,42 @@ For a stable URL, create a named Cloudflare tunnel bound to your domain.
 
 ## Path B — Durable: container on a cloud host (production)
 
-The `Dockerfile` builds a self-contained image (model pre-baked, gunicorn).
+One command brings up the app **and** Caddy (automatic HTTPS) with all state on a
+persistent volume — see `docker-compose.yml`, `Caddyfile`, `.env.example`.
 
-```
-docker build -t faceverify .
-docker run -d -p 5000:5000 \
-  -e FACE_ADMIN_PASSWORD=... -e FACE_SECRET_KEY=... -e FACE_DB_KEY=... \
-  -v /srv/faceverify/face_db:/app/face_db \
-  -v /srv/faceverify/apikeys.json:/app/apikeys.json \
-  -v /srv/faceverify/audit_logs:/app/audit_logs \
-  faceverify
+```bash
+cp .env.example .env        # set DOMAIN + secrets (openssl rand -base64 32)
+docker compose up -d --build
 ```
 
-Put a TLS-terminating reverse proxy in front (these auto-provision Let's Encrypt
-certs and forward to the container on :5000):
+Then create credentials inside the container:
 
-- **Caddy** (simplest): a 2-line Caddyfile `your.domain { reverse_proxy localhost:5000 }`.
-- **nginx + certbot**, or your cloud's managed HTTPS load balancer.
+```bash
+docker compose exec app python manage_admins.py create alice          # operator login
+docker compose exec app python manage_keys.py create "Acme" --role verify   # integrator key
+```
 
-Any container host works: a small VM (DigitalOcean/Hetzner/EC2), Fly.io, Render,
-Azure Container Apps, Google Cloud Run (set min-instances=1 so the model stays warm).
+Any container host works (Hetzner, DigitalOcean, EC2, Fly.io, Cloud Run with
+min-instances=1). Recommended free option below.
+
+### Oracle Cloud "Always Free" (free forever) — step by step
+
+1. **Create the instance**: Oracle Cloud → Compute → Instances → Create.
+   Shape **VM.Standard.A1.Flex** (Ampere ARM), give it ~2 OCPU / 8 GB (Always Free
+   allows up to 4 OCPU / 24 GB). Image: **Ubuntu 22.04**. Add your SSH key.
+   *(The image is multi-arch and all deps have ARM wheels, so it builds on ARM.)*
+2. **Open the firewall (two layers)**:
+   - VCN → Security List → add Ingress rules for TCP **80** and **443** from `0.0.0.0/0`.
+   - On the box, Oracle Ubuntu blocks ports by default:
+     `sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`
+3. **Install Docker**: `curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER` (re-login).
+4. **Point DNS**: add an `A` record for your domain → the instance's public IP.
+   (No domain? Use a free one from DuckDNS/Cloudflare, or use the `tls internal`
+   block in the `Caddyfile` to serve the IP with a self-signed cert.)
+5. **Deploy**: `git clone <repo> && cd <repo> && cp .env.example .env` (edit it), then
+   `docker compose up -d --build`. Visit `https://your-domain`.
+
+First build downloads the model (~a few minutes); subsequent starts are fast.
 
 ### Health & monitoring
 

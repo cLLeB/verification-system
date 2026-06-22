@@ -1,16 +1,28 @@
 .git/
+.github/
 venv/
 references/
 fingerprint/
 debug/
-face_db/
+tests/
+backups/
 __pycache__/
 **/__pycache__/
 *.pyc
+.ruff_cache/
+.pytest_cache/
+# secrets + runtime state (provided via env / mounted volume, never baked in)
 apikeys.json
+admins.json
+tenants.json
+usage.json
+audit_logs/
+face_db/
+.env
 .face_db_key_BACKUP.txt
+.face_db_key*
+*.key
+# docs/sdk not needed in the runtime image
 sdk/
 docs/
 *.md
-.ruff_cache/
-.pytest_cache/
