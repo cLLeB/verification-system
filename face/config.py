@@ -83,4 +83,7 @@ def load_config() -> FaceConfig:
             cfg = replace(cfg, match_threshold=float(env_thr))
         except ValueError:
             pass
+    env_db = os.environ.get("FACE_DB_PATH")
+    if env_db:
+        cfg = replace(cfg, db_path=env_db)
     return cfg
