@@ -1,3 +1,14 @@
+---
+title: FaceVerify
+emoji: 🟣
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Contactless face verification + identification API
+---
+
 # Face Verification Backbone
 
 A contactless face **verification + identification** service: a phone web client,

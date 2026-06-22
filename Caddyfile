@@ -3,7 +3,7 @@
 # Caddy fetches + renews a free Let's Encrypt certificate automatically.
 {$DOMAIN} {
 	encode zstd gzip
-	reverse_proxy app:5000
+	reverse_proxy app:7860
 }
 
 # No domain yet? Comment out the block above and uncomment this to serve the
@@ -11,5 +11,5 @@
 # camera works). Replace nothing — Caddy makes its own internal CA.
 # :443 {
 # 	tls internal
-# 	reverse_proxy app:5000
+# 	reverse_proxy app:7860
 # }
