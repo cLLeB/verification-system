@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0B1020">
+    <title>Face Verify — Admin Console</title>
+    <meta name="theme-color" content="#0B1020">
+    <link rel="stylesheet" href="/static/theme.css?v=1">
+    <link rel="stylesheet" href="/static/admin.css?v=2">
+</head>
+<body>
+<main class="admin">
+    <!-- Login gate -->
+    <section id="login" class="card login hidden">
+        <h1>Admin Console</h1>
+        <p class="muted">Sign in to enrol people and manage the system.</p>
+        <input id="user" class="field" type="text" placeholder="Username" value="admin" autocomplete="username">
+        <input id="pw" class="field" type="password" placeholder="Password" autocomplete="current-password">
+        <button id="login-btn" class="btn primary">Sign in</button>
+        <p id="login-err" class="err"></p>
+    </section>
+
+    <!-- Console -->
+    <section id="console" class="hidden">
+        <header class="bar">
+            <strong>Face Verify · Admin</strong>
+            <nav class="tabs">
+                <button class="tab is-active" data-tab="overview">Overview</button>
+                <button class="tab" data-tab="enroll">Enrol</button>
+                <button class="tab" data-tab="people">People</button>
+                <button class="tab" data-tab="keys">API Keys</button>
+                <button class="tab" data-tab="usage">Usage</button>
+                <button class="tab" data-tab="ops">Operators</button>
+                <button class="tab" data-tab="audit">Audit</button>
+            </nav>
+            <button id="logout-btn" class="btn ghost">Sign out</button>
+        </header>
+
+        <!-- Overview -->
+        <div class="panel" id="tab-overview">
+            <div class="card">
+                <h2>Overview</h2>
+                <div class="stats" id="stats"></div>
+            </div>
+        </div>
+
+        <!-- Enrol -->
+        <div class="panel hidden" id="tab-enroll">
+            <div class="card">
+                <h2>Enrol a person</h2>
+                <input id="enroll-id" class="field" type="text" placeholder="Name or ID">
+                <video id="video" autoplay playsinline muted class="video"></video>
+                <div class="dots" id="dots"></div>
+                <div class="row">
+                    <button id="capture" class="btn primary">Capture from camera</button>
+                    <button id="swap" class="btn ghost">Swap camera</button>
+                </div>
+                <p class="muted" style="margin-top:14px">…or enrol from existing photos:</p>
+                <input id="enroll-files" class="field" type="file" accept="image/*" multiple>
+                <button id="upload-enroll" class="btn ghost">Enrol from selected photos</button>
+                <p id="enroll-msg" class="muted"></p>
+            </div>
+        </div>
+
+        <!-- People -->
+        <div class="panel hidden" id="tab-people">
+            <div class="card">
+                <h2>Enrolled people <span id="people-count" class="pill"></span>
+                    <button id="people-csv" class="btn ghost" style="float:right;padding:6px 12px">Export CSV</button></h2>
+                <input id="people-search" class="field" type="text" placeholder="Filter…">
+                <div id="people-list" class="list"></div>
+            </div>
+        </div>
+
+        <!-- Keys -->
+        <div class="panel hidden" id="tab-keys">
+            <div class="card">
+                <h2>Create API key</h2>
+                <input id="key-name" class="field" type="text" placeholder="App name (e.g. Acme HR)">
+                <input id="key-tenant" class="field" type="text" placeholder="Tenant id (optional)">
+                <select id="key-role" class="field">
+                    <option value="verify">verify — recognition only (safe default)</option>
+                    <option value="admin">admin — full control (enrol/delete)</option>
+                </select>
+                <button id="key-create" class="btn primary">Create key</button>
+                <div id="key-new" class="newkey hidden"></div>
+            </div>
+            <div class="card">
+                <h2>Existing keys</h2>
+                <div id="keys-list" class="list"></div>
+            </div>
+            <div class="card">
+                <h2>Tenant settings <span class="muted">(CORS + webhook)</span></h2>
+                <input id="ts-tenant" class="field" type="text" placeholder="Tenant id">
+                <input id="ts-origins" class="field" type="text" placeholder="Allowed web origins, comma-separated (https://app.acme.com)">
+                <input id="ts-webhook" class="field" type="text" placeholder="Webhook URL (optional)">
+                <button id="ts-save" class="btn primary">Save settings</button>
+                <div id="ts-list" class="list" style="margin-top:12px"></div>
+            </div>
+        </div>
+
+        <!-- Usage -->
+        <div class="panel hidden" id="tab-usage">
+            <div class="card">
+                <h2>Set monthly quota</h2>
+                <input id="quota-tenant" class="field" type="text" placeholder="Tenant id">
+                <input id="quota-value" class="field" type="number" placeholder="Max billable calls / month (blank = unlimited)">
+                <button id="quota-save" class="btn primary">Save quota</button>
+            </div>
+            <div class="card">
+                <h2>Usage this month</h2>
+                <div id="usage-list" class="list"></div>
+            </div>
+        </div>
+
+        <!-- Operators -->
+        <div class="panel hidden" id="tab-ops">
+            <div class="card">
+                <h2>Add operator</h2>
+                <input id="op-user" class="field" type="text" placeholder="Username">
+                <input id="op-pw" class="field" type="password" placeholder="Password">
+                <button id="op-add" class="btn primary">Add operator</button>
+                <p class="muted" id="op-note">While no operators exist, the bootstrap login (FACE_ADMIN_PASSWORD) is active. Adding one disables it.</p>
+            </div>
+            <div class="card">
+                <h2>Operators</h2>
+                <div id="ops-list" class="list"></div>
+            </div>
+        </div>
+
+        <!-- Audit -->
+        <div class="panel hidden" id="tab-audit">
+            <div class="card">
+                <h2>Audit log</h2>
+                <select id="audit-tenant" class="field"></select>
+                <div id="audit-list" class="list audit"></div>
+            </div>
+        </div>
+    </section>
+</main>
+<canvas id="canvas" hidden></canvas>
+<script src="/static/admin.js?v=2"></script>
+</body>
+</html>

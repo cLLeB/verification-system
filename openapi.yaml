@@ -9,6 +9,12 @@ info:
     require an API key sent as the `X-API-Key` header. Verification/compare
     results are HMAC-signed with your tenant's signing secret so your app can
     trust the allow/deny outcome.
+
+
+    Keys carry a **role**: `admin` (full control) or `verify` (recognition only —
+    cannot enrol, delete, or list). Each tenant is isolated. Calls are metered
+    per tenant (see `/v1/usage`) and may be subject to a monthly quota
+    (HTTP 429 `quota_exceeded`).
 servers:
   - url: https://your-host:5000
 components:
@@ -122,6 +128,27 @@ paths:
                 image: { type: string }
                 images: { type: array, items: { type: string } }
       responses: { "200": { description: Enrolment summary } }
+  /v1/enroll/bulk:
+    post:
+      summary: "Managed: enrol many users in one call (role: admin)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [people]
+              properties:
+                people:
+                  type: array
+                  items:
+                    type: object
+                    required: [user_id]
+                    properties:
+                      user_id: { type: string }
+                      images: { type: array, items: { type: string } }
+                      embeddings: { type: array, items: { type: array, items: { type: number } } }
+      responses: { "200": { description: Per-user enrolment results } }
   /v1/verify:
     post:
       summary: "Managed: verify a claimed user (1:1) or identify (1:N)"
@@ -172,7 +199,20 @@ paths:
       responses: { "200": { description: User list } }
   /v1/users/delete:
     post:
-      summary: "Managed: delete a user"
+      summary: "Managed: delete one user or many (role: delete)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string }
+                user_ids: { type: array, items: { type: string } }
+      responses: { "200": { description: Deletion result } }
+  /v1/users/export:
+    post:
+      summary: "Managed: data-subject access — metadata held for a user (role: manage)"
       requestBody:
         required: true
         content:
@@ -181,4 +221,22 @@ paths:
               type: object
               required: [user_id]
               properties: { user_id: { type: string } }
-      responses: { "200": { description: Deletion result } }
+      responses:
+        "200": { description: "What we hold (counts, dim, recent audit) — not the raw template" }
+        "404": { description: No record for that user }
+  /v1/users/purge:
+    post:
+      summary: "Managed: erase ALL users in this tenant (role: delete)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties: { confirm: { type: boolean, enum: [true] } }
+      responses: { "200": { description: Purge result } }
+  /v1/usage:
+    get:
+      summary: "This tenant's usage this month (counts, quota, remaining)"
+      responses: { "200": { description: Usage summary } }

@@ -6,4 +6,5 @@ numpy>=1.24
 flask>=3.0
 flask-cors>=4.0
 cryptography>=42.0              # encrypted templates (set FACE_DB_KEY)
-gunicorn>=21.0                  # production WSGI server
+gunicorn>=21.0                  # production WSGI server (Linux/containers)
+waitress>=3.0                  # production WSGI server (Windows-friendly; see serve.py)

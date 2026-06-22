@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Lightweight deps for the model-free unit tests (engine/API tests that need
+      # the InsightFace pack are skipped here; run the full suite locally).
+      - run: pip install numpy cryptography flask itsdangerous pytest
+      - run: >-
+          python -m pytest -q
+          tests/test_matcher.py tests/test_storage.py tests/test_index.py
+          tests/test_keys.py tests/test_usage_audit_security.py
+          tests/test_adaptive_drift.py

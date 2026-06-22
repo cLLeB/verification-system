@@ -41,11 +41,12 @@ def _to_b64(image: Image) -> str:
 
 class FaceVerifyClient:
     def __init__(self, base_url: str, api_key: str, *, verify_tls: bool = True,
-                 signing_secret: Optional[str] = None, timeout: int = 30):
+                 signing_secret: Optional[str] = None, timeout: int = 30, retries: int = 2):
         self.base = base_url.rstrip("/")
         self.api_key = api_key
         self.signing_secret = signing_secret
         self.timeout = timeout
+        self.retries = retries
         self._ctx = None
         if not verify_tls:
             self._ctx = ssl.create_default_context()
@@ -54,18 +55,29 @@ class FaceVerifyClient:
 
     # --- transport ---------------------------------------------------------
     def _call(self, method: str, path: str, body: Optional[dict] = None) -> dict:
+        import time
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(
             self.base + path, data=data, method=method,
             headers={"Content-Type": "application/json", "X-API-Key": self.api_key})
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout, context=self._ctx) as r:
-                return json.loads(r.read())
-        except urllib.error.HTTPError as e:
+        last = None
+        for attempt in range(self.retries + 1):
             try:
-                return json.loads(e.read())
-            except Exception:
-                return {"success": False, "code": "http_error", "message": str(e)}
+                with urllib.request.urlopen(req, timeout=self.timeout, context=self._ctx) as r:
+                    return json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                # Retry only transient server/rate-limit statuses; return others as-is.
+                if e.code in (429, 502, 503, 504) and attempt < self.retries:
+                    time.sleep(0.4 * (2 ** attempt)); continue
+                try:
+                    return json.loads(e.read())
+                except Exception:
+                    return {"success": False, "code": "http_error", "message": str(e)}
+            except (urllib.error.URLError, TimeoutError) as e:   # network blip
+                last = e
+                if attempt < self.retries:
+                    time.sleep(0.4 * (2 ** attempt)); continue
+                return {"success": False, "code": "network_error", "message": str(last)}
 
     @staticmethod
     def _ref(item) -> dict:
@@ -88,6 +100,19 @@ class FaceVerifyClient:
         imgs = images if isinstance(images, list) else [images]
         return self._call("POST", "/v1/enroll", {"user_id": user_id, "images": [_to_b64(i) for i in imgs]})
 
+    def enroll_bulk(self, people: List[dict]) -> dict:
+        """Enrol many at once. Each entry: {"user_id", "images":[...]} or
+        {"user_id", "embeddings":[[...]]}. Images are base64-encoded for you."""
+        out = []
+        for p in people:
+            entry = {"user_id": p["user_id"]}
+            if p.get("images"):
+                entry["images"] = [_to_b64(i) for i in p["images"]]
+            if p.get("embeddings"):
+                entry["embeddings"] = p["embeddings"]
+            out.append(entry)
+        return self._call("POST", "/v1/enroll/bulk", {"people": out})
+
     def verify(self, user_id: str, image: Image) -> dict:
         return self._call("POST", "/v1/verify", {"user_id": user_id, "image": _to_b64(image)})
 
@@ -106,8 +131,20 @@ class FaceVerifyClient:
     def users(self) -> dict:
         return self._call("GET", "/v1/users")
 
-    def delete_user(self, user_id: str) -> dict:
+    def delete_user(self, user_id: Union[str, List[str]]) -> dict:
+        if isinstance(user_id, list):
+            return self._call("POST", "/v1/users/delete", {"user_ids": user_id})
         return self._call("POST", "/v1/users/delete", {"user_id": user_id})
+
+    def export_user(self, user_id: str) -> dict:
+        return self._call("POST", "/v1/users/export", {"user_id": user_id})
+
+    def purge_tenant(self) -> dict:
+        """Erase ALL users in this tenant (right-to-erasure). Irreversible."""
+        return self._call("POST", "/v1/users/purge", {"confirm": True})
+
+    def usage(self) -> dict:
+        return self._call("GET", "/v1/usage")
 
     def health(self) -> dict:
         return self._call("GET", "/v1/health")

@@ -19,12 +19,28 @@ There are two ways to integrate. Pick either or both.
 The operator mints you a key (kept hashed server‑side; shown once):
 
 ```bash
-python manage_keys.py create "Your App"
-# -> api_key: fk_xxx   tenant: t_xxx   signing_secret: yyy
+python manage_keys.py create "Your App" --role verify
+# -> api_key: fk_xxx   key_id: k_xxx   tenant: t_xxx   role: verify   signing_secret: yyy
 ```
 
 Send it on every request as a header: `X-API-Key: fk_xxx`. Everything is scoped
 to your **tenant** — your users never collide with another app's.
+
+**Roles:** an `admin` key can do everything; a `verify` key can only recognise
+(verify / identify / embed / compare) and can never enrol, delete, or list — give
+your front-end / kiosk a `verify` key and keep `admin` keys server-side.
+
+> Tip: browse a live, self-contained API reference at **`/docs`** on the running
+> service, and import **`/openapi.yaml`** straight into Postman or your codegen tool.
+
+**Build without faces (sandbox):** ask for a sandbox key (`manage_keys.py create "Dev"
+--sandbox`). Its key starts `fk_sandbox_` and returns deterministic canned responses
+(no camera/model needed), so you can wire up and test your flow first, then swap in a
+real key. **No-code option:** drop the `<face-verify>` widget into any page — see `/docs`
+and `/widget`. **Large tenants:** `GET /v1/users?limit=100&offset=0&prefix=a` is paginated.
+**Safe retries:** send an `Idempotency-Key` header on enrol; a retry with the same key
+replays the first result (header `Idempotent-Replay: true`) instead of enrolling twice.
+Every response includes an `X-Request-ID` (quote it in support) and `X-RateLimit-*` headers.
 
 ---
 
@@ -113,6 +129,24 @@ if r["success"] and fv.verify_signature(r):
 ```
 
 ---
+
+## 5b. Bulk enrol & lifecycle (admin keys)
+
+```bash
+# Enrol many people in one call
+curl -sk https://HOST:5000/v1/enroll/bulk -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"people":[{"user_id":"a","images":["<b64>"]},{"user_id":"b","embeddings":[[...]]}]}'
+
+curl -sk https://HOST:5000/v1/users          -H "X-API-Key: fk_xxx"   # list
+curl -sk https://HOST:5000/v1/users/delete   -H "X-API-Key: fk_xxx" -d '{"user_ids":["a","b"]}'
+curl -sk https://HOST:5000/v1/users/export   -H "X-API-Key: fk_xxx" -d '{"user_id":"a"}'  # data-subject access
+curl -sk https://HOST:5000/v1/users/purge    -H "X-API-Key: fk_xxx" -d '{"confirm":true}' # erase your tenant
+curl -sk https://HOST:5000/v1/usage          -H "X-API-Key: fk_xxx"   # your monthly usage
+```
+
+For very large datasets, ask the operator to run the offline `bulk_enroll.py`
+importer instead (folder of `person/photos`), which is far faster than the API.
 
 ## 6. Notes
 

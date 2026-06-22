@@ -40,6 +40,14 @@ face_db/
 .face_db_key_BACKUP.txt
 .face_db_key*
 
-# API keys (hashed, but never commit) + per-tenant template stores
+# API keys + operator accounts (hashed, but never commit) + per-tenant stores
 apikeys.json
+admins.json
+tenants.json
 face_db/
+
+# Audit trail (contains user ids / PII), usage counters, backups, test artifacts
+audit_logs/
+usage.json
+backups/
+tests/_test_*

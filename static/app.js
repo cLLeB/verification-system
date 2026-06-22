@@ -83,8 +83,23 @@ async function onCapture() {
     return verify();
 }
 
+async function ensureAdmin() {
+    // Enrolment is restricted. If not already signed in, prompt for the admin password.
+    const s = await (await fetch('/admin/session')).json().catch(() => ({ admin: false }));
+    if (s.admin) return true;
+    const user = prompt('Enrolment is restricted. Admin username:', 'admin');
+    if (user === null) return false;
+    const pw = prompt('Admin password:');
+    if (!pw) return false;
+    const r = await fetch('/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.trim(), password: pw }) });
+    if (!r.ok) { setHint('Incorrect username or password.', 'warn'); return false; }
+    return true;
+}
+
 async function enrollCapture() {
     if (!userId.value.trim()) { setHint('Enter a name or ID to enrol first'); userId.focus(); return; }
+    if (!(await ensureAdmin())) return;
     const img = grabFrame();
     if (!img) { setHint('Camera not ready — try again.'); return; }
     startBusy('Checking');
@@ -205,3 +220,8 @@ swapBtn.addEventListener('click', swapCamera);
 
 setMode('verify');
 startCamera();
+
+// Register the service worker so the app is installable / loads instantly.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}

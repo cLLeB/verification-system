@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Verify — API Docs</title>
+    <style>
+        :root { --bg:#0B1020; --card:#141B2D; --line:rgba(148,163,184,.14); --fg:#EAF0F8; --mut:#9AA8BD;
+                --accent:#8B7CF6; --get:#34D399; --post:#FBBF24; }
+        * { box-sizing: border-box; }
+        body { margin:0; background:
+                 radial-gradient(120% 80% at 50% -10%, #0e1726 0%, var(--bg) 60%); color:var(--fg);
+               font:15px/1.6 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+        .wrap { max-width:860px; margin:0 auto; padding:24px 18px 80px; }
+        h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:19px; margin:28px 0 10px; }
+        a { color:var(--accent); } code { font-family:ui-monospace,monospace; }
+        .mut { color:var(--mut); }
+        .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+                padding:14px 16px; margin:10px 0; }
+        pre { background:#0e1426; border:1px solid var(--line); border-radius:10px;
+              padding:12px; overflow:auto; font-size:12.5px; }
+        .ep { display:flex; align-items:center; gap:10px; font-family:ui-monospace,monospace; }
+        .m { font-weight:700; font-size:12px; padding:2px 8px; border-radius:6px; color:#06121a; }
+        .GET { background:var(--get); } .POST { background:var(--post); }
+        .scope { margin-left:auto; font-size:11px; color:var(--mut); border:1px solid var(--line);
+                 padding:2px 8px; border-radius:999px; }
+        table { width:100%; border-collapse:collapse; font-size:13.5px; }
+        td,th { border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; }
+        .pill { background:#1f2942; color:var(--mut); border-radius:999px; padding:2px 8px; font-size:12px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Face Verify — Integration API</h1>
+    <p class="mut">Verify identity from a face and get a signed allow/deny. Base URL is this
+       server. Download the machine-readable spec: <a href="/openapi.yaml">openapi.yaml</a>.</p>
+
+    <h2>Authentication</h2>
+    <div class="card">Send your key on every request:
+        <pre>X-API-Key: fk_your_key_here</pre>
+        Each key is scoped to your <b>tenant</b> (your users are isolated) and has a <b>role</b>:
+        <table>
+          <tr><th>Role</th><th>Can do</th></tr>
+          <tr><td><span class="pill">admin</span></td><td>everything (enrol, delete, list, verify)</td></tr>
+          <tr><td><span class="pill">verify</span></td><td>recognition only — verify / identify / embed / compare</td></tr>
+        </table>
+    </div>
+
+    <h2>Endpoints</h2>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/enroll <span class="scope">admin</span></div>
+      <p class="mut">Enrol a user from one or more images.</p>
+      <pre>curl -k https://HOST/v1/enroll -H "X-API-Key: fk_x" -H "Content-Type: application/json" \
+  -d '{"user_id":"alice","images":["&lt;b64&gt;","&lt;b64&gt;"]}'</pre>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/enroll/bulk <span class="scope">admin</span></div>
+      <p class="mut">Enrol many people in one call. Each entry has images or embeddings.</p>
+      <pre>{"people":[{"user_id":"a","images":["&lt;b64&gt;"]},{"user_id":"b","embeddings":[[...]]}]}</pre>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/verify <span class="scope">verify</span></div>
+      <p class="mut">1:1 (with <code>user_id</code>) or 1:N. Pass <code>image</code>, or <code>frames</code>+<code>token</code> for a live head-turn check.</p>
+      <pre>curl -k https://HOST/v1/verify -H "X-API-Key: fk_x" -H "Content-Type: application/json" \
+  -d '{"user_id":"alice","image":"&lt;b64&gt;"}'
+# -> {"success":true,"user_id":"alice","score":0.97,"signature":{...}}</pre>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/identify <span class="scope">verify</span></div>
+      <p class="mut">Who is this? Returns the matched <code>user_id</code>.</p>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/embed &nbsp;·&nbsp; /v1/compare <span class="scope">verify</span></div>
+      <p class="mut">Stateless: turn an image into a 512-d vector you store yourself, then compare a probe against your vectors.</p>
+      <pre>{"probe":{"image":"&lt;b64&gt;"},"references":[{"embedding":[...]}],"threshold":0.4}</pre>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m GET">GET</span> /v1/users &nbsp;·&nbsp; <span class="m POST">POST</span> /v1/users/delete <span class="scope">manage · delete</span></div>
+      <p class="mut">List, or delete one (<code>user_id</code>) or many (<code>user_ids</code>).</p>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m POST">POST</span> /v1/users/export &nbsp;·&nbsp; /v1/users/purge <span class="scope">manage · delete</span></div>
+      <p class="mut">Data-subject access (what we hold) · erase all users in your tenant (<code>confirm:true</code>).</p>
+    </div>
+
+    <div class="card">
+      <div class="ep"><span class="m GET">GET</span> /v1/usage &nbsp;·&nbsp; /v1/challenge &nbsp;·&nbsp; /v1/health</div>
+      <p class="mut">Your monthly usage · a liveness head-turn token · readiness (no auth).</p>
+    </div>
+
+    <h2>Trusting the result</h2>
+    <div class="card">Verify/compare responses include an HMAC <code>signature</code> keyed by your
+        signing secret, so a tampered response is detectable. SDKs verify it for you
+        (<code>fv.verify_signature(r)</code>).</div>
+
+    <h2>Drop-in widget (no code)</h2>
+    <div class="card">
+        Add face verification to any web app with one script tag — see the live
+        embed + preview at <a href="/widget">/widget</a>:
+        <pre>&lt;script src="/widget.js"&gt;&lt;/script&gt;
+&lt;face-verify base="THIS_HOST" api-key="fk_verify_key"&gt;&lt;/face-verify&gt;</pre>
+    </div>
+
+    <h2>SDKs &amp; tooling</h2>
+    <div class="card">
+        Python: <code>sdk/python/faceverify.py</code> · JavaScript: <code>sdk/js/faceverify.js</code><br>
+        Postman: import <a href="/openapi.yaml">openapi.yaml</a> or the collection in <code>docs/</code>.<br>
+        Full guide: <code>docs/INTEGRATION.md</code>.
+    </div>
+</div>
+</body>
+</html>

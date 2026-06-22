@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Face Verify — Embeddable Widget</title>
+    <link rel="stylesheet" href="/static/theme.css?v=1">
+    <style>
+        body { margin: 0; background: radial-gradient(120% 80% at 50% -10%, #0e1726 0%, var(--bg-0) 60%);
+            color: var(--txt); font-family: var(--font); min-height: 100dvh; }
+        .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px 80px; }
+        h1 { font-size: 24px; letter-spacing: -.01em; } .mut { color: var(--txt-2); }
+        .grid { display: grid; gap: 20px; grid-template-columns: 1fr; margin-top: 18px; }
+        @media (min-width: 720px) { .grid { grid-template-columns: 1fr 320px; align-items: start; } }
+        pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px;
+            padding: 14px; overflow: auto; font-family: var(--mono); font-size: 13px; color: var(--txt); }
+        code { font-family: var(--mono); color: var(--brand-2); }
+        .card { background: var(--bg-1); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+        .field { width: 100%; padding: 11px 12px; margin: 8px 0; background: var(--inset);
+            border: 1px solid var(--line); border-radius: 10px; color: var(--txt); font: inherit; }
+        a { color: var(--brand-2); }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Embeddable widget</h1>
+    <p class="mut">Add face verification to any web app with one script tag and a
+       <b>verify-role</b> API key. Register your site's origin in the admin console
+       (Tenant settings → CORS) so the browser calls are allowed.</p>
+
+    <div class="grid">
+        <div>
+            <h2>Embed</h2>
+            <pre>&lt;script src="{{ '' }}/widget.js"&gt;&lt;/script&gt;
+&lt;face-verify base="THIS_HOST" api-key="fk_your_verify_key"&gt;&lt;/face-verify&gt;
+
+&lt;script&gt;
+  document.querySelector('face-verify')
+    .addEventListener('result', e =&gt; {
+      if (e.detail.success) {
+        // e.detail is the signed API result
+        console.log('Welcome', e.detail.user_id);
+      }
+    });
+&lt;/script&gt;</pre>
+            <p class="mut">Optional attributes: <code>user-id</code> (1:1 verify a specific person),
+               <code>accent</code> (brand colour), <code>button-text</code>.</p>
+        </div>
+
+        <div class="card">
+            <h2>Live preview</h2>
+            <p class="mut" id="note">Paste a verify key to try it on this device:</p>
+            <input class="field" id="key" type="text" placeholder="fk_your_verify_key">
+            <div id="mount"></div>
+        </div>
+    </div>
+</div>
+
+<script src="/widget.js"></script>
+<script>
+    const base = location.origin;
+    const params = new URLSearchParams(location.search);
+    function mount(key) {
+        const m = document.getElementById('mount'); m.innerHTML = '';
+        const el = document.createElement('face-verify');
+        el.setAttribute('base', base); el.setAttribute('api-key', key);
+        el.addEventListener('result', (e) => console.log('result', e.detail));
+        m.appendChild(el);
+    }
+    const k = document.getElementById('key');
+    if (params.get('key')) { k.value = params.get('key'); mount(k.value); }
+    k.addEventListener('change', () => k.value.trim() && mount(k.value.trim()));
+</script>
+</body>
+</html>

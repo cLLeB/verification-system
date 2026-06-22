@@ -1,39 +1,53 @@
-# Verification System — Face Backbone
+# Face Verification Backbone
 
-A production‑grade **face verification service** that other apps integrate with to
-gate access on an identity check. CPU‑only (no GPU), ArcFace embeddings, passive +
-active liveness, encrypted templates, and a clean API‑key‑authenticated REST API.
+A contactless face **verification + identification** service: a phone web client,
+an operator admin console, and a multi-tenant REST API other apps integrate with.
+ArcFace embeddings + active (head-turn) liveness, encrypted at rest, with adaptive
+enrolment that keeps recognising a person as they change over months/years.
 
-> The earlier **contactless‑fingerprint** system is archived under [`fingerprint/`](fingerprint/).
-> It works on real sensor prints but the phone‑camera capture proved unworkable, so
-> the project pivoted to face. See that folder's notes for details.
+> The earlier **contactless-fingerprint** system is archived under [`fingerprint/`](fingerprint/);
+> phone-camera capture proved unworkable, so the project pivoted to face.
 
-## What it does
-- **Enroll / verify / identify** faces (1:1 and 1:N), cosine matching on 512‑d ArcFace
-  embeddings. Same person ≈ 0.5–1.0, different ≈ 0.0–0.2.
-- **Liveness**: active head‑turn challenge (defeats photos/screens); optional passive model.
-- **Adaptive enrollment**: confident live verifies update the template over time
-  (anti‑drift — original enrolment kept as permanent anchors).
-- **Integration backbone**: `/v1` REST API with **API keys + per‑tenant isolation**,
-  **managed** and **stateless** flows, and **HMAC‑signed** results.
+## Three surfaces
 
-## Run it
+| Surface | Path | Who | Auth |
+|---------|------|-----|------|
+| Phone web client | `/` | end users (kiosk) | verify open; enrol needs admin login |
+| Admin console | `/admin` | your operators | admin password |
+| Integration API | `/v1/*` | other companies' systems | `X-API-Key` + role |
+
+## Quickstart (local)
+
 ```bash
-pip install -r requirements.txt           # or requirements-service.txt for the API only
-python app.py                             # demo UI + API at https://localhost:5000
-# or containerized:
-docker build -t faceverify . && docker run -p 5000:5000 -e FACE_DB_KEY=secret faceverify
+python -m venv venv && venv/Scripts/pip install -r requirements.txt
+# PowerShell:  $env:FACE_ADMIN_PASSWORD="choose-one"
+python app.py                             # dev server, HTTPS (self-signed) on :5000
 ```
-- Mobile demo client: `https://<host>:5000/` (enroll, then verify with a head turn).
-- Encryption: set `FACE_DB_KEY` (templates encrypted with a key derived from it).
 
-## Integrate another app
-```bash
-python manage_keys.py create "Your App"   # mint an API key (shown once)
-```
-- **Guide:** [`docs/INTEGRATION.md`](docs/INTEGRATION.md)
-- **Spec:** [`openapi.yaml`](openapi.yaml)
-- **Python SDK (zero‑dep):** [`sdk/python/faceverify.py`](sdk/python/faceverify.py)
+Open `https://<this-machine-ip>:5000` on a phone (same network), accept the
+self-signed cert, allow the camera. For public 24/7 access see **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+## Integration API (`/v1`)
+
+Auth: header `X-API-Key: <key>`. Mint keys: `python manage_keys.py create "App" --role verify`.
+
+| Endpoint | Scope | Purpose |
+|----------|-------|---------|
+| `POST /v1/enroll` | enroll | enrol one user from image(s) |
+| `POST /v1/enroll/bulk` | enroll | enrol many users in one call |
+| `POST /v1/verify` | verify | 1:1 (with user_id) or 1:N |
+| `POST /v1/identify` | verify | 1:N — who is this? |
+| `POST /v1/embed` | verify | stateless: image → 512-d embedding |
+| `POST /v1/compare` | verify | stateless: probe vs references |
+| `GET  /v1/users` · `POST /v1/users/delete` | manage · delete | list / delete (single or `user_ids[]`) |
+| `POST /v1/users/export` | manage | data-subject access (metadata) |
+| `POST /v1/users/purge` | delete | erase all users in a tenant (`confirm:true`) |
+| `GET  /v1/usage` | any | this tenant's usage this month |
+| `GET  /v1/challenge` · `GET /v1/health` | verify · none | liveness token · readiness |
+
+Roles: **admin** = full control; **verify** = recognition only (cannot enrol/delete/list).
+Each tenant is isolated; verify/compare results are HMAC-signed with the key's secret.
+See `docs/INTEGRATION.md`, `openapi.yaml`, and the SDKs in `sdk/`.
 
 ```python
 from faceverify import FaceVerifyClient
@@ -43,16 +57,80 @@ if fv.verify("alice", "probe.jpg")["success"]:
     grant_access()
 ```
 
-## Layout
+## Bulk import a dataset
+
+```bash
+python bulk_enroll.py dataset/ --tenant acme     # dataset/<person>/<images...>
 ```
-face/            ArcFace engine: detection, matching, liveness, adaptive store
-face_service/    /v1 API: API keys, tenant auth, blueprint
-app.py           Flask app: demo UI + mounts /v1
-sdk/python/      zero-dependency Python client
-docs/, openapi.yaml, Dockerfile
+
+## Operations
+
+- Probes: `GET /healthz` (liveness), `GET /readyz` (readiness), `GET /metrics` (Prometheus).
+- Audit trail per tenant in `audit_logs/`; usage counters in `usage.json`.
+- Rate limited per caller (`FACE_RATE_LIMIT`/`FACE_RATE_WINDOW`); security headers on every response.
+
+## Configuration (environment)
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `FACE_ADMIN_PASSWORD` | random (printed) | admin console / enrolment password |
+| `FACE_SECRET_KEY` | random per run | signs admin session cookies (set in prod) |
+| `FACE_DB_KEY` | random key file | passphrase for encryption-at-rest |
+| `FACE_SIGNING_SECRET` | — | HMAC-sign first-party verify results |
+| `FACE_CORS_ORIGINS` | same-origin | comma-separated browser origins allowed on `/v1` |
+| `FACE_RATE_LIMIT` / `FACE_RATE_WINDOW` | 120 / 60 | requests per window per caller |
+| `FACE_ACTIVE_LIVENESS` | 1 | require a live head-turn on verify |
+| `FACE_LIVENESS` | 0 | also run the passive single-shot anti-spoof model (opt-in; pairs with active liveness) |
+| `FACE_DB_PATH` | `face_db` | base data directory (store + per-tenant + index) |
+| `FACE_KEYS_FILE` · `FACE_ADMINS_FILE` · `FACE_AUDIT_DIR` · `FACE_USAGE_FILE` | `apikeys.json` · `admins.json` · `audit_logs` · `usage.json` | state locations |
+
+Operators: `python manage_admins.py create alice`. While no operators exist, the
+`FACE_ADMIN_PASSWORD` bootstrap login (`admin` / that password) is active; adding the
+first operator disables it.
+
+## Privacy & compliance
+
+Biometric **templates and the search index are encrypted at rest**; raw images are
+never stored (only embeddings, encrypted). The audit log records actions, not faces.
+Right-to-erasure: `POST /v1/users/delete` / `…/purge`. Data-subject access:
+`POST /v1/users/export`. Obtain consent before enrolling people.
+
+## Layout
+
+```
+face/            ArcFace engine: detection, matching, liveness, adaptive, encrypted store + index
+face_service/    /v1 API, API keys + roles, admin auth, audit, usage, metrics, security
+app.py           Flask app: phone client + admin console + mounts /v1
+bulk_enroll.py   offline dataset importer        serve.py  production launcher (waitress)
+templates/, static/   phone client + admin console UIs
+sdk/, openapi.yaml, docs/, Dockerfile
+tests/           pytest suite + scale/drift benchmarks
 fingerprint/     archived fingerprint system
 ```
 
+## Offline / air-gapped
+
+The service runs **fully offline** — no internet needed at runtime. There are no
+CDN assets, no telemetry, and no outbound calls; the ArcFace models are loaded from
+a local cache (pre-baked into the Docker image). For a self-contained kiosk, run the
+server and open `https://localhost:5000` in a browser **on the same device** — it
+works with zero network. The phone client is a PWA whose shell caches for instant
+loads and shows an offline page if the server is unreachable (verification itself
+always needs the server, since the model runs server-side).
+
+## Scale
+
+Tuned for ~100k identities per tenant (exact match, 100% accurate, ~40 ms search,
+encrypted). For 1M+ swap the index to FAISS — see `face/index.py` (`_USE_ANN`).
+
+## Tests
+
+```bash
+python -m pytest tests/ -q
+python _scale_test.py 100000      # scale/accuracy benchmark
+```
+
 ## Tech
-InsightFace (buffalo_l ArcFace, ONNX Runtime, CPU) · MiniFASNet anti‑spoof ·
-Flask · Fernet/AES encryption. No GPU required.
+
+InsightFace (buffalo_l ArcFace, ONNX Runtime, CPU) · active-liveness head-turn ·
+Flask · Fernet/AES encryption · waitress/gunicorn. No GPU required.

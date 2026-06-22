@@ -1,0 +1,39 @@
+/* ============================================================================
+   "Verified" — the one design language for the whole platform.
+   Deep ink base + biometric teal accent. Trustworthy, precise, modern, dark-first.
+   Single source of truth for the admin console, docs, offline page, and widget.
+   (The phone client in app.css mirrors these tokens and adds a light theme.)
+   ============================================================================ */
+:root {
+    /* surfaces */
+    --bg-0: #0B1020;          /* app background (deep ink) */
+    --bg-1: #141B2D;          /* cards / surfaces */
+    --bg-2: #1C2538;          /* elevated chips / pills */
+    --inset: #0E1426;         /* inputs / list rows (sunken) */
+    --line: rgba(148,163,184,.14);
+    --line-strong: rgba(148,163,184,.30);
+    /* text */
+    --txt: #EAF0F8;
+    --txt-2: #9AA8BD;
+    --txt-muted: #67768D;
+    /* brand + semantics — "iris violet" */
+    --brand: #8B7CF6;         /* iris violet — accents, rings, highlights, icons */
+    --brand-2: #A78BFA;       /* light violet — glow / gradient pair */
+    --brand-fill: #6D4DE6;    /* deeper violet — button + active fills (white text) */
+    --brand-strong: #5B3FD6;  /* pressed */
+    --on-brand: #FFFFFF;      /* text on violet fills */
+    --ok: #34D399; --bad: #FB7185; --warn: #FBBF24; --info: #60A5FA;
+    --ring: rgba(139,124,246,.45);
+    /* shape + motion + type */
+    --radius: 14px; --radius-sm: 10px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --ease: cubic-bezier(.2,.7,.3,1);
+    --grad: linear-gradient(135deg, var(--brand-2), var(--brand-fill));
+    --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    /* legacy aliases used by admin.css */
+    --bg: var(--bg-0); --card: var(--bg-1); --fg: var(--txt);
+    --muted: var(--txt-2); --primary: var(--brand); --pill: var(--bg-2);
+}
+* { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); border-radius: 6px; }

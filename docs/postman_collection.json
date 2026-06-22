@@ -1,0 +1,48 @@
+{
+  "info": {
+    "name": "Face Verify API (v1)",
+    "description": "Import this, set the `base_url` and `api_key` collection variables, and go. Images are base64 strings.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://localhost:5000" },
+    { "key": "api_key", "value": "fk_your_key_here" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key" },
+      { "key": "value", "value": "{{api_key}}" },
+      { "key": "in", "value": "header" }
+    ]
+  },
+  "item": [
+    { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/v1/health", "auth": { "type": "noauth" } } },
+    { "name": "Usage", "request": { "method": "GET", "url": "{{base_url}}/v1/usage" } },
+    { "name": "Enroll", "request": { "method": "POST", "url": "{{base_url}}/v1/enroll",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"alice\",\n  \"images\": [\"<base64>\"]\n}" } } },
+    { "name": "Enroll bulk", "request": { "method": "POST", "url": "{{base_url}}/v1/enroll/bulk",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"people\": [\n    {\"user_id\": \"a\", \"images\": [\"<base64>\"]}\n  ]\n}" } } },
+    { "name": "Verify (1:1)", "request": { "method": "POST", "url": "{{base_url}}/v1/verify",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"alice\",\n  \"image\": \"<base64>\"\n}" } } },
+    { "name": "Identify (1:N)", "request": { "method": "POST", "url": "{{base_url}}/v1/identify",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"image\": \"<base64>\"\n}" } } },
+    { "name": "Embed", "request": { "method": "POST", "url": "{{base_url}}/v1/embed",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"image\": \"<base64>\"\n}" } } },
+    { "name": "Compare", "request": { "method": "POST", "url": "{{base_url}}/v1/compare",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"probe\": {\"image\": \"<base64>\"},\n  \"references\": [{\"embedding\": []}],\n  \"threshold\": 0.4\n}" } } },
+    { "name": "List users", "request": { "method": "GET", "url": "{{base_url}}/v1/users" } },
+    { "name": "Delete users", "request": { "method": "POST", "url": "{{base_url}}/v1/users/delete",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"user_ids\": [\"alice\"]\n}" } } },
+    { "name": "Export user", "request": { "method": "POST", "url": "{{base_url}}/v1/users/export",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"alice\"\n}" } } }
+  ]
+}

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Verify — Offline</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; text-align: center;
+            background: radial-gradient(120% 80% at 50% -10%, #0e1726 0%, #0B1020 60%); color: #EAF0F8;
+            font: 16px/1.6 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .box { max-width: 320px; padding: 24px; }
+        h1 { font-size: 20px; margin: 0 0 8px; }
+        p { color: #9AA8BD; }
+        button { margin-top: 16px; padding: 11px 18px; border: 0; border-radius: 10px;
+            background: #6D4DE6; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>You're offline</h1>
+        <p>This device can't reach the verification server right now. Verifying a face
+           needs a connection to the server. Reconnect and try again.</p>
+        <button onclick="location.reload()">Retry</button>
+    </div>
+</body>
+</html>

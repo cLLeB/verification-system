@@ -1,0 +1,59 @@
+/* Admin console — uses the shared "Verified" design system (theme.css). */
+* { box-sizing: border-box; }
+body { margin: 0; background:
+        radial-gradient(120% 80% at 50% -10%, #0e1726 0%, var(--bg-0) 60%);
+    color: var(--fg); font-family: var(--font); -webkit-font-smoothing: antialiased;
+    font-size: 15px; line-height: 1.5; }
+.admin { max-width: 760px; margin: 0 auto; padding: 18px; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.err { color: var(--bad); min-height: 1.2em; }
+.card { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; margin: 0 0 12px; letter-spacing: -0.01em; }
+.field { width: 100%; padding: 11px 12px; margin: 6px 0; background: var(--inset);
+    border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--fg);
+    font-size: 15px; font-family: inherit; transition: border-color 180ms var(--ease); }
+.field:focus { border-color: var(--brand); outline: none; }
+.btn { padding: 11px 16px; border: 0; border-radius: var(--radius-sm); font-size: 15px;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: transform 120ms var(--ease), filter 180ms var(--ease); }
+.btn.primary { background: var(--brand-fill); color: var(--on-brand); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: var(--bg-2); color: var(--fg); }
+.btn:active { transform: translateY(1px); }
+.row { display: flex; gap: 10px; margin-top: 10px; } .row .btn { flex: 1; }
+.login { max-width: 360px; margin: 12vh auto 0; text-align: center; }
+.login h1 { color: var(--brand); }
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.bar strong { letter-spacing: -0.01em; }
+.tabs { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.tab { background: transparent; border: 1px solid var(--line); color: var(--muted);
+    padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    font-family: inherit; transition: all 180ms var(--ease); }
+.tab:hover { color: var(--txt); border-color: var(--line-strong); }
+.tab.is-active { background: var(--brand-fill); color: var(--on-brand); border-color: var(--brand-fill); }
+.video { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #000;
+    border-radius: 12px; transform: scaleX(-1); margin: 8px 0; border: 1px solid var(--line); }
+.dots { display: flex; gap: 8px; justify-content: center; margin: 6px 0; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); transition: background 180ms; }
+.dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.18); }
+.list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow: auto; }
+.item { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.item .grow { flex: 1; } .item .sub { color: var(--muted); font-size: 12px; }
+.pill { background: var(--bg-2); color: var(--brand); border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.del { background: transparent; border: 1px solid var(--bad); color: var(--bad);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; font-family: inherit; }
+.del:hover { background: rgba(251,113,133,.1); }
+.newkey { background: rgba(52,211,153,.08); border: 1px solid var(--ok); border-radius: var(--radius-sm);
+    padding: 12px; margin-top: 12px; word-break: break-all; font-family: var(--mono); font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stat { background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 16px; text-align: center; }
+.stat .n { font-size: 26px; font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.audit .item { font-family: var(--mono); font-size: 12px; }
+.tag-ok { color: var(--ok); } .tag-bad { color: var(--bad); }
