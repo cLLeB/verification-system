@@ -35,9 +35,15 @@ COPY --chown=user templates ./templates
 COPY --chown=user static ./static
 COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py openapi.yaml ./
 
-# Default state lives under the app dir (writable). In production (compose/Oracle)
-# the FACE_* env vars redirect this onto the mounted /data volume instead.
-ENV FACE_DB_PATH=/home/user/app/face_db
+# All runtime state lives under /data (writable, owned by 'user'). On compose/Oracle
+# this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).
+ENV FACE_DB_PATH=/data/face_db \
+    FACE_KEYS_FILE=/data/apikeys.json \
+    FACE_ADMINS_FILE=/data/admins.json \
+    FACE_TENANTS_FILE=/data/tenants.json \
+    FACE_USAGE_FILE=/data/usage.json \
+    FACE_AUDIT_DIR=/data/audit_logs \
+    FACE_PERSIST_DIR=/data
 
 EXPOSE 7860
 

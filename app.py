@@ -36,7 +36,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, keys, metrics, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service.v1 import bp as v1_bp
 
 _FP_TENANT = "first_party"               # audit bucket for the built-in app
@@ -179,6 +179,11 @@ if os.environ.get("FACE_LIVENESS", "0") == "0":
 # Active head-turn challenge liveness on verify — ON by default.
 if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
     CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
+
+# Restore saved state (keys, operators, templates) BEFORE anything reads it —
+# a no-op unless FACE_PERSIST_DATASET + HF_TOKEN are set (durable state on
+# ephemeral hosts like free Hugging Face Spaces).
+persistence.restore()
 
 # Mount the versioned, API-key-authenticated integration API (/v1).
 app.config["FACE_CONFIG"] = CONFIG
@@ -491,6 +496,7 @@ def api_delete_user():
 
 
 print(admin.startup_banner(), flush=True)
+persistence.start()        # begin background state sync (no-op unless configured)
 
 if __name__ == "__main__":
     print(f"[face] model_ready={MODEL_READY} liveness={CONFIG.liveness_enabled and LIVENESS_READY} "

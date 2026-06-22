@@ -8,3 +8,4 @@ flask-cors>=4.0
 cryptography>=42.0              # encrypted templates (set FACE_DB_KEY)
 gunicorn>=21.0                  # production WSGI server (Linux/containers)
 waitress>=3.0                  # production WSGI server (Windows-friendly; see serve.py)
+huggingface_hub>=0.25          # optional: durable state sync on ephemeral hosts (HF Spaces)
