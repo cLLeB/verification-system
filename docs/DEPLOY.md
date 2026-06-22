@@ -104,6 +104,30 @@ Keep `FACE_DB_KEY` somewhere separate — without it the backup can't be decrypt
 
 ---
 
+## Path C — Hugging Face Spaces (free, no card)
+
+A free Docker Space (CPU basic, 16 GB) gives a public HTTPS URL with no credit card.
+
+1. Create a **Docker** Space; add the `space` git remote with a **write token**.
+2. Deploy with the helper (squashes a clean commit without the bundled `.onnx`
+   binaries, which HF rejects): **`.\deploy-hf.ps1`**
+3. Set **Secrets** (Settings → Variables and secrets): `FACE_ADMIN_PASSWORD`,
+   `FACE_SECRET_KEY`, `FACE_DB_KEY`, and for durable state `FACE_PERSIST_DATASET`
+   (e.g. `you/faceverify-data`) + `HF_TOKEN` (write).
+4. Make the Space **Public** so customers can reach `https://<you>-<space>.hf.space`.
+
+**Persistence:** the Space disk is ephemeral, so state is auto-synced to a private
+HF Dataset on a 60 s loop and restored on boot (`face_service/persistence.py`).
+The search index isn't synced (it rebuilds from the store).
+
+**Gotcha — admin/enrol must use the direct URL.** The `huggingface.co/spaces/...`
+page embeds the app in an iframe; desktop browsers block the admin session cookie
+there, so enrolment fails. Always do admin/enrolment on the **direct**
+`https://<you>-<space>.hf.space` URL. (Verify works anywhere; a custom domain
+removes the issue entirely.)
+
+---
+
 ## Scaling note
 
 Defaults are tuned for ~100k identities per tenant (exact, 100% accurate match,

@@ -27,6 +27,9 @@ fp_db.key
 .DS_Store
 Thumbs.db
 
+# scratch screenshots dropped in the repo root
+/image*.png
+
 # SourceAFIS jars (re-fetch via Maven; see libs/README.md)
 libs/*.jar
 
