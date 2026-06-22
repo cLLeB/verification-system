@@ -33,7 +33,7 @@ COPY --chown=user face ./face
 COPY --chown=user face_service ./face_service
 COPY --chown=user templates ./templates
 COPY --chown=user static ./static
-COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py ./
+COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py openapi.yaml ./
 
 # Default state lives under the app dir (writable). In production (compose/Oracle)
 # the FACE_* env vars redirect this onto the mounted /data volume instead.
