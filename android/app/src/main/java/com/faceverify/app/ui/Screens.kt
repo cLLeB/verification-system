@@ -91,8 +91,8 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
 
         // Mode toggle
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(vm.mode == Mode.VERIFY, { vm.setMode(Mode.VERIFY) }, { Text("Verify") })
-            FilterChip(vm.mode == Mode.ENROLL, { vm.setMode(Mode.ENROLL) }, { Text("Enrol") })
+            FilterChip(vm.mode == Mode.VERIFY, { vm.selectMode(Mode.VERIFY) }, { Text("Verify") })
+            FilterChip(vm.mode == Mode.ENROLL, { vm.selectMode(Mode.ENROLL) }, { Text("Enrol") })
         }
         Spacer(Modifier.height(12.dp))
 

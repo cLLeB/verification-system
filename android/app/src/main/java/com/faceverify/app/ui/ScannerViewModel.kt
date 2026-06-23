@@ -49,7 +49,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setMode(m: Mode) {
+    fun selectMode(m: Mode) {
         mode = m; result = null; status = ""; captured = 0; livenessProgress = 0f
         liveness.reset(); captureRequested.set(false)
     }

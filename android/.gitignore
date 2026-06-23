@@ -10,3 +10,10 @@ captures/
 .cxx/
 # Bundled ArcFace model — large binary, not in git (see copy-model.ps1)
 app/src/main/assets/*.onnx
+# Release signing secrets — NEVER commit
+*.keystore
+keystore.properties
+build_log.txt
+build_release_log.txt
+# built APKs (large; distribute out-of-band)
+*.apk
