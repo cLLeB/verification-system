@@ -19,6 +19,11 @@ class PalmConfig:
     # ONNX palm-print encoder (CCNet-family, exported offline). When the file is
     # absent the modality is simply unavailable (engine.available() == False).
     model_path: str = os.path.join(os.path.dirname(__file__), "models", "palm_ccnet.onnx")
+    # Optional Hugging Face source for the CCNet ONNX (too big for git). When set and
+    # the local file is missing, the engine downloads it once on first use — so every
+    # deployment gets the trained encoder automatically (like the face model pack).
+    model_hf_repo: str = ""                  # e.g. "your-org/palm-ccnet-onnx"
+    model_hf_file: str = "palm_ccnet.onnx"
     # MediaPipe Tasks hand-landmarker model (required for palm ROI). Bundled in
     # palm/models/; override with PALM_HAND_MODEL.
     hand_model_path: str = os.path.join(os.path.dirname(__file__), "models", "hand_landmarker.task")
@@ -100,6 +105,9 @@ def load_config() -> PalmConfig:
     env_model = os.environ.get("PALM_MODEL_PATH")
     if env_model:
         cfg = replace(cfg, model_path=env_model)
+    env_hf = os.environ.get("PALM_MODEL_HF_REPO")
+    if env_hf:
+        cfg = replace(cfg, model_hf_repo=env_hf)
     env_hand = os.environ.get("PALM_HAND_MODEL")
     if env_hand:
         cfg = replace(cfg, hand_model_path=env_hand)

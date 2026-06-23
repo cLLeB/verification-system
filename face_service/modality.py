@@ -21,10 +21,13 @@ falls through to the other.
 from __future__ import annotations
 
 import dataclasses
+import json
+import os
 from typing import Optional
 
 import numpy as np
 
+from biometric import calibrate as _calibrate
 from biometric import router as _router
 from face import api as _face_api
 from face import engine as _face_engine
@@ -37,10 +40,33 @@ from palm.config import PalmConfig, load_config as _load_palm
 # Palm base config (model + thresholds); db_path is overridden to the tenant root.
 _PALM_BASE: PalmConfig = _load_palm()
 
+# Adaptive threshold: recompute from the impostor distribution as enrolments grow.
+_CALIB_FILE = "calibration.json"          # lives in the tenant's palm/ dir
+_RECAL_EVERY = 5                          # recalibrate every N newly-enrolled palm users
+_CALIB_TARGET_FAR = 0.01                  # aim: impostors accepted <= 1% of the time
+
+
+def _palm_calib_path(face_cfg: FaceConfig) -> str:
+    return os.path.join(_PALM_BASE.store_path(face_cfg.db_path) if hasattr(_PALM_BASE, "store_path")
+                        else os.path.join(face_cfg.db_path, "palm"), _CALIB_FILE)
+
+
+def _load_calibrated_threshold(face_cfg: FaceConfig) -> Optional[float]:
+    try:
+        with open(_palm_calib_path(face_cfg), "r", encoding="utf-8") as fh:
+            return float(json.load(fh).get("threshold"))
+    except (OSError, ValueError, TypeError):
+        return None
+
 
 def _palm_cfg_for(face_cfg: FaceConfig) -> PalmConfig:
-    """Palm config sharing the tenant's data root with the given face config."""
-    return dataclasses.replace(_PALM_BASE, db_path=face_cfg.db_path)
+    """Palm config sharing the tenant's data root with the given face config. Applies
+    the tenant's data-driven (auto-calibrated) threshold when one has been learned."""
+    cfg = dataclasses.replace(_PALM_BASE, db_path=face_cfg.db_path)
+    thr = _load_calibrated_threshold(face_cfg)
+    if thr is not None:
+        cfg = dataclasses.replace(cfg, match_threshold=thr)
+    return cfg
 
 
 def _no_biometric() -> dict:
@@ -110,10 +136,44 @@ def enroll(user_id: str, image: np.ndarray, face_cfg: FaceConfig,
         else:
             results["palm"] = _palm_api.enroll(user_id, image, pcfg)
     ok = any(r.get("success") for r in results.values())
+    if results.get("palm", {}).get("success"):
+        _maybe_recalibrate(face_cfg)          # tighten the palm threshold as data grows
     return {"success": ok, "code": "enrolled" if ok else "enroll_failed",
             "user_id": user_id, "modality": rr.modality,
             "enrolled_modalities": [m for m, r in results.items() if r.get("success")],
             "results": results}
+
+
+# --- adaptive threshold ----------------------------------------------------
+def recalibrate_palm(face_cfg: FaceConfig, target_far: float = _CALIB_TARGET_FAR) -> Optional[dict]:
+    """Recompute the palm accept threshold from this tenant's enrolled palms and
+    persist it next to the palm data. Returns the recommendation, or None if there
+    isn't enough data yet (in which case the current threshold stands)."""
+    pcfg = dataclasses.replace(_PALM_BASE, db_path=face_cfg.db_path)
+    store = _palm_api._store(pcfg, None)
+    rec = _calibrate.recommend_threshold(
+        ((t.user_id, t.embeddings) for t in store.iter_templates()), target_far=target_far)
+    if rec is None:
+        return None
+    path = _palm_calib_path(face_cfg)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(rec, fh)
+    except OSError:
+        pass
+    return rec
+
+
+def _maybe_recalibrate(face_cfg: FaceConfig) -> None:
+    """Recalibrate every _RECAL_EVERY enrolled palm users (cheap; runs inline)."""
+    pcfg = dataclasses.replace(_PALM_BASE, db_path=face_cfg.db_path)
+    try:
+        n = _palm_api._store(pcfg, None).count()
+    except Exception:
+        return
+    if n and n % _RECAL_EVERY == 0:
+        recalibrate_palm(face_cfg)
 
 
 # --- verify (1:1) ----------------------------------------------------------

@@ -30,15 +30,36 @@ _meta = {}                          # cached input/output tensor metadata
 _lock = threading.RLock()           # serialise model use across Flask worker threads
 
 
-def _onnx_available(cfg: PalmConfig) -> bool:
-    """True when a trained ONNX encoder is installed (the optional accuracy upgrade)."""
-    if not os.path.exists(cfg.model_path):
+def ensure_model(cfg: PalmConfig = CONFIG) -> bool:
+    """Make sure the CCNet ONNX is on disk: if it's missing but a Hugging Face repo
+    is configured, download it once. Returns True if the file is present afterward.
+    Fails soft (returns False) so a missing model never crashes — palm falls back to
+    the built-in classical encoder."""
+    if os.path.exists(cfg.model_path):
+        return True
+    if not cfg.model_hf_repo:
         return False
     try:
-        import onnxruntime  # noqa: F401
+        from huggingface_hub import hf_hub_download
+        os.makedirs(os.path.dirname(cfg.model_path), exist_ok=True)
+        path = hf_hub_download(repo_id=cfg.model_hf_repo, filename=cfg.model_hf_file)
+        import shutil
+        shutil.copyfile(path, cfg.model_path)
         return True
     except Exception:
         return False
+
+
+def _onnx_available(cfg: PalmConfig) -> bool:
+    """True when a trained ONNX encoder is usable (installed, or downloadable from a
+    configured Hugging Face repo). The optional accuracy upgrade over classical."""
+    try:
+        import onnxruntime  # noqa: F401
+    except Exception:
+        return False
+    if os.path.exists(cfg.model_path):
+        return True
+    return bool(cfg.model_hf_repo)            # will be fetched lazily by ensure_model
 
 
 def available(cfg: PalmConfig = CONFIG) -> bool:
@@ -65,8 +86,9 @@ def _ensure(cfg: PalmConfig):
     with _lock:
         if _session is None:
             import onnxruntime as ort
-            if not os.path.exists(cfg.model_path):
-                raise PalmError("Palm model not installed on the server.", code="palm_unavailable")
+            if not ensure_model(cfg):          # download from HF if configured + missing
+                raise PalmError("Palm model not installed (and no HF source configured).",
+                                code="palm_unavailable")
             sess = ort.InferenceSession(cfg.model_path, providers=list(cfg.providers))
             inp = sess.get_inputs()[0]
             out = sess.get_outputs()[0]

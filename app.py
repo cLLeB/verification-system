@@ -380,6 +380,24 @@ def admin_tenant_entitlement():
     return jsonify({"success": True, **out})
 
 
+@app.route("/admin/api/palm/calibrate", methods=["POST"])
+@admin.require_admin
+def admin_palm_calibrate():
+    """Recompute a tenant's palm accept threshold from its enrolled palms (adaptive,
+    impostor-driven). Also runs automatically as palms enrol; this is the manual hook."""
+    from face_service import modality as _modality
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "").strip()
+    if not tenant:
+        return jsonify({"success": False, "message": "tenant required."}), 400
+    face_cfg = dataclasses.replace(CONFIG, db_path=os.path.join(CONFIG.db_path, "tenants", tenant))
+    rec = _modality.recalibrate_palm(face_cfg, target_far=float(data.get("target_far", 0.01)))
+    audit.log(_FP_TENANT, "palm_calibrate", actor=g.get("admin_user", "admin"),
+              user_id=tenant, success=rec is not None, detail=str(rec))
+    return jsonify({"success": rec is not None, "tenant": tenant, "calibration": rec,
+                    "message": "Calibrated." if rec else "Not enough palm enrolments yet."})
+
+
 @app.route("/admin/api/tenants/portal-password", methods=["POST"])
 @admin.require_admin
 def admin_tenant_portal_password():

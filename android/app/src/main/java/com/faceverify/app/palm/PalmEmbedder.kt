@@ -10,12 +10,13 @@ import java.nio.FloatBuffer
 import kotlin.math.sqrt
 
 /** Palm-print embedding on-device via ONNX Runtime Mobile. Input: a normalised
- *  ROI_SIZE×ROI_SIZE palm crop (RGB, [0,1], NCHW). Output: an L2-normalised
- *  EMBED_DIM-d embedding. Mirrors the server's palm/engine.py preprocessing.
+ *  ROI_SIZE×ROI_SIZE palm crop, **grayscale, [0,1], NCHW (1 channel)** — matching the
+ *  CCNet `getFeatureCode` export (1×1×128×128). Output: an L2-normalised embedding.
+ *  Mirrors the server's palm/engine.py preprocessing for the CCNet encoder.
  *
  *  The model is a CCNet-family palm-print encoder exported to ONNX (see
- *  assets/README_PALM_MODEL.md). When the asset is absent, [load] throws and the
- *  palm modality is simply unavailable — the face app is unaffected. */
+ *  assets/README_PALM_MODEL.md). When the asset is absent, [load] throws and palm
+ *  falls back to the built-in PalmGabor encoder — the face app is unaffected. */
 class PalmEmbedder private constructor(
     private val env: OrtEnvironment,
     private val session: OrtSession,
@@ -26,23 +27,15 @@ class PalmEmbedder private constructor(
     fun embed(roi: Bitmap): FloatArray {
         val px = IntArray(dim * dim)
         roi.getPixels(px, 0, dim, 0, 0, dim, dim)
-        val buf = FloatBuffer.allocate(3 * dim * dim)
+        val buf = FloatBuffer.allocate(dim * dim)        // 1 channel (grayscale)
         val arr = buf.array()
-        val plane = dim * dim
-        for (y in 0 until dim) {
-            for (x in 0 until dim) {
-                val p = px[y * dim + x]
-                val r = ((p shr 16) and 0xFF)
-                val g = ((p shr 8) and 0xFF)
-                val b = (p and 0xFF)
-                val idx = y * dim + x
-                arr[idx] = r / 255f                    // R plane, [0,1]
-                arr[plane + idx] = g / 255f            // G plane
-                arr[2 * plane + idx] = b / 255f        // B plane
-            }
+        for (i in px.indices) {
+            val p = px[i]
+            val lum = 0.299f * ((p shr 16) and 0xFF) + 0.587f * ((p shr 8) and 0xFF) + 0.114f * (p and 0xFF)
+            arr[i] = lum / 255f                          // [0,1]
         }
         buf.rewind()
-        val shape = longArrayOf(1, 3, dim.toLong(), dim.toLong())
+        val shape = longArrayOf(1, 1, dim.toLong(), dim.toLong())
         return OnnxTensor.createTensor(env, buf, shape).use { input ->
             session.run(mapOf(inputName to input)).use { result ->
                 @Suppress("UNCHECKED_CAST")

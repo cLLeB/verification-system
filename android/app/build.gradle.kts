@@ -83,8 +83,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
-    // The ArcFace .onnx in assets is already compressed-ish; don't let AAPT recompress it.
-    androidResources { noCompress += "onnx" }
+    // The .onnx (ArcFace + CCNet) and .task (MediaPipe Hands) assets must stay
+    // uncompressed so they can be mmap'd at runtime; don't let AAPT recompress them.
+    androidResources { noCompress += listOf("onnx", "task") }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
