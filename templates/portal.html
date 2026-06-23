@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0B1020">
+    <title>Face Verify — Developer Portal</title>
+    <link rel="stylesheet" href="/static/theme.css?v=1">
+    <link rel="stylesheet" href="/static/admin.css?v=3">
+</head>
+<body>
+<main class="admin">
+    <!-- Login gate -->
+    <section id="login" class="card login hidden">
+        <h1>Developer Portal</h1>
+        <p class="muted">Sign in with the tenant id and password your provider gave you to
+            manage your own API keys.</p>
+        <input id="tenant" class="field" type="text" placeholder="Tenant id" autocomplete="username">
+        <input id="pw" class="field" type="password" placeholder="Password" autocomplete="current-password">
+        <button id="login-btn" class="btn primary">Sign in</button>
+        <p id="login-err" class="err"></p>
+    </section>
+
+    <!-- Portal -->
+    <section id="console" class="hidden">
+        <header class="bar">
+            <strong>Face Verify · Developer Portal</strong>
+            <span id="who" class="muted"></span>
+            <button id="logout-btn" class="btn ghost">Sign out</button>
+        </header>
+
+        <div class="panel">
+            <div class="card" id="ent-card">
+                <h2>Your plan</h2>
+                <div class="stats" id="ent-stats"></div>
+                <p id="disabled-note" class="err hidden">Your account is disabled — you can't
+                    create keys until the provider re-activates it. Existing keys won't work either.</p>
+            </div>
+
+            <div class="card">
+                <h2>Create API keys</h2>
+                <p class="muted">Keys are shown once — download them now. Give browser/kiosk apps a
+                    <b>verify</b> key; keep <b>admin</b> keys on your server.</p>
+                <input id="key-name" class="field" type="text" placeholder="Label (e.g. Kiosk 1)">
+                <div class="row">
+                    <input id="key-admin-n" class="field" type="number" min="0" value="0" placeholder="# admin (full)">
+                    <input id="key-verify-n" class="field" type="number" min="0" value="1" placeholder="# verify-only">
+                </div>
+                <button id="key-create" class="btn primary">Create keys</button>
+                <div id="key-new" class="newkey hidden"></div>
+            </div>
+
+            <div class="card">
+                <h2>Your keys</h2>
+                <div id="keys-list" class="list"></div>
+            </div>
+        </div>
+    </section>
+</main>
+<script src="/static/portal.js?v=1"></script>
+</body>
+</html>

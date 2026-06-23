@@ -11,6 +11,9 @@ without a restart.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -90,6 +93,64 @@ def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
             rec["allowed_roles"] = [r for r in allowed_roles if r in ("admin", "verify")] or list(_DEFAULT_ROLES)
         _save(data)
     return entitlement(tenant)
+
+
+def can_mint(tenant: str, roles: list, adding: int, current_count: int):
+    """Policy shared by the admin console and the tenant self-service portal: may
+    this tenant be granted ``adding`` more keys of ``roles``? Returns (ok, message).
+    (Does not check ``enabled`` — callers decide if a disabled tenant may still mint;
+    the portal blocks it, admin provisioning does not.)"""
+    if not tenant:
+        return True, ""
+    ent = entitlement(tenant)
+    for r in roles:
+        if r not in ent["allowed_roles"]:
+            return False, (f"Tenant '{tenant}' is not permitted to hold '{r}' keys "
+                           f"(allowed: {', '.join(ent['allowed_roles'])}).")
+    if ent["max_keys"] and current_count + adding > ent["max_keys"]:
+        return False, (f"Key limit reached ({ent['max_keys']}). "
+                       f"Revoke unused keys or ask the provider to raise the limit.")
+    return True, ""
+
+
+# --- tenant self-service portal login (separate from the platform admin) -----
+_PW_ITER = 200_000
+
+
+def _pw_hash(pw: str, salt: bytes = None) -> str:
+    salt = salt or os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), salt, _PW_ITER)
+    return base64.b64encode(salt).decode() + ":" + base64.b64encode(dk).decode()
+
+
+def _pw_check(pw: str, stored: str) -> bool:
+    try:
+        s, d = stored.split(":")
+        dk = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), base64.b64decode(s), _PW_ITER)
+        return hmac.compare_digest(dk, base64.b64decode(d))
+    except Exception:
+        return False
+
+
+def set_portal_password(tenant: str, password: str) -> bool:
+    """Admin sets/resets a tenant's portal login password (PBKDF2-hashed)."""
+    if not tenant or not password:
+        return False
+    with _lock:
+        data = _load()
+        data.setdefault(tenant, {})["portal_pw"] = _pw_hash(password)
+        _save(data)
+    return True
+
+
+def has_portal_login(tenant: str) -> bool:
+    return bool((_load().get(tenant) or {}).get("portal_pw"))
+
+
+def check_portal_password(tenant: str, password: str) -> bool:
+    rec = _load().get((tenant or "").strip()) or {}
+    h = rec.get("portal_pw")
+    return bool(h) and _pw_check(password, h)
 
 
 def remove(tenant: str) -> bool:

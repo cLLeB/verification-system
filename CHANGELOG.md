@@ -4,6 +4,11 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Tenant self-service developer portal** (`/portal`) — a company signs in with a
+  tenant-scoped password (the admin sets it) and mints/rotates/revokes **its own** API
+  keys within the admin-granted entitlement (enabled / max_keys / allowed_roles). It only
+  ever sees and acts on its own keys; disabled accounts can't mint (402). Separate signed
+  session from the platform admin. (`face_service/portal.py`, `templates/portal.html`)
 - **Tenant entitlements + API-key lifecycle** — per-tenant `enabled`/`plan`/`max_keys`/
   `allowed_roles` set by admin (the paywall hook: disabled tenant → `402` on every `/v1`
   call). Bulk key mint ("1 admin + N verify"), console listing **grouped by tenant** with

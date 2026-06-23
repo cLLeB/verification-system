@@ -44,6 +44,16 @@ Every response includes an `X-Request-ID` (quote it in support) and `X-RateLimit
 
 ---
 
+## Getting & managing your keys (developer portal)
+
+Your provider gives you a **tenant id** and a **portal password**. Sign in at **`/portal`**
+to mint, download, and revoke your **own** API keys — within the plan limits the provider
+set (max keys, which roles you may use). Keys are shown **once**; download them (per key or
+the whole batch as JSON/CSV) at creation. Give browser/kiosk apps a `verify` key and keep
+`admin` keys on your server. You only ever see your own keys; if your account is disabled,
+the API returns `402` until it's re-activated. (Providers can also mint keys for you from
+the admin console.)
+
 ## 2A. Managed flow
 
 ```bash

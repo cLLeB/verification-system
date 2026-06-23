@@ -36,6 +36,11 @@ without it, encrypted backups can't be decrypted.
   - `verify` — recognition only (verify/identify/embed/compare); cannot write.
   Give browser/kiosk clients a `verify` key; keep `admin` keys server-side.
   Keys carry a `key_id`, optional expiry, and per-key revoke. (`face_service/keys.py`, `auth.py`)
+- **Tenant self-service portal (`/portal`)** — companies sign in with a tenant-scoped
+  password the admin sets and manage **only their own** keys, within their entitlement
+  (separate signed session from the platform admin; ownership-checked revoke; disabled →
+  402). The platform admin grants access & limits; the tenant operates day-to-day — so a
+  compromised platform admin can't fabricate access for others. (`face_service/portal.py`)
 - **First-party app** — verification is open (a walk-up kiosk); **enrolment & management
   require an admin login** (operator accounts with PBKDF2-hashed passwords, or a bootstrap
   `FACE_ADMIN_PASSWORD`). Sessions are signed, time-limited cookies (`itsdangerous`,

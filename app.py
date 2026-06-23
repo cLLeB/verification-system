@@ -38,6 +38,7 @@ from face.config import load_config
 from face.storage import FaceStore
 from face_service import admin, admins, audit, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service.v1 import bp as v1_bp
+from face_service.portal import portal_bp
 
 _FP_TENANT = "first_party"               # audit bucket for the built-in app
 
@@ -202,6 +203,7 @@ persistence.restore()
 # Mount the versioned, API-key-authenticated integration API (/v1).
 app.config["FACE_CONFIG"] = CONFIG
 app.register_blueprint(v1_bp)
+app.register_blueprint(portal_bp)
 
 ENCRYPTED_AT_REST = FaceStore(CONFIG).encrypted
 SIGNING_SECRET = os.environ.get("FACE_SIGNING_SECRET", "")
@@ -310,19 +312,10 @@ def admin_keys_list():
 
 
 def _entitlement_block(tenant: str, roles: list, adding: int):
-    """Enforce a tenant's entitlement when minting keys: role must be allowed and the
-    new total must not exceed max_keys (0 = unlimited). Returns an error dict or None."""
-    if not tenant:
-        return None                          # brand-new auto-tenant: no limits yet
-    ent = tenants.entitlement(tenant)
-    for r in roles:
-        if r not in ent["allowed_roles"]:
-            return {"success": False, "message": f"Tenant '{tenant}' is not permitted "
-                    f"to hold '{r}' keys (allowed: {', '.join(ent['allowed_roles'])})."}
-    if ent["max_keys"] and keys.count_for(tenant) + adding > ent["max_keys"]:
-        return {"success": False, "message": f"Tenant '{tenant}' key limit reached "
-                f"({ent['max_keys']}). Raise max_keys or revoke unused keys."}
-    return None
+    """Admin-side check when minting keys (role allowed + within max_keys). Returns an
+    error dict or None. Shares the policy with the tenant portal via tenants.can_mint."""
+    ok, msg = tenants.can_mint(tenant, roles, adding, keys.count_for(tenant))
+    return None if ok else {"success": False, "message": msg}
 
 
 @app.route("/admin/api/keys", methods=["POST"])
@@ -383,6 +376,21 @@ def admin_tenant_entitlement():
     audit.log(_FP_TENANT, "tenant_entitlement", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True, detail=str(out))
     return jsonify({"success": True, **out})
+
+
+@app.route("/admin/api/tenants/portal-password", methods=["POST"])
+@admin.require_admin
+def admin_tenant_portal_password():
+    """Set/reset a tenant's self-service portal login password (admin grants access)."""
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "").strip()
+    password = data.get("password") or ""
+    if not tenant or len(password) < 6:
+        return jsonify({"success": False, "message": "tenant and a password (≥6 chars) required."}), 400
+    tenants.set_portal_password(tenant, password)
+    audit.log(_FP_TENANT, "tenant_portal_password", actor=g.get("admin_user", "admin"),
+              user_id=tenant, success=True, detail="portal password set")
+    return jsonify({"success": True, "tenant": tenant, "portal_url": "/portal"})
 
 
 @app.route("/admin/api/tenants/offboard", methods=["POST"])

@@ -1,7 +1,10 @@
 # Tenant Isolation, Entitlements & API-Key Lifecycle
 
 **Date:** 2026-06-23
-**Status:** Phase A implemented 2026-06-23. Self-service portal + off-box KEK remain later phases.
+**Status:** Phase A implemented 2026-06-23. **Tenant self-service portal also implemented
+2026-06-23** (`/portal`, `face_service/portal.py`). Off-box KEK/KMS and real billing remain
+deliberately out (KMS disproportionate for a single host; billing needs a payment provider —
+the `enabled` flag is the hook a biller flips).
 
 ## Problem / context
 

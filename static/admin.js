@@ -235,6 +235,18 @@ $('ent-save').onclick = async () => {
         ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')}`
         : (d.message || 'Failed');
 };
+$('ent-portal-set').onclick = async () => {
+    const tenant = $('ent-tenant').value.trim();
+    const pw = $('ent-portal-pw').value;
+    if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
+    if (!pw || pw.length < 6) { $('ent-msg').textContent = 'Portal password must be ≥6 chars.'; return; }
+    const d = await api('/admin/api/tenants/portal-password', { method: 'POST',
+        body: JSON.stringify({ tenant, password: pw }) });
+    $('ent-portal-pw').value = '';
+    $('ent-msg').textContent = d.success
+        ? `Portal login set for ${tenant}. They sign in at ${location.origin}/portal with tenant id "${tenant}".`
+        : (d.message || 'Failed');
+};
 $('ent-offboard').onclick = async () => {
     const tenant = $('ent-tenant').value.trim();
     if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
