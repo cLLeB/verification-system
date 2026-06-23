@@ -3,7 +3,12 @@
 
 # --- Face recognition (current focus) ---
 insightface>=0.7        # ArcFace embeddings + face detection (buffalo_l model pack)
-onnxruntime>=1.16       # CPU inference for the InsightFace ONNX models (no GPU needed)
+onnxruntime>=1.16       # CPU inference for the InsightFace/CCNet ONNX models (no GPU)
+
+# --- Palm recognition (second modality) ---
+mediapipe>=0.10.18      # hand-landmark detection (Tasks API) for palm ROI extraction
+                        # (palm recognition itself uses the built-in Gabor encoder;
+                        #  a trained CCNet->ONNX is an optional accuracy upgrade)
 
 # --- Shared ---
 opencv-contrib-python>=4.8

@@ -9,6 +9,18 @@ The same ArcFace model we use server-side runs on a phone. Nothing here requires
 server in principle; the server design was chosen for *central management and
 multi-app integration*, not because on-device is infeasible.
 
+## Palm modality (on-device, auto-routed)
+
+The app recognises **face and palm**, auto-detected — the user never chooses.
+`ModalityRouter` runs a face-first short-circuit, routing each frame to the face or
+palm pipeline. Palm uses **MediaPipe Hands** (`hand_landmarker.task`) for ROI
+extraction (`PalmRoi`), a **CCNet-family ONNX** encoder (`PalmEmbedder`), the shared
+`Matcher`, and its **own encrypted store** (`palmverify.db`, `PalmRepository`) kept
+isolated from face. Two assets are required (`hand_landmarker.task` + `palm_ccnet.onnx`);
+without them, `PalmEngine.available()` is false and the app runs face-only. See
+`app/src/main/assets/README_PALM_MODEL.md`. Tuning mirrors the server in
+`PalmConfig` (↔ `palm/config.py`).
+
 ## Architecture (on-device)
 
 | Concern | Server today | On-device Android |

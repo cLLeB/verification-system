@@ -51,6 +51,9 @@ _DEFAULT_PLAN = "standard"
 _DEFAULT_MAX_KEYS = 0                     # 0 = unlimited
 _DEFAULT_ROLES = ["admin", "verify"]
 _DEFAULT_ALLOW_EXPORT = False             # template (embedding) export off unless opted in
+_DEFAULT_PALM_ENABLED = True              # palm modality available to the tenant
+_DEFAULT_MATCH_POLICY = "or"              # how face+palm combine: or | fallback | and
+_MATCH_POLICIES = ("or", "fallback", "and")
 
 
 def get(tenant: str) -> dict:
@@ -64,7 +67,9 @@ def get(tenant: str) -> dict:
             "plan": rec.get("plan", _DEFAULT_PLAN),
             "max_keys": int(rec.get("max_keys", _DEFAULT_MAX_KEYS)),
             "allowed_roles": rec.get("allowed_roles", list(_DEFAULT_ROLES)),
-            "allow_export": rec.get("allow_export", _DEFAULT_ALLOW_EXPORT)}
+            "allow_export": rec.get("allow_export", _DEFAULT_ALLOW_EXPORT),
+            "palm_enabled": rec.get("palm_enabled", _DEFAULT_PALM_ENABLED),
+            "match_policy": rec.get("match_policy", _DEFAULT_MATCH_POLICY)}
 
 
 def entitlement(tenant: str) -> dict:
@@ -72,7 +77,8 @@ def entitlement(tenant: str) -> dict:
     t = get(tenant)
     return {"tenant": tenant, "enabled": t["enabled"], "plan": t["plan"],
             "max_keys": t["max_keys"], "allowed_roles": t["allowed_roles"],
-            "allow_export": t["allow_export"]}
+            "allow_export": t["allow_export"], "palm_enabled": t["palm_enabled"],
+            "match_policy": t["match_policy"]}
 
 
 def is_enabled(tenant: str) -> bool:
@@ -80,10 +86,13 @@ def is_enabled(tenant: str) -> bool:
 
 
 def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
-                    allowed_roles=None, allow_export=None) -> dict:
+                    allowed_roles=None, allow_export=None, palm_enabled=None,
+                    match_policy=None) -> dict:
     """Admin sets a tenant's 'green light' + constraints. The paywall hook: flip
     ``enabled`` (or a future billing check) to gate all API access instantly.
-    ``allow_export`` opts the tenant into letting devices pull templates for offline sync."""
+    ``allow_export`` opts the tenant into letting devices pull templates for offline sync.
+    ``palm_enabled`` toggles the palm modality; ``match_policy`` (or|fallback|and) sets
+    how face and palm combine when a user has both enrolled."""
     with _lock:
         data = _load()
         rec = data.setdefault(tenant, {})
@@ -97,6 +106,11 @@ def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
             rec["allowed_roles"] = [r for r in allowed_roles if r in ("admin", "verify")] or list(_DEFAULT_ROLES)
         if allow_export is not None:
             rec["allow_export"] = bool(allow_export)
+        if palm_enabled is not None:
+            rec["palm_enabled"] = bool(palm_enabled)
+        if match_policy is not None:
+            mp = str(match_policy).strip().lower()
+            rec["match_policy"] = mp if mp in _MATCH_POLICIES else _DEFAULT_MATCH_POLICY
         _save(data)
     return entitlement(tenant)
 

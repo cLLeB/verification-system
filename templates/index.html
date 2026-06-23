@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=12">
+    <link rel="stylesheet" href="/static/app.css?v=13">
 </head>
 <body>
     <main class="app">
@@ -76,7 +76,12 @@
             </div>
         </section>
 
-        <p class="hint" id="hint">Center your face in the circle, then tap Verify</p>
+        <div class="device-tip hidden" id="device-tip" role="note">
+            <span id="device-tip-text"></span>
+            <button class="btn btn-ghost btn-sm" id="device-tip-action" hidden></button>
+            <button class="device-tip-x" id="device-tip-dismiss" aria-label="Dismiss tip">×</button>
+        </div>
+        <p class="hint" id="hint">Show your face — or your open palm — then tap Verify</p>
         <div class="actions" id="actions">
             <button class="btn btn-primary" id="capture-btn">Verify</button>
         </div>
@@ -84,6 +89,7 @@
     </main>
 
     <canvas id="canvas" hidden></canvas>
-    <script src="/static/app.js?v=11"></script>
+    <script src="/static/device.js?v=1"></script>
+    <script src="/static/app.js?v=14"></script>
 </body>
 </html>

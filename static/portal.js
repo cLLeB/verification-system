@@ -31,13 +31,23 @@ $('login-btn').onclick = async () => {
 };
 $('logout-btn').onclick = async () => { await api('/portal/logout', { method: 'POST' }); show('login'); };
 
+const policySave = $('policy-save');
+if (policySave) policySave.onclick = async () => {
+    const d = await api('/portal/api/match-policy', { method: 'POST',
+        body: JSON.stringify({ match_policy: $('match-policy').value }) });
+    if (d && d.success) policySave.textContent = `Saved (${d.match_policy})`;
+};
+
 function renderEntitlement(e) {
     const remaining = e.max_keys ? `${e.remaining} of ${e.max_keys} left` : 'unlimited';
     $('ent-stats').innerHTML = `
         <div class="stat"><div class="n">${e.enabled ? 'Active' : 'Disabled'}</div><div class="l">status</div></div>
         <div class="stat"><div class="n">${e.plan}</div><div class="l">plan</div></div>
         <div class="stat"><div class="n">${e.used}</div><div class="l">keys in use</div></div>
-        <div class="stat"><div class="n">${e.max_keys || '∞'}</div><div class="l">max keys</div></div>`;
+        <div class="stat"><div class="n">${e.max_keys || '∞'}</div><div class="l">max keys</div></div>
+        <div class="stat"><div class="n">${e.palm_enabled ? 'On' : 'Off'}</div><div class="l">palm</div></div>`;
+    const policy = $('match-policy');
+    if (policy && e.match_policy) policy.value = e.match_policy;
     $('disabled-note').classList.toggle('hidden', e.enabled);
     // limit the create form to what the plan allows
     $('key-admin-n').disabled = !e.allowed_roles.includes('admin') || !e.enabled;

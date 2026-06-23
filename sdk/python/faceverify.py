@@ -1,12 +1,17 @@
-"""Face Verification Backbone — Python SDK (zero dependencies, stdlib only).
+"""Biometric Verification Backbone — Python SDK (zero dependencies, stdlib only).
+
+Face AND palm in one API: the server AUTO-DETECTS whether each image is a face or a
+palm and routes it — you never declare the modality. A user can enrol either or both
+under one ``user_id``; presenting either one verifies them ("a match is a match").
 
     from faceverify import FaceVerifyClient
     fv = FaceVerifyClient("https://your-host:5000", "fk_yourkey")
 
-    # Managed
-    fv.enroll("alice", ["a1.jpg", "a2.jpg", "a3.jpg"])
-    r = fv.verify("alice", "probe.jpg")
-    if r["success"]: ...                      # granted
+    # Managed — image can be a face or a palm; auto-detected.
+    fv.enroll("alice", ["a1.jpg", "a2.jpg", "a3.jpg"])   # faces
+    fv.enroll("alice", ["palm1.jpg"])                    # ...also her palm, same id
+    r = fv.verify("alice", "probe.jpg")                  # face OR palm
+    if r["success"]: ...                      # granted (r["modality"] tells you which)
 
     # Stateless (you keep the data)
     vec = fv.embed("face.jpg")["embedding"]   # store this 512-d vector yourself
@@ -86,8 +91,11 @@ class FaceVerifyClient:
         return {"image": _to_b64(item)}
 
     # --- stateless ---------------------------------------------------------
-    def embed(self, image: Image) -> dict:
-        return self._call("POST", "/v1/embed", {"image": _to_b64(image)})
+    def embed(self, image: Image, modality: Optional[str] = None) -> dict:
+        body = {"image": _to_b64(image)}
+        if modality:
+            body["modality"] = modality
+        return self._call("POST", "/v1/embed", body)
 
     def compare(self, probe: Union[Image, dict], references: List, threshold: Optional[float] = None) -> dict:
         body = {"probe": self._ref(probe), "references": [self._ref(r) for r in references]}
@@ -96,9 +104,17 @@ class FaceVerifyClient:
         return self._call("POST", "/v1/compare", body)
 
     # --- managed -----------------------------------------------------------
-    def enroll(self, user_id: str, images: Union[Image, List[Image]]) -> dict:
+    def enroll(self, user_id: str, images: Union[Image, List[Image]],
+               modality: Optional[str] = None) -> dict:
+        """Enrol a user from one or more images. By default the server AUTO-DETECTS
+        whether each image is a face or a palm and routes it accordingly — the same
+        ``user_id`` can hold both. Pass ``modality='face'|'palm'`` only to pin it
+        (e.g. enrolling a combined photo as just one modality)."""
         imgs = images if isinstance(images, list) else [images]
-        return self._call("POST", "/v1/enroll", {"user_id": user_id, "images": [_to_b64(i) for i in imgs]})
+        body = {"user_id": user_id, "images": [_to_b64(i) for i in imgs]}
+        if modality:
+            body["modality"] = modality
+        return self._call("POST", "/v1/enroll", body)
 
     def enroll_bulk(self, people: List[dict]) -> dict:
         """Enrol many at once. Each entry: {"user_id", "images":[...]} or
@@ -113,11 +129,21 @@ class FaceVerifyClient:
             out.append(entry)
         return self._call("POST", "/v1/enroll/bulk", {"people": out})
 
-    def verify(self, user_id: str, image: Image) -> dict:
-        return self._call("POST", "/v1/verify", {"user_id": user_id, "image": _to_b64(image)})
+    def verify(self, user_id: str, image: Image, modality: Optional[str] = None) -> dict:
+        """1:1 verify. The server auto-detects face vs palm in ``image``; whichever
+        the user enrolled with (or either, if both) confirms them. ``modality`` pins it."""
+        body = {"user_id": user_id, "image": _to_b64(image)}
+        if modality:
+            body["modality"] = modality
+        return self._call("POST", "/v1/verify", body)
 
-    def identify(self, image: Image) -> dict:
-        return self._call("POST", "/v1/identify", {"image": _to_b64(image)})
+    def identify(self, image: Image, modality: Optional[str] = None) -> dict:
+        """1:N identify. Auto-detects face vs palm; returns the matched ``user_id``
+        and ``modality``. A match is a match either way."""
+        body = {"image": _to_b64(image)}
+        if modality:
+            body["modality"] = modality
+        return self._call("POST", "/v1/identify", body)
 
     def verify_live(self, frames: List[Image], token: str, user_id: str = "") -> dict:
         body = {"frames": [_to_b64(f) for f in frames], "token": token}

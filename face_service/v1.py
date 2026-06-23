@@ -40,7 +40,7 @@ from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
 from .auth import require_key, require_scope
-from . import audit, tenants, usage, webhooks
+from . import audit, modality as _modality, tenants, usage, webhooks
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -149,14 +149,16 @@ def embed():
     img = _decode(data.get("image", ""))
     if img is None:
         return _err("Failed to decode 'image'.")
-    try:
-        d = _engine.detect(img, cfg)
-    except FaceError as exc:
-        return jsonify({"success": False, "code": exc.code, "message": exc.message})
-    out = {"success": True, "embedding": [round(float(x), 6) for x in d.embedding.tolist()],
-           "det_score": round(d.det_score, 3), "face_px": d.face_px, "dims": int(d.embedding.shape[0])}
-    if cfg.attributes:
-        out["age"], out["gender"] = d.age, d.gender
+    settings = tenants.get(g.tenant)
+    modality_override = (data.get("modality") or "").strip().lower() or None
+    out = _modality.embed(img, cfg, settings["palm_enabled"],
+                          modality=modality_override)
+    if out.get("success") and out.get("modality") == "face" and cfg.attributes:
+        try:
+            d = _engine.detect(img, cfg)
+            out["age"], out["gender"] = d.age, d.gender
+        except FaceError:
+            pass
     return jsonify(out)
 
 
@@ -191,21 +193,32 @@ def enroll():
     data = request.get_json(silent=True) or {}
     if getattr(g, "sandbox", False):
         return jsonify(_sandbox("enroll", data))
-    store = _store(cfg)
     user_id = (data.get("user_id") or "").strip()
     images = data.get("images") or ([data["image"]] if data.get("image") else [])
     source = (data.get("source") or "auto").lower()
     if source not in ("auto", "live", "id"):
         source = "auto"
+    modality_override = (data.get("modality") or "").strip().lower() or None
+    settings = tenants.get(g.tenant)
     if not user_id:
         return _err("'user_id' is required.")
     if not images:
         return _err("'image' or 'images' is required.")
+    # Auto-route every image (face vs palm vs both); a face+palm shot enrols both
+    # under this user_id. ``modality`` pins it when the caller wants to.
     results = []
     for b in images:
         img = _decode(b)
-        results.append(_api.enroll(user_id, img, cfg, store, source=source) if img is not None
-                       else {"success": False, "message": "decode failed"})
+        if img is None:
+            results.append({"success": False, "message": "decode failed"})
+            continue
+        out = _modality.enroll(user_id, img, cfg, settings["palm_enabled"],
+                               modality=modality_override, source=source)
+        if out.get("results"):
+            results.extend(out["results"].values())
+        else:
+            results.append({"success": False, "code": out.get("code"),
+                            "message": out.get("message")})
     ok = sum(1 for r in results if r.get("success"))
     id_sourced = sum(1 for r in results if r.get("source") == "id_document")
     audit.log(g.tenant, "enroll", actor=g.key_name, user_id=user_id,
@@ -268,6 +281,8 @@ def enroll_bulk():
 
 
 def _verify_dispatch(cfg, store, data, user_id):
+    # Active-liveness head-turn burst is a face-specific challenge — keep it on the
+    # face path unchanged.
     frames = data.get("frames")
     if cfg.active_liveness and frames:
         if not _active.valid_token(data.get("token", "")):
@@ -279,7 +294,15 @@ def _verify_dispatch(cfg, store, data, user_id):
     img = _decode(data.get("image", ""))
     if img is None:
         return {"success": False, "message": "'image' or 'frames' is required."}
-    return _api.verify(user_id, img, cfg, store) if user_id else _api.identify(img, cfg, store)
+    # Single-shot: auto-route the image to face or palm (the caller never declares
+    # which) and apply the tenant's match policy.
+    settings = tenants.get(g.tenant)
+    modality_override = (data.get("modality") or "").strip().lower() or None
+    if user_id:
+        return _modality.verify(user_id, img, cfg, settings["palm_enabled"],
+                                settings["match_policy"], modality=modality_override)
+    return _modality.identify(img, cfg, settings["palm_enabled"],
+                              settings["match_policy"], modality=modality_override)
 
 
 @bp.post("/verify")
@@ -293,7 +316,8 @@ def verify():
     uid = (data.get("user_id") or "").strip()
     out = _verify_dispatch(cfg, _store(cfg), data, uid)
     audit.log(g.tenant, "verify", actor=g.key_name, user_id=out.get("user_id") or uid,
-              success=bool(out.get("success")), detail=f"score={out.get('score')}")
+              success=bool(out.get("success")),
+              detail=f"modality={out.get('modality')} score={out.get('score')}")
     webhooks.fire(g.tenant, "verify", {"user_id": out.get("user_id") or uid,
                                        "success": bool(out.get("success")), "score": out.get("score"),
                                        "request_id": getattr(g, "request_id", "")})
@@ -310,7 +334,8 @@ def identify():
         return jsonify(_sandbox("identify", data))
     out = _verify_dispatch(cfg, _store(cfg), data, "")
     audit.log(g.tenant, "identify", actor=g.key_name, user_id=out.get("user_id"),
-              success=bool(out.get("success")), detail=f"score={out.get('score')}")
+              success=bool(out.get("success")),
+              detail=f"modality={out.get('modality')} score={out.get('score')}")
     webhooks.fire(g.tenant, "identify", {"user_id": out.get("user_id"),
                                          "success": bool(out.get("success")), "score": out.get("score"),
                                          "request_id": getattr(g, "request_id", "")})

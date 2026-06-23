@@ -228,12 +228,15 @@ $('ent-save').onclick = async () => {
     const tenant = $('ent-tenant').value.trim();
     if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
     const roles = $('ent-roles').value.trim();
+    const palmEl = $('ent-palm'), policyEl = $('ent-policy');
     const d = await api('/admin/api/tenants/entitlement', { method: 'POST', body: JSON.stringify({
         tenant, enabled: $('ent-enabled').checked, plan: $('ent-plan').value.trim() || undefined,
         max_keys: parseInt($('ent-maxkeys').value || '0', 10), allowed_roles: roles || undefined,
-        allow_export: $('ent-export').checked }) });
+        allow_export: $('ent-export').checked,
+        palm_enabled: palmEl ? palmEl.checked : undefined,
+        match_policy: policyEl ? policyEl.value : undefined }) });
     $('ent-msg').textContent = d.success
-        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')} · export ${d.allow_export ? 'ON' : 'off'}`
+        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')} · export ${d.allow_export ? 'ON' : 'off'} · palm ${d.palm_enabled ? 'ON' : 'off'} · policy ${d.match_policy}`
         : (d.message || 'Failed');
 };
 $('ent-portal-set').onclick = async () => {

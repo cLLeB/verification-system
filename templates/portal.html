@@ -35,6 +35,15 @@
                 <div class="stats" id="ent-stats"></div>
                 <p id="disabled-note" class="err hidden">Your account is disabled — you can't
                     create keys until the provider re-activates it. Existing keys won't work either.</p>
+                <div class="row" id="policy-row">
+                    <label class="muted" for="match-policy">Face + palm match policy</label>
+                    <select id="match-policy" class="field" title="How face and palm combine for users enrolled in both">
+                        <option value="or">Either grants (face OR palm)</option>
+                        <option value="fallback">Palm as fallback (face preferred)</option>
+                        <option value="and">Require both (step-up security)</option>
+                    </select>
+                    <button id="policy-save" class="btn ghost">Save policy</button>
+                </div>
             </div>
 
             <div class="card">

@@ -8,7 +8,22 @@ widget, SDKs, PWA, and a live free deployment (Hugging Face Spaces, persistent).
 - **Native Android app** — on-device camera + liveness + matching. See `docs/ANDROID.md`.
   Open decision: data model (fully on-device / hybrid sync / thin client).
 
-## v2 — Multi-modal (palm / fingerprint) as a secondary factor
+## ✅ v2 — Palm modality (SHIPPED)
+Contactless **palm-print** is now a first-class second modality alongside face,
+built on the extracted modality-agnostic `biometric/` core (shared store, index,
+matcher) with a `Profile` per modality. Highlights:
+- **Auto-router**: every image is detected as face/palm/both and routed — callers
+  never declare a modality (short-circuited on verify so face never pays the palm
+  probe cost; combined face+palm images still enrol both).
+- Same `user_id` holds face and/or palm; **either verifies** ("a match is a match").
+- Per-tenant `palm_enabled` + `match_policy` (or / fallback / and step-up).
+- Palm stack: MediaPipe Hands ROI → CCNet-family ONNX encoder → passive liveness,
+  isolated per-tenant in `<tenant>/palm/`, never cross-matched with face.
+- Parity across `/v1`, SDKs, admin/portal, web client; Android palm in progress.
+- Remaining external step: drop a trained CCNet→ONNX weights file in `palm/models/`
+  (see `palm/models/README_MODEL.md`); until then palm self-reports unavailable.
+
+## (historical) v2 design notes — secondary biometric
 Adds a second biometric for stronger security and as a fallback when face is
 unavailable (mask, lighting, twins, injury). The core infra (encrypted templates,
 vectorized index, `/v1`, roles, admin, audit, persistence) is **modality-agnostic**

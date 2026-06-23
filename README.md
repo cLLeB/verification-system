@@ -11,10 +11,13 @@ short_description: Contactless face verification + identification API
 
 # Face Verification Backbone
 
-A contactless face **verification + identification** service: a phone web client,
-an operator admin console, and a multi-tenant REST API other apps integrate with.
-ArcFace embeddings + active (head-turn) liveness, encrypted at rest, with adaptive
-enrolment that keeps recognising a person as they change over months/years.
+A contactless **face + palm** verification + identification service: a phone web
+client, an operator admin console, and a multi-tenant REST API other apps integrate
+with. ArcFace face embeddings + active (head-turn) liveness, **plus contactless
+palm-print** (MediaPipe-Hands ROI → CCNet ONNX) — both behind one **auto-routing**
+API, so a user is recognised whether they show their **face or their palm** (a match
+is a match). Encrypted at rest, with adaptive enrolment that keeps recognising a
+person as they change over months/years.
 
 > The earlier **contactless-fingerprint** system is archived under [`fingerprint/`](fingerprint/);
 > phone-camera capture proved unworkable, so the project pivoted to face.

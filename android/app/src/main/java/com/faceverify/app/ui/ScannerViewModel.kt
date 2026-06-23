@@ -13,6 +13,7 @@ import com.faceverify.app.BuildConfig
 import com.faceverify.app.Config
 import com.faceverify.app.face.FaceEngine
 import com.faceverify.app.face.LivenessTracker
+import com.faceverify.app.palm.PalmEngine
 import com.faceverify.app.sync.SyncManager
 import com.faceverify.app.sync.SyncPrefs
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     var people by mutableStateOf<List<String>>(emptyList()); private set
 
     private lateinit var engine: FaceEngine
+    private var palm: PalmEngine? = null          // null when palm assets aren't bundled
     private val processing = AtomicBoolean(false)
     private val captureRequested = AtomicBoolean(false)
     private val liveness = LivenessTracker()
@@ -45,11 +47,15 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 engine = FaceEngine.create(getApplication())
+                // Palm is optional: load it if its assets are bundled, else run face-only.
+                palm = try {
+                    if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
+                } catch (_: Exception) { null }
                 refreshPeople()
                 ready = true
-                status = if (mode == Mode.VERIFY) "Center your face, then turn your head" else "Enter a name, then Capture"
+                status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your palm" else "Enter a name, then show face or palm"
             } catch (e: Exception) {
-                engineError = e.message ?: "Failed to start the face engine. Is the model in assets?"
+                engineError = e.message ?: "Failed to start the engine. Is the model in assets?"
             }
         }
     }
@@ -66,9 +72,18 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if (mode == Mode.ENROLL) captureRequested.set(false)
     }
 
-    fun refreshPeople() = viewModelScope.launch { people = engine.repo.listUsers() }
+    fun refreshPeople() = viewModelScope.launch {
+        // A person may be enrolled by face, palm, or both — show the union.
+        val faces = engine.repo.listUsers()
+        val palms = palm?.repo?.listUsers() ?: emptyList()
+        people = (faces + palms).distinct().sorted()
+    }
 
-    fun deleteUser(id: String) = viewModelScope.launch { engine.repo.delete(id); refreshPeople() }
+    fun deleteUser(id: String) = viewModelScope.launch {
+        engine.repo.delete(id)
+        palm?.repo?.delete(id)        // remove both modalities for this person
+        refreshPeople()
+    }
 
     /** Called by the camera analyzer: returns true and locks if a frame should be processed. */
     fun tryBeginFrame(): Boolean {
@@ -81,13 +96,25 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 val face = engine.detect(bitmap)
-                if (face == null) { status = "No face detected — move into the frame"; return@launch }
-                if (face.facepx < Config.MIN_FACE_PX) { status = "Move a little closer"; return@launch }
-                val yaw = face.yaw
-                if (mode == Mode.VERIFY) handleVerify(bitmap, face, yaw)
-                else handleEnroll(bitmap, face, yaw)
+                if (face != null && face.facepx >= Config.MIN_FACE_PX) {
+                    val yaw = face.yaw
+                    if (mode == Mode.VERIFY) handleVerify(bitmap, face, yaw)
+                    else handleEnroll(bitmap, face, yaw)
+                    return@launch
+                }
+                // No usable face — auto-route to palm (the user never has to choose).
+                val p = palm
+                if (p != null && p.hasPalm(bitmap).first) {
+                    if (mode == Mode.VERIFY) handlePalmVerify(p, bitmap) else handlePalmEnroll(p, bitmap)
+                    return@launch
+                }
+                status = when {
+                    face != null -> "Move a little closer"
+                    palm != null -> "Show your face or open palm"
+                    else -> "No face detected — move into the frame"
+                }
             } catch (_: Exception) {
-                status = "Hiccup — keep your face in view"
+                status = "Hiccup — keep your face or palm in view"
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
                 processing.set(false)
@@ -136,6 +163,30 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         val emb = engine.embed(bitmap, face)
         if (emb == null) { status = "Couldn't read your face — try again"; return }
         finishEnroll(engine.repo.enroll(enrollName, emb), fromId = false)
+    }
+
+    /** Palm verify — no head-turn (that's a face challenge); a single good palm
+     *  capture matches against the palm store. Mirrors the server's palm path. */
+    private suspend fun handlePalmVerify(p: PalmEngine, bitmap: Bitmap) {
+        val s = p.embed(bitmap)
+        if (s.embedding == null) { status = s.message; return }
+        val dec = p.repo.identify(s.embedding)
+        p.repo.maybeAdapt(dec, s.embedding, null)
+        result = if (dec.granted)
+            ScanResult(true, "Access granted", "Welcome, ${dec.userId} (via palm)")
+        else
+            ScanResult(false, "Access denied", "Palm not recognised")
+        livenessProgress = 0f
+    }
+
+    /** Palm enrol — tap Capture with an open palm shown (same 3-capture rhythm). */
+    private suspend fun handlePalmEnroll(p: PalmEngine, bitmap: Bitmap) {
+        if (enrollName.isBlank()) { status = "Enter a name first"; return }
+        status = "Show your open palm — tap Capture"
+        if (!captureRequested.compareAndSet(true, false)) return
+        val s = p.embed(bitmap)
+        if (s.embedding == null) { status = s.message; return }
+        finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false)
     }
 
     private fun finishEnroll(r: com.faceverify.app.data.EnrollResult, fromId: Boolean) {

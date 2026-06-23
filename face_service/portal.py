@@ -94,6 +94,7 @@ def _entitlement_view(tenant: str) -> dict:
     used = keys.count_for(tenant)
     return {"enabled": ent["enabled"], "plan": ent["plan"], "max_keys": ent["max_keys"],
             "allowed_roles": ent["allowed_roles"], "allow_export": ent["allow_export"],
+            "palm_enabled": ent["palm_enabled"], "match_policy": ent["match_policy"],
             "used": used,
             "remaining": (max(0, ent["max_keys"] - used) if ent["max_keys"] else None)}
 
@@ -102,6 +103,16 @@ def _entitlement_view(tenant: str) -> dict:
 @require_tenant
 def portal_entitlement():
     return jsonify({"success": True, **_entitlement_view(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/match-policy")
+@require_tenant
+def portal_set_match_policy():
+    """Let a tenant choose how face + palm combine for their users:
+    or (default) | fallback | and (step-up)."""
+    data = request.get_json(silent=True) or {}
+    out = tenants.set_entitlement(g.portal_tenant, match_policy=data.get("match_policy"))
+    return jsonify({"success": True, "match_policy": out["match_policy"]})
 
 
 # --- keys (scoped to this tenant only) -------------------------------------

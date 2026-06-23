@@ -112,6 +112,15 @@
                         (hybrid offline sync — devices may pull this tenant's embeddings)</label>
                 </div>
                 <div class="row">
+                    <label class="chk"><input id="ent-palm" type="checkbox" checked> Enable palm modality
+                        (users can enrol/verify by palm as well as face)</label>
+                    <select id="ent-policy" class="field" title="How face + palm combine for a user enrolled in both">
+                        <option value="or">Match policy: either (face OR palm)</option>
+                        <option value="fallback">Match policy: palm as fallback</option>
+                        <option value="and">Match policy: require both (step-up)</option>
+                    </select>
+                </div>
+                <div class="row">
                     <button id="ent-save" class="btn primary">Save access</button>
                     <button id="ent-offboard" class="btn danger">Offboard &amp; erase data</button>
                 </div>

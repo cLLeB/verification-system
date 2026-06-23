@@ -48,8 +48,23 @@ logic and show the human `message` (and `hint` when present) to users.
 | `match` / `no_match` | Verify/identify outcome | `success` reflects grant/deny. |
 | `enrolled` | Enrolment succeeded | — |
 
-Recognition responses also include, where relevant: `score`, `threshold`, `margin`,
-`quality` (`det_score`, `face_px`), and `candidates` (1:N). Sandbox keys (`fk_sandbox_*`)
-return deterministic canned results with `"sandbox": true`.
+### Palm + auto-router codes
+| `code` | Meaning | What to do |
+|--------|---------|-----------|
+| `no_biometric_detected` | Neither a face nor a palm found in the image | Show a face or an open palm clearly, in good light. |
+| `no_hand` | No palm detected | Hold an open hand to the camera. |
+| `palm_too_small` | Palm ROI too small | Move the hand closer. |
+| `palm_blurry` | Palm image too blurry | Hold steady, keep the palm in focus. |
+| `fingers_not_spread` | Fingers closed | Spread fingers, open the palm fully. |
+| `palm_not_facing` | Back of hand shown | Show the palm side. |
+| `multiple_hands` | More than one hand | One open palm at a time. |
+| `palm_liveness` | Palm anti-spoof failed | Use a live palm, not a photo/screen. |
+| `palm_unavailable` | Palm hand-detector (MediaPipe) unavailable, or palm disabled for tenant | Recognition needs no trained model (built-in Gabor encoder); this means the hand detector itself is missing. Install MediaPipe Hands, or use face. |
+| `step_up_required` | Tenant policy `and`: one modality matched, the other is needed | Also present the `step_up_modality`. |
+
+Recognition responses also include, where relevant: `modality`, `matched_modality`,
+`score`, `threshold`, `margin`, `quality` (face: `det_score`, `face_px`; palm:
+`hand_score`, `roi_px`, `sharpness`), and `candidates` (1:N). Sandbox keys
+(`fk_sandbox_*`) return deterministic canned results with `"sandbox": true`.
 
 See [INTEGRATION.md](INTEGRATION.md) for end-to-end examples and `openapi.yaml` for schemas.
