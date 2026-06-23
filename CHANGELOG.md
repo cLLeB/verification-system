@@ -4,6 +4,13 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Hybrid Android build (offline↔server sync)** — new `connectivity` flavor dimension
+  (offline/hybrid) × model (fp32/fp16) = 4 signed APKs. **Offline stays provably airgapped**
+  (an `offline` flavor manifest strips the INTERNET permission that ML Kit/play-services
+  inject — verified). **Hybrid** adds INTERNET + a PIN-gated Sync screen (Settings): set
+  server URL + API key (tenant implicit), Pull a tenant's dataset to match offline
+  (incremental), Push on-device enrolments up with a skip/merge/force duplicate policy.
+  `BuildConfig.HYBRID` gates all sync code/UI. (`face/sync/*`, `app/src/{hybrid,offline}`)
 - **Hybrid offline↔server sync (server side)** — `GET /v1/sync/pull` streams a tenant's
   templates (embeddings) for offline matching, **incremental** by `seq` (incl. deletions),
   gated by admin scope **and** a per-tenant `allow_export` opt-in. `POST /v1/sync/push`

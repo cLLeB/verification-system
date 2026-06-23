@@ -117,4 +117,27 @@ class FaceRepository(context: Context) {
         index.remove(id)
         true
     }
+
+    // --- hybrid sync support (only used by the hybrid build) -----------------
+
+    /** On-device templates as (userId, embeddings) for pushing to the server.
+     *  Pass [selected] to push only certain people, or null for everyone. */
+    suspend fun exportTemplates(selected: Set<String>? = null): List<Pair<String, List<FloatArray>>> =
+        mutex.withLock { snapshot().filter { selected == null || it.first in selected } }
+
+    /** Upsert a user's embeddings from a server pull (replaces any existing set), tagged
+     *  with provenance so it's distinguishable from a local live capture. */
+    suspend fun replaceUser(userId: String, embs: List<FloatArray>, source: String = "synced") = mutex.withLock {
+        val id = userId.trim()
+        if (id.isEmpty() || embs.isEmpty()) return@withLock
+        if (index.containsKey(id)) dao.deletePerson(id)   // cascade old embeddings
+        dao.insertPerson(Person(id))
+        val list = mutableListOf<FloatArray>()
+        for (e in embs.take(Config.ADAPTIVE_MAX_SAMPLES)) {
+            dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor",
+                blob = Crypto.encrypt(Crypto.floatsToBytes(e)), source = source))
+            list.add(e)
+        }
+        index[id] = list
+    }
 }

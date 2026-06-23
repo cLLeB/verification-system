@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Offline flavor: a bundled library (ML Kit / play-services) injects the INTERNET
+     permission via manifest merge. Strip it here so the offline build is provably
+     airgapped — it has no INTERNET permission at all. The app is 100% on-device. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+</manifest>

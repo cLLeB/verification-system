@@ -25,6 +25,22 @@ Most of the *logic* (matching threshold, decision, adaptive anti-drift, liveness
 rules) ports directly from `face/` — it's small and math-only. The model file
 (~90 MB ArcFace) ships inside the APK or downloads once on first launch.
 
+### Hybrid build (optional server sync)
+
+The app ships in two connectivity flavors × two models = 4 APKs:
+`FaceVerify-{offline,hybrid}-{fp32,fp16}.apk`.
+
+- **offline** — no INTERNET permission (a flavor manifest strips the one ML Kit/play-services
+  inject), 100% on-device. Unchanged guarantee.
+- **hybrid** — adds INTERNET + a PIN-gated **Sync** section (Settings, gated by
+  `BuildConfig.HYBRID`). Configure a **server URL + API key**; the **tenant is implicit in the
+  key**, so the phone mirrors exactly that company's dataset. **Pull** downloads the tenant's
+  templates (incremental by seq, applies deletions) so the phone can match offline; **Push**
+  uploads on-device enrolments with a **skip/merge/force** policy for cross-identity duplicates
+  (a face already enrolled under a different name). Pull needs the tenant's `allow_export`
+  entitlement on; push needs an admin/enroll-scoped key; verify-only keys can pull-to-match.
+  Code: `face/sync/{SyncPrefs,SyncClient,SyncManager}.kt`, server `/v1/sync/{pull,push}`.
+
 ### ID-document detection on enrolment (on-device)
 
 `face/IdDocument.kt` ports the server's `face/id_document.py`. When a capture is an

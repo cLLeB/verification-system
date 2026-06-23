@@ -9,9 +9,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.faceverify.app.BuildConfig
 import com.faceverify.app.Config
 import com.faceverify.app.face.FaceEngine
 import com.faceverify.app.face.LivenessTracker
+import com.faceverify.app.sync.SyncManager
+import com.faceverify.app.sync.SyncPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -186,6 +189,53 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 bmp?.let { if (!it.isRecycled) it.recycle() }
                 processing.set(false)
             }
+        }
+    }
+
+    // --- hybrid sync (only meaningful when BuildConfig.HYBRID) ----------------
+    val isHybrid = BuildConfig.HYBRID
+    private val syncPrefs by lazy { SyncPrefs(getApplication()) }
+    private var syncManager: SyncManager? = null
+    var syncBusy by mutableStateOf(false); private set
+    var syncMsg by mutableStateOf(""); private set
+    var syncConflicts by mutableStateOf<List<String>>(emptyList()); private set
+
+    fun syncServerUrl(): String = syncPrefs.serverUrl
+    fun syncApiKeySet(): Boolean = syncPrefs.apiKey.isNotEmpty()
+    fun lastSyncLabel(): String {
+        val t = syncPrefs.lastSyncMs
+        return if (t == 0L) "never"
+        else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(t))
+    }
+    fun lastSyncMsg(): String = syncPrefs.lastMsg
+
+    fun saveSyncConfig(url: String, key: String) {
+        syncPrefs.serverUrl = url
+        if (key.isNotBlank()) syncPrefs.apiKey = key
+        syncPrefs.resetWatermark()                 // config changed → next pull re-fetches all
+        syncMsg = "Saved. Connect with Test, then Pull."
+    }
+
+    private fun mgr(): SyncManager? {
+        if (!::engine.isInitialized) return null
+        if (syncManager == null) syncManager = SyncManager(engine.repo, syncPrefs)
+        return syncManager
+    }
+
+    fun testSync() = runSync { mgr()?.test() }
+    fun pullNow() = runSync { mgr()?.pull() }
+    fun pushAll(onConflict: String) = runSync { mgr()?.push(null, onConflict) }
+
+    private fun runSync(block: suspend () -> SyncManager.Result?) {
+        if (!syncPrefs.configured) { syncMsg = "Set the server URL and API key first."; return }
+        if (syncBusy) return
+        syncBusy = true; syncMsg = "Working…"; syncConflicts = emptyList()
+        viewModelScope.launch(Dispatchers.Default) {
+            val r = try { block() } catch (e: Exception) { null }
+            syncMsg = r?.summary ?: "Sync unavailable."
+            syncConflicts = r?.conflicts ?: emptyList()
+            if (r?.ok == true) refreshPeople()
+            syncBusy = false
         }
     }
 

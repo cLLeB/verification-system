@@ -15,11 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Image
@@ -290,20 +294,105 @@ private fun PeopleScreen(vm: ScannerViewModel) {
 
 @Composable
 private fun SettingsScreen(vm: ScannerViewModel) {
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
+    val ctx = LocalContext.current
+    Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
         InfoRow("People enrolled", vm.people.size.toString())
         InfoRow("Match threshold", com.faceverify.app.Config.MATCH_THRESHOLD.toString())
         InfoRow("Storage", "Encrypted, on-device only")
-        InfoRow("Network", "None — fully offline")
+        InfoRow("Network", if (vm.isHybrid) "Hybrid — optional server sync" else "None — fully offline")
         Spacer(Modifier.height(20.dp))
-        Text(
-            "Face Verify runs entirely on this device. Faces are turned into an encrypted " +
-                "mathematical template — no photos and no data ever leave the phone.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (vm.isHybrid) {
+            SyncSection(vm, ctx)
+        } else {
+            Text(
+                "Face Verify runs entirely on this device. Faces are turned into an encrypted " +
+                    "mathematical template — no photos and no data ever leave the phone.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
+}
+
+@Composable
+private fun SyncSection(vm: ScannerViewModel, ctx: android.content.Context) {
+    val adminGate = remember { AdminGate(ctx) }
+    var unlocked by remember { mutableStateOf(false) }
+    var showPin by remember { mutableStateOf(false) }
+    var url by remember { mutableStateOf(vm.syncServerUrl()) }
+    var key by remember { mutableStateOf("") }
+    var conflict by remember { mutableStateOf("skip") }
+
+    Text("Server sync", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Mirror your company's dataset to match offline, and push on-device enrolments up. " +
+            "Which dataset is determined by your API key.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(12.dp))
+
+    if (!unlocked) {
+        Button(onClick = { showPin = true }) {
+            Icon(Icons.Filled.Lock, null); Spacer(Modifier.size(8.dp)); Text("Unlock sync settings")
+        }
+    } else {
+        OutlinedTextField(
+            value = url, onValueChange = { url = it },
+            label = { Text("Server URL (https://…)") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = key, onValueChange = { key = it },
+            label = { Text(if (vm.syncApiKeySet()) "API key (set — blank keeps it)" else "API key") },
+            singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.saveSyncConfig(url, key); key = "" }) { Text("Save") }
+            OutlinedButton(onClick = { vm.testSync() }, enabled = !vm.syncBusy) { Text("Test") }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.pullNow() }, enabled = !vm.syncBusy) {
+                Icon(Icons.Filled.CloudDownload, null); Spacer(Modifier.size(8.dp)); Text("Pull")
+            }
+            Button(onClick = { vm.pushAll(conflict) }, enabled = !vm.syncBusy) {
+                Icon(Icons.Filled.CloudUpload, null); Spacer(Modifier.size(8.dp)); Text("Push all")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("If a face already exists under a different name:",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("skip", "merge", "force").forEach { m ->
+                FilterChip(conflict == m, { conflict = m }, { Text(m) })
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        InfoRow("Last sync", vm.lastSyncLabel())
+        if (vm.syncBusy) { Spacer(Modifier.height(6.dp)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        if (vm.syncMsg.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(vm.syncMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        vm.syncConflicts.forEach { c ->
+            Text("• $c", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    if (showPin) PinDialog(
+        creating = !adminGate.isSet(),
+        onDismiss = { showPin = false },
+        onConfirm = { pin ->
+            if (!adminGate.isSet()) { adminGate.setPin(pin); unlocked = true; showPin = false; true }
+            else if (adminGate.check(pin)) { unlocked = true; showPin = false; true }
+            else false
+        },
+    )
 }
 
 @Composable

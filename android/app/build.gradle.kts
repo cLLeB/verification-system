@@ -25,8 +25,23 @@ android {
     // APK. fp32 = full precision (default, shipped forever). fp16 = half size, ~lossless.
     // (int8 is intentionally NOT a flavor yet — add one here once validated; see
     //  app/src/int8-experimental/README.)
-    flavorDimensions += "model"
+    // Two dimensions:
+    //  * connectivity: "offline" (no INTERNET permission — provably airgapped) vs
+    //    "hybrid" (adds INTERNET + opt-in server sync; BuildConfig.HYBRID gates the code).
+    //  * model: fp32 (full) vs fp16 (~lossless, half size).
+    // => 4 side-by-side-installable variants: offline/hybrid × fp32/fp16.
+    flavorDimensions += listOf("connectivity", "model")
     productFlavors {
+        create("offline") {
+            dimension = "connectivity"
+            buildConfigField("boolean", "HYBRID", "false")
+        }
+        create("hybrid") {
+            dimension = "connectivity"
+            applicationIdSuffix = ".hybrid"
+            versionNameSuffix = "-hybrid"
+            buildConfigField("boolean", "HYBRID", "true")
+        }
         create("fp32") {
             dimension = "model"
             applicationIdSuffix = ".fp32"
@@ -67,7 +82,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     // The ArcFace .onnx in assets is already compressed-ish; don't let AAPT recompress it.
     androidResources { noCompress += "onnx" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }

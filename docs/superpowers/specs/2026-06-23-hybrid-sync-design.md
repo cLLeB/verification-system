@@ -1,7 +1,12 @@
 # Hybrid Offline↔Server Sync (per-tenant), with cross-identity dedupe
 
 **Date:** 2026-06-23
-**Status:** Approved — implementing server foundation first, then the Android hybrid flavor.
+**Status:** Implemented 2026-06-23 — server sync endpoints + Android hybrid flavor both done.
+
+> Gotcha fixed during build: ML Kit / play-services inject `INTERNET` via manifest merge,
+> so the `offline` flavor needs `app/src/offline/AndroidManifest.xml` with
+> `tools:node="remove"` on INTERNET to stay airgapped. Verified: offline APKs = no INTERNET,
+> hybrid APKs = INTERNET present. 4 signed APKs: FaceVerify-{offline,hybrid}-{fp32,fp16}.apk.
 
 ## Goal
 
