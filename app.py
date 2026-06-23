@@ -372,7 +372,7 @@ def admin_tenant_entitlement():
         roles = [r.strip() for r in roles.split(",") if r.strip()]
     out = tenants.set_entitlement(tenant, enabled=data.get("enabled"),
                                   plan=data.get("plan"), max_keys=data.get("max_keys"),
-                                  allowed_roles=roles)
+                                  allowed_roles=roles, allow_export=data.get("allow_export"))
     audit.log(_FP_TENANT, "tenant_entitlement", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True, detail=str(out))
     return jsonify({"success": True, **out})

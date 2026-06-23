@@ -230,9 +230,10 @@ $('ent-save').onclick = async () => {
     const roles = $('ent-roles').value.trim();
     const d = await api('/admin/api/tenants/entitlement', { method: 'POST', body: JSON.stringify({
         tenant, enabled: $('ent-enabled').checked, plan: $('ent-plan').value.trim() || undefined,
-        max_keys: parseInt($('ent-maxkeys').value || '0', 10), allowed_roles: roles || undefined }) });
+        max_keys: parseInt($('ent-maxkeys').value || '0', 10), allowed_roles: roles || undefined,
+        allow_export: $('ent-export').checked }) });
     $('ent-msg').textContent = d.success
-        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')}`
+        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')} · export ${d.allow_export ? 'ON' : 'off'}`
         : (d.message || 'Failed');
 };
 $('ent-portal-set').onclick = async () => {

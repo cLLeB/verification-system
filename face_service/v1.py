@@ -40,7 +40,7 @@ from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
 from .auth import require_key, require_scope
-from . import audit, usage, webhooks
+from . import audit, tenants, usage, webhooks
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -373,6 +373,94 @@ def export_user():
                     "embedding_dim": int(tmpl.embeddings[0].shape[0]) if tmpl.embeddings else 0,
                     "audit": audit.tail(g.tenant, 1000) and
                              [e for e in audit.tail(g.tenant, 1000) if e.get("user_id") == uid][:50]})
+
+
+@bp.get("/sync/pull")
+@require_scope("manage")
+def sync_pull():
+    """Hybrid sync — stream this tenant's templates (embeddings) for offline matching.
+    Incremental: pass ``since`` (the previous ``next_seq``) to fetch only changes;
+    deletions come back as ``deleted:true`` so a device mirror stays in step. Gated by
+    the tenant's ``allow_export`` entitlement (admin opt-in) on top of the admin scope."""
+    if not tenants.entitlement(g.tenant).get("allow_export"):
+        return jsonify({"success": False, "code": "export_disabled",
+                        "message": "Template export is not enabled for this tenant."}), 403
+    cfg = _cfg()
+    store = _store(cfg)
+    try:
+        since = max(0, int(request.args.get("since", 0)))
+        limit = min(2000, max(1, int(request.args.get("limit", 500))))
+    except ValueError:
+        return _err("'since'/'limit' must be integers.")
+    out, last = [], since
+    for uid, embs, seq in store.iter_since(since):
+        last = seq
+        if embs is None:
+            out.append({"user_id": uid, "deleted": True})
+        else:
+            out.append({"user_id": uid, "deleted": False,
+                        "embeddings": [[round(float(x), 6) for x in e] for e in embs]})
+        if len(out) >= limit:
+            break
+    cur = store.current_seq()
+    audit.log(g.tenant, "sync_pull", actor=g.key_name, success=True,
+              detail=f"{len(out)} rows since {since}")
+    return jsonify({"success": True, "templates": out, "next_seq": last,
+                    "current_seq": cur, "done": last >= cur})
+
+
+@bp.post("/sync/push")
+@require_scope("enroll")
+def sync_push():
+    """Hybrid sync — upload on-device templates into this tenant. Cross-identity dedupe:
+    a face that matches an EXISTING but DIFFERENTLY-NAMED person is a conflict, resolved by
+    ``on_conflict`` = skip (default) | merge (fold into the existing person) | force."""
+    cfg = _cfg()
+    store = _store(cfg)
+    data = request.get_json(silent=True) or {}
+    templates = data.get("templates") or []
+    on_conflict = (data.get("on_conflict") or "skip").lower()
+    if on_conflict not in ("skip", "merge", "force"):
+        on_conflict = "skip"
+    idx = _faceindex.get_index(cfg.db_path, store)
+    pushed = merged = skipped = 0
+    conflicts = []
+    for t in templates:
+        uid = (t.get("user_id") or "").strip()
+        embs = []
+        for e in (t.get("embeddings") or []):
+            v = np.asarray(e, dtype=np.float32)
+            n = float(np.linalg.norm(v))
+            if v.size and n > 0:
+                embs.append(v / n)
+        if not uid or not embs:
+            continue
+        hit = idx.search(embs[0], top_k=1)
+        matched = hit[0][0] if hit else None
+        score = float(hit[0][1]) if hit else -1.0
+        if matched is not None and matched != uid and score >= cfg.match_threshold:
+            if on_conflict == "skip":
+                skipped += 1
+                conflicts.append({"user_id": uid, "matched": matched,
+                                  "score": round(score, 4), "action": "skipped"})
+                continue
+            if on_conflict == "merge":
+                for e in embs:                       # fold into the existing person
+                    store.add_adaptive(matched, e)
+                    _faceindex.on_add(cfg.db_path, matched, e)
+                merged += 1
+                conflicts.append({"user_id": uid, "matched": matched,
+                                  "score": round(score, 4), "action": "merged"})
+                continue
+            # force: fall through and enrol under the given user_id
+        for e in embs:
+            store.add_embedding(uid, e)
+            _faceindex.on_add(cfg.db_path, uid, e)
+        pushed += 1
+    audit.log(g.tenant, "sync_push", actor=g.key_name, success=True,
+              detail=f"pushed={pushed} merged={merged} skipped={skipped}")
+    return jsonify({"success": True, "pushed": pushed, "merged": merged,
+                    "skipped": skipped, "conflicts": conflicts})
 
 
 @bp.post("/users/purge")

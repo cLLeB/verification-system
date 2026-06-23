@@ -50,6 +50,7 @@ _DEFAULT_ENABLED = True
 _DEFAULT_PLAN = "standard"
 _DEFAULT_MAX_KEYS = 0                     # 0 = unlimited
 _DEFAULT_ROLES = ["admin", "verify"]
+_DEFAULT_ALLOW_EXPORT = False             # template (embedding) export off unless opted in
 
 
 def get(tenant: str) -> dict:
@@ -62,14 +63,16 @@ def get(tenant: str) -> dict:
             "enabled": rec.get("enabled", _DEFAULT_ENABLED),
             "plan": rec.get("plan", _DEFAULT_PLAN),
             "max_keys": int(rec.get("max_keys", _DEFAULT_MAX_KEYS)),
-            "allowed_roles": rec.get("allowed_roles", list(_DEFAULT_ROLES))}
+            "allowed_roles": rec.get("allowed_roles", list(_DEFAULT_ROLES)),
+            "allow_export": rec.get("allow_export", _DEFAULT_ALLOW_EXPORT)}
 
 
 def entitlement(tenant: str) -> dict:
-    """Just the access-control fields (enabled / plan / max_keys / allowed_roles)."""
+    """Just the access-control fields (enabled / plan / max_keys / allowed_roles / export)."""
     t = get(tenant)
     return {"tenant": tenant, "enabled": t["enabled"], "plan": t["plan"],
-            "max_keys": t["max_keys"], "allowed_roles": t["allowed_roles"]}
+            "max_keys": t["max_keys"], "allowed_roles": t["allowed_roles"],
+            "allow_export": t["allow_export"]}
 
 
 def is_enabled(tenant: str) -> bool:
@@ -77,9 +80,10 @@ def is_enabled(tenant: str) -> bool:
 
 
 def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
-                    allowed_roles=None) -> dict:
+                    allowed_roles=None, allow_export=None) -> dict:
     """Admin sets a tenant's 'green light' + constraints. The paywall hook: flip
-    ``enabled`` (or a future billing check) to gate all API access instantly."""
+    ``enabled`` (or a future billing check) to gate all API access instantly.
+    ``allow_export`` opts the tenant into letting devices pull templates for offline sync."""
     with _lock:
         data = _load()
         rec = data.setdefault(tenant, {})
@@ -91,6 +95,8 @@ def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
             rec["max_keys"] = max(0, int(max_keys))
         if allowed_roles is not None:
             rec["allowed_roles"] = [r for r in allowed_roles if r in ("admin", "verify")] or list(_DEFAULT_ROLES)
+        if allow_export is not None:
+            rec["allow_export"] = bool(allow_export)
         _save(data)
     return entitlement(tenant)
 

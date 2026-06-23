@@ -4,6 +4,12 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Hybrid offline↔server sync (server side)** — `GET /v1/sync/pull` streams a tenant's
+  templates (embeddings) for offline matching, **incremental** by `seq` (incl. deletions),
+  gated by admin scope **and** a per-tenant `allow_export` opt-in. `POST /v1/sync/push`
+  uploads on-device templates with **cross-identity dedupe**: a face matching an existing
+  but differently-named person is a conflict resolved by `on_conflict` skip/merge/force —
+  never silently double-enrolled. (`face_service/v1.py`, `tenants.py`)
 - **Tenant self-service developer portal** (`/portal`) — a company signs in with a
   tenant-scoped password (the admin sets it) and mints/rotates/revokes **its own** API
   keys within the admin-granted entitlement (enabled / max_keys / allowed_roles). It only

@@ -93,7 +93,8 @@ def _entitlement_view(tenant: str) -> dict:
     ent = tenants.entitlement(tenant)
     used = keys.count_for(tenant)
     return {"enabled": ent["enabled"], "plan": ent["plan"], "max_keys": ent["max_keys"],
-            "allowed_roles": ent["allowed_roles"], "used": used,
+            "allowed_roles": ent["allowed_roles"], "allow_export": ent["allow_export"],
+            "used": used,
             "remaining": (max(0, ent["max_keys"] - used) if ent["max_keys"] else None)}
 
 
