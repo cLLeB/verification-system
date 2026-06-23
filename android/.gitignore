@@ -1,0 +1,12 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+# Bundled ArcFace model — large binary, not in git (see copy-model.ps1)
+app/src/main/assets/*.onnx

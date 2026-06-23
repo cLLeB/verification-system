@@ -1,0 +1,10 @@
+<resources>
+    <!-- Base XML theme for the activity window (the real UI is Jetpack Compose).
+         Framework Material theme keeps things dependency-light; dark to match brand. -->
+    <style name="Theme.FaceVerify" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
