@@ -41,6 +41,36 @@ without it, encrypted backups can't be decrypted.
   `FACE_ADMIN_PASSWORD`). Sessions are signed, time-limited cookies (`itsdangerous`,
   key `FACE_SECRET_KEY`). (`face_service/admins.py`, `admin.py`)
 - **Tenant isolation** — each key's data lives under its own tenant; no cross-tenant access.
+- **Entitlements (the access gate / paywall hook)** — each tenant has `enabled`, `plan`,
+  `max_keys`, and `allowed_roles`. The admin sets these (the "green light"). Disabling a
+  tenant makes **every** `/v1` call return `402 payment_required` immediately; key creation
+  refuses to exceed `max_keys` or grant a role outside `allowed_roles`. A future biller just
+  flips `enabled`. (`face_service/tenants.py`, `auth.py`)
+
+---
+
+## Multi-tenant isolation & trust model
+
+The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v1`).
+
+- **Separate stores per tenant.** Every `/v1` request resolves storage to
+  `face_db/tenants/<tenant>/` — its own encrypted SQLite DB **and** its own search index.
+  The first-party app uses `face_db/` (root). One tenant's API key can only ever address
+  its own users; the `/admin` data screens (People/Enrol) act on the first-party store only.
+- **Per-tenant encryption keys.** `crypto.get_cipher()` runs per directory, so each tenant
+  has its own `.salt`/`.key` — a distinct encryption key (even under a shared master
+  passphrase, the per-tenant salt yields a different derived key). One tenant's exposure
+  does not decrypt another's.
+- **We store embeddings, not images.** The enrolled photo is never persisted server-side —
+  only the 512-d embedding (still biometric PII, so encrypted, but not the literal picture).
+- **Crypto-erase offboarding.** Offboarding a tenant revokes its keys and deletes its store
+  **and its encryption key**, making the data cryptographically unrecoverable.
+- **Host-trust reality (be honest with customers).** In a *managed* deployment the operator
+  controls the server and the encryption material at runtime (matching needs the key in
+  memory) and can mint a key for any tenant. So app-level isolation is strong, but the host
+  is inherently trusted. Mitigations: two-plane admin (manage *access* vs touch *data*),
+  per-tenant keys, full audit, and crypto-erase. **For zero host-trust, use the offline
+  Android app** — that data never leaves the device.
 
 ---
 

@@ -9,6 +9,7 @@ from functools import wraps
 from flask import g, jsonify, request
 
 from . import keys
+from . import tenants
 
 
 def _authenticate():
@@ -31,6 +32,12 @@ def _unauthorized():
                     "message": "Invalid or missing API key (X-API-Key header)."}), 401
 
 
+def _disabled():
+    return jsonify({"success": False, "code": "payment_required",
+                    "message": "This account is disabled. Contact the provider to "
+                               "re-activate access."}), 402
+
+
 def _forbidden(scope):
     return jsonify({"success": False, "code": "forbidden",
                     "message": f"This API key (role '{g.role}') is not permitted to "
@@ -43,6 +50,8 @@ def require_key(view):
     def wrapper(*args, **kwargs):
         if _authenticate() is None:
             return _unauthorized()
+        if not tenants.is_enabled(g.tenant):
+            return _disabled()
         return view(*args, **kwargs)
     return wrapper
 
@@ -54,6 +63,8 @@ def require_scope(scope: str):
         def wrapper(*args, **kwargs):
             if _authenticate() is None:
                 return _unauthorized()
+            if not tenants.is_enabled(g.tenant):
+                return _disabled()
             if scope not in g.scopes:
                 return _forbidden(scope)
             return view(*args, **kwargs)

@@ -76,19 +76,42 @@
         <!-- Keys -->
         <div class="panel hidden" id="tab-keys">
             <div class="card">
-                <h2>Create API key</h2>
-                <input id="key-name" class="field" type="text" placeholder="App name (e.g. Acme HR)">
-                <input id="key-tenant" class="field" type="text" placeholder="Tenant id (optional)">
-                <select id="key-role" class="field">
-                    <option value="verify">verify — recognition only (safe default)</option>
-                    <option value="admin">admin — full control (enrol/delete)</option>
-                </select>
-                <button id="key-create" class="btn primary">Create key</button>
+                <h2>Create API keys</h2>
+                <p class="muted">One company = one tenant. Give it at least one <b>admin</b> (full)
+                    key to enrol, plus any number of <b>verify-only</b> keys. Keys are shown once —
+                    download them now.</p>
+                <input id="key-name" class="field" type="text" placeholder="Company / app name (e.g. Acme HR)">
+                <input id="key-tenant" class="field" type="text" placeholder="Tenant id (optional — groups the keys)">
+                <div class="row">
+                    <input id="key-admin-n" class="field" type="number" min="0" value="1" placeholder="# admin (full)">
+                    <input id="key-verify-n" class="field" type="number" min="0" value="0" placeholder="# verify-only">
+                </div>
+                <input id="key-expires" class="field" type="number" min="0" placeholder="Expires in days (optional)">
+                <button id="key-create" class="btn primary">Create keys</button>
                 <div id="key-new" class="newkey hidden"></div>
             </div>
             <div class="card">
-                <h2>Existing keys</h2>
+                <h2>Existing keys <span class="muted">(grouped by tenant)</span></h2>
                 <div id="keys-list" class="list"></div>
+            </div>
+            <div class="card">
+                <h2>Tenant access <span class="muted">(entitlements &amp; paywall)</span></h2>
+                <p class="muted">Admin sets the green light + limits. Disabling blocks all of a
+                    tenant's API calls instantly (402).</p>
+                <input id="ent-tenant" class="field" type="text" placeholder="Tenant id">
+                <div class="row">
+                    <label class="chk"><input id="ent-enabled" type="checkbox" checked> Enabled</label>
+                    <input id="ent-plan" class="field" type="text" placeholder="Plan (e.g. standard)">
+                </div>
+                <div class="row">
+                    <input id="ent-maxkeys" class="field" type="number" min="0" placeholder="Max keys (0 = unlimited)">
+                    <input id="ent-roles" class="field" type="text" placeholder="Allowed roles (admin,verify)">
+                </div>
+                <div class="row">
+                    <button id="ent-save" class="btn primary">Save access</button>
+                    <button id="ent-offboard" class="btn danger">Offboard &amp; erase data</button>
+                </div>
+                <p id="ent-msg" class="muted"></p>
             </div>
             <div class="card">
                 <h2>Tenant settings <span class="muted">(CORS + webhook)</span></h2>

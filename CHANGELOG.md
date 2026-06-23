@@ -4,6 +4,13 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Tenant entitlements + API-key lifecycle** — per-tenant `enabled`/`plan`/`max_keys`/
+  `allowed_roles` set by admin (the paywall hook: disabled tenant → `402` on every `/v1`
+  call). Bulk key mint ("1 admin + N verify"), console listing **grouped by tenant** with
+  role tags, and **download** (each key + whole batch as JSON/CSV) since keys show once.
+  **Crypto-erase offboarding**: revoke a tenant's keys + delete its store and encryption
+  key. Confirmed: per-tenant stores + per-tenant encryption keys already isolate tenants;
+  embeddings (not images) are stored. (`face_service/tenants.py`, `keys.py`, `auth.py`)
 - **Smart ID-document detection on enrollment** — when an enrollment image is an ID
   card/passport (not a live face), the engine detects the *document* (ghost portrait,
   small face in a larger card, card edges, printed text/MRZ), extracts the largest

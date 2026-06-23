@@ -93,6 +93,26 @@ def create_key(name: str, tenant: Optional[str] = None, role: str = "admin",
             "name": record["name"], "expires": expires}
 
 
+def count_for(tenant: str) -> int:
+    """How many live keys a tenant currently holds (for max_keys enforcement)."""
+    return sum(1 for v in _load().values() if v.get("tenant") == tenant)
+
+
+def create_keys(name: str, tenant: Optional[str], admin: int = 0, verify: int = 0,
+                expires_in_days: Optional[int] = None, sandbox: bool = False) -> List[dict]:
+    """Mint several keys for one tenant in a single batch (e.g. 1 admin + N verify).
+    Returns each RAW key once. The tenant is fixed across the batch so they group."""
+    tenant = (tenant or "").strip() or "t_" + secrets.token_hex(6)
+    out: List[dict] = []
+    for i in range(max(0, int(admin))):
+        label = f"{name} admin" + (f" {i + 1}" if admin > 1 else "")
+        out.append(create_key(label, tenant, "admin", expires_in_days, sandbox))
+    for i in range(max(0, int(verify))):
+        label = f"{name} verify" + (f" {i + 1}" if verify > 1 else "")
+        out.append(create_key(label, tenant, "verify", expires_in_days, sandbox))
+    return out
+
+
 def lookup(key: str) -> Optional[dict]:
     """Return the (live, non-expired) record for a raw key, else None."""
     if not key:

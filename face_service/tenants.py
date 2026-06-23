@@ -40,13 +40,67 @@ def _save(data: dict) -> None:
         pass
 
 
+# Entitlement defaults. A tenant with no record is fully enabled + unlimited, so
+# existing keys keep working; admins tighten/relax per tenant. `enabled=False` is the
+# paywall/offboarding gate enforced on every API call.
+_DEFAULT_ENABLED = True
+_DEFAULT_PLAN = "standard"
+_DEFAULT_MAX_KEYS = 0                     # 0 = unlimited
+_DEFAULT_ROLES = ["admin", "verify"]
+
+
 def get(tenant: str) -> dict:
     rec = _load().get(tenant) or {}
     return {"tenant": tenant,
             "cors_origins": rec.get("cors_origins", []),
             "webhook_url": rec.get("webhook_url", ""),
             "webhook_secret": rec.get("webhook_secret", ""),
-            "events": rec.get("events", DEFAULT_EVENTS)}
+            "events": rec.get("events", DEFAULT_EVENTS),
+            "enabled": rec.get("enabled", _DEFAULT_ENABLED),
+            "plan": rec.get("plan", _DEFAULT_PLAN),
+            "max_keys": int(rec.get("max_keys", _DEFAULT_MAX_KEYS)),
+            "allowed_roles": rec.get("allowed_roles", list(_DEFAULT_ROLES))}
+
+
+def entitlement(tenant: str) -> dict:
+    """Just the access-control fields (enabled / plan / max_keys / allowed_roles)."""
+    t = get(tenant)
+    return {"tenant": tenant, "enabled": t["enabled"], "plan": t["plan"],
+            "max_keys": t["max_keys"], "allowed_roles": t["allowed_roles"]}
+
+
+def is_enabled(tenant: str) -> bool:
+    return bool(get(tenant)["enabled"])
+
+
+def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
+                    allowed_roles=None) -> dict:
+    """Admin sets a tenant's 'green light' + constraints. The paywall hook: flip
+    ``enabled`` (or a future billing check) to gate all API access instantly."""
+    with _lock:
+        data = _load()
+        rec = data.setdefault(tenant, {})
+        if enabled is not None:
+            rec["enabled"] = bool(enabled)
+        if plan is not None:
+            rec["plan"] = str(plan).strip() or _DEFAULT_PLAN
+        if max_keys is not None:
+            rec["max_keys"] = max(0, int(max_keys))
+        if allowed_roles is not None:
+            rec["allowed_roles"] = [r for r in allowed_roles if r in ("admin", "verify")] or list(_DEFAULT_ROLES)
+        _save(data)
+    return entitlement(tenant)
+
+
+def remove(tenant: str) -> bool:
+    """Drop a tenant's settings record entirely (used on offboarding)."""
+    with _lock:
+        data = _load()
+        if tenant in data:
+            del data[tenant]
+            _save(data)
+            return True
+    return False
 
 
 def set_settings(tenant: str, cors_origins=None, webhook_url=None, events=None) -> dict:

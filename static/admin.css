@@ -48,6 +48,12 @@ h2 { font-size: 16px; margin: 0 0 12px; letter-spacing: -0.01em; }
 .del { background: transparent; border: 1px solid var(--bad); color: var(--bad);
     border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; font-family: inherit; }
 .del:hover { background: rgba(251,113,133,.1); }
+.btn.danger { background: var(--bad); color: #fff; }
+.btn.danger:hover { filter: brightness(1.06); }
+.group-head { margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
+.chk { display: flex; align-items: center; gap: 8px; flex: 1; color: var(--fg); font-size: 15px; }
+.newkey-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.mono { font-family: var(--mono); font-size: 12px; word-break: break-all; }
 .newkey { background: rgba(52,211,153,.08); border: 1px solid var(--ok); border-radius: var(--radius-sm);
     padding: 12px; margin-top: 12px; word-break: break-all; font-family: var(--mono); font-size: 13px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }

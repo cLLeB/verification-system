@@ -149,33 +149,102 @@ $('people-csv').onclick = () => {
 async function loadKeys() {
     const d = await api('/admin/api/keys');
     const list = $('keys-list'); list.innerHTML = '';
-    (d.keys || []).forEach(k => {
-        const row = document.createElement('div'); row.className = 'item';
-        const used = k.last_used ? new Date(k.last_used * 1000).toLocaleDateString() : 'never';
-        const exp = k.expires ? ` · expires ${new Date(k.expires * 1000).toLocaleDateString()}` : '';
-        row.innerHTML = `<div class="grow"><div>${k.name} <span class="pill">${k.role}</span></div>
-            <div class="sub">${k.key_id} · tenant: ${k.tenant} · used: ${used}${exp}</div></div>`;
-        const b = document.createElement('button'); b.className = 'del'; b.textContent = 'Revoke';
-        b.onclick = async () => {
-            if (!confirm(`Revoke key ${k.key_id} (${k.name})?`)) return;
-            await api('/admin/api/keys/revoke', { method: 'POST', body: JSON.stringify({ key_id: k.key_id }) });
-            loadKeys();
-        };
-        row.appendChild(b); list.appendChild(row);
+    const byTenant = {};
+    (d.keys || []).forEach(k => { (byTenant[k.tenant] = byTenant[k.tenant] || []).push(k); });
+    Object.keys(byTenant).sort().forEach(tenant => {
+        const grp = byTenant[tenant];
+        const adminN = grp.filter(k => k.role === 'admin').length;
+        const head = document.createElement('div'); head.className = 'group-head';
+        head.innerHTML = `Tenant: <b>${tenant}</b> <span class="pill">${grp.length} key(s) · ${adminN} admin</span>`;
+        list.appendChild(head);
+        grp.forEach(k => {
+            const row = document.createElement('div'); row.className = 'item';
+            const used = k.last_used ? new Date(k.last_used * 1000).toLocaleDateString() : 'never';
+            const exp = k.expires ? ` · expires ${new Date(k.expires * 1000).toLocaleDateString()}` : '';
+            row.innerHTML = `<div class="grow"><div>${k.name} <span class="pill">${k.role}</span></div>
+                <div class="sub">${k.key_id} · used: ${used}${exp}</div></div>`;
+            const b = document.createElement('button'); b.className = 'del'; b.textContent = 'Revoke';
+            b.onclick = async () => {
+                if (!confirm(`Revoke key ${k.key_id} (${k.name})?`)) return;
+                await api('/admin/api/keys/revoke', { method: 'POST', body: JSON.stringify({ key_id: k.key_id }) });
+                loadKeys();
+            };
+            row.appendChild(b); list.appendChild(row);
+        });
     });
+}
+
+function downloadFile(filename, text) {
+    const blob = new Blob([text], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+}
+function keysToCsv(keys) {
+    const cols = ['tenant', 'key_id', 'name', 'role', 'api_key', 'signing_secret', 'expires'];
+    const rows = [cols.join(',')];
+    keys.forEach(k => rows.push(cols.map(c => `"${k[c] != null ? String(k[c]).replace(/"/g, '""') : ''}"`).join(',')));
+    return rows.join('\n');
+}
+function renderNewKeys(box, d) {
+    box.innerHTML = '';
+    const h = document.createElement('div');
+    h.innerHTML = `<b>Created ${d.count} key(s) for tenant <code>${d.tenant}</code> — shown only once. Download now.</b>`;
+    box.appendChild(h);
+    d.keys.forEach(k => {
+        const div = document.createElement('div'); div.className = 'newkey-row';
+        div.innerHTML = `<div><span class="pill">${k.role}</span> ${k.name}</div>
+            <div class="mono">api_key: ${k.api_key}</div><div class="mono">signing_secret: ${k.signing_secret}</div>`;
+        const dl = document.createElement('button'); dl.className = 'btn ghost'; dl.textContent = 'Download this key';
+        dl.onclick = () => downloadFile(`${k.tenant}_${k.key_id}.json`, JSON.stringify(k, null, 2));
+        div.appendChild(dl); box.appendChild(div);
+    });
+    const row = document.createElement('div'); row.className = 'row';
+    const j = document.createElement('button'); j.className = 'btn primary'; j.textContent = 'Download all (JSON)';
+    j.onclick = () => downloadFile(`${d.tenant}_keys.json`, JSON.stringify(d.keys, null, 2));
+    const c = document.createElement('button'); c.className = 'btn ghost'; c.textContent = 'Download all (CSV)';
+    c.onclick = () => downloadFile(`${d.tenant}_keys.csv`, keysToCsv(d.keys));
+    row.appendChild(j); row.appendChild(c); box.appendChild(row);
 }
 $('key-create').onclick = async () => {
     const name = $('key-name').value.trim();
-    if (!name) { return; }
-    const d = await api('/admin/api/keys', { method: 'POST', body: JSON.stringify({
-        name, tenant: $('key-tenant').value.trim(), role: $('key-role').value }) });
-    if (d.success) {
-        const box = $('key-new'); box.classList.remove('hidden');
-        box.innerHTML = `<b>Copy this key now — it is shown only once:</b><br>
-            api_key: ${d.api_key}<br>tenant: ${d.tenant}<br>role: ${d.role}<br>
-            signing_secret: ${d.signing_secret}`;
-        $('key-name').value = ''; $('key-tenant').value = ''; loadKeys();
-    }
+    const box = $('key-new'); box.classList.remove('hidden');
+    if (!name) { box.textContent = 'A company / app name is required.'; return; }
+    const admin = parseInt($('key-admin-n').value || '0', 10);
+    const verify = parseInt($('key-verify-n').value || '0', 10);
+    if (admin + verify < 1) { box.textContent = 'Choose at least one key to create.'; return; }
+    const expires = parseInt($('key-expires').value || '0', 10);
+    box.textContent = 'Creating…';
+    const d = await api('/admin/api/keys/bulk', { method: 'POST', body: JSON.stringify({
+        name, tenant: $('key-tenant').value.trim(), admin, verify,
+        expires_in_days: expires > 0 ? expires : undefined }) });
+    if (!d.success) { box.textContent = d.message || 'Failed to create keys.'; return; }
+    renderNewKeys(box, d);
+    $('key-name').value = ''; $('key-tenant').value = ''; loadKeys();
+};
+
+// --- tenant access (entitlements / paywall) --------------------------------
+$('ent-save').onclick = async () => {
+    const tenant = $('ent-tenant').value.trim();
+    if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
+    const roles = $('ent-roles').value.trim();
+    const d = await api('/admin/api/tenants/entitlement', { method: 'POST', body: JSON.stringify({
+        tenant, enabled: $('ent-enabled').checked, plan: $('ent-plan').value.trim() || undefined,
+        max_keys: parseInt($('ent-maxkeys').value || '0', 10), allowed_roles: roles || undefined }) });
+    $('ent-msg').textContent = d.success
+        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')}`
+        : (d.message || 'Failed');
+};
+$('ent-offboard').onclick = async () => {
+    const tenant = $('ent-tenant').value.trim();
+    if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
+    if (!confirm(`Offboard '${tenant}'? This REVOKES its keys and PERMANENTLY ERASES its enrolled data.`)) return;
+    if (!confirm(`Final check — erase ALL data for '${tenant}'? This cannot be undone.`)) return;
+    const d = await api('/admin/api/tenants/offboard', { method: 'POST', body: JSON.stringify({ tenant }) });
+    $('ent-msg').textContent = d.success
+        ? `Offboarded ${tenant}: revoked ${d.keys_revoked} key(s), data erased = ${d.store_erased}.`
+        : (d.message || 'Failed');
+    loadKeys();
 };
 
 // --- tenant settings (CORS + webhooks) -------------------------------------

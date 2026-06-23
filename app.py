@@ -309,6 +309,22 @@ def admin_keys_list():
     return jsonify({"success": True, "keys": keys.list_keys()})
 
 
+def _entitlement_block(tenant: str, roles: list, adding: int):
+    """Enforce a tenant's entitlement when minting keys: role must be allowed and the
+    new total must not exceed max_keys (0 = unlimited). Returns an error dict or None."""
+    if not tenant:
+        return None                          # brand-new auto-tenant: no limits yet
+    ent = tenants.entitlement(tenant)
+    for r in roles:
+        if r not in ent["allowed_roles"]:
+            return {"success": False, "message": f"Tenant '{tenant}' is not permitted "
+                    f"to hold '{r}' keys (allowed: {', '.join(ent['allowed_roles'])})."}
+    if ent["max_keys"] and keys.count_for(tenant) + adding > ent["max_keys"]:
+        return {"success": False, "message": f"Tenant '{tenant}' key limit reached "
+                f"({ent['max_keys']}). Raise max_keys or revoke unused keys."}
+    return None
+
+
 @app.route("/admin/api/keys", methods=["POST"])
 @admin.require_admin
 def admin_keys_create():
@@ -316,9 +332,80 @@ def admin_keys_create():
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"success": False, "message": "A name is required."}), 400
-    info = keys.create_key(name, (data.get("tenant") or "").strip() or None,
-                           data.get("role", "admin"))
+    tenant = (data.get("tenant") or "").strip()
+    role = data.get("role", "admin")
+    block = _entitlement_block(tenant, [role], 1)
+    if block:
+        return jsonify(block), 403
+    info = keys.create_key(name, tenant or None, role)
     return jsonify({"success": True, **info})    # raw api_key returned ONCE
+
+
+@app.route("/admin/api/keys/bulk", methods=["POST"])
+@admin.require_admin
+def admin_keys_bulk():
+    """Mint a batch for one tenant (e.g. 1 admin + N verify). Raw keys returned ONCE,
+    grouped under the tenant, ready for the console to offer as a download."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    tenant = (data.get("tenant") or "").strip()
+    admin_n = max(0, int(data.get("admin", 0) or 0))
+    verify_n = max(0, int(data.get("verify", 0) or 0))
+    if not name:
+        return jsonify({"success": False, "message": "A name is required."}), 400
+    if admin_n + verify_n == 0:
+        return jsonify({"success": False, "message": "Choose at least one key to create."}), 400
+    roles = (["admin"] if admin_n else []) + (["verify"] if verify_n else [])
+    block = _entitlement_block(tenant, roles, admin_n + verify_n)
+    if block:
+        return jsonify(block), 403
+    expires = data.get("expires_in_days")
+    batch = keys.create_keys(name, tenant or None, admin=admin_n, verify=verify_n,
+                             expires_in_days=int(expires) if expires else None)
+    return jsonify({"success": True, "tenant": batch[0]["tenant"] if batch else tenant,
+                    "count": len(batch), "keys": batch})    # raw keys ONCE
+
+
+@app.route("/admin/api/tenants/entitlement", methods=["POST"])
+@admin.require_admin
+def admin_tenant_entitlement():
+    """Set a tenant's green light + constraints (the paywall hook)."""
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "").strip()
+    if not tenant:
+        return jsonify({"success": False, "message": "tenant required."}), 400
+    roles = data.get("allowed_roles")
+    if isinstance(roles, str):
+        roles = [r.strip() for r in roles.split(",") if r.strip()]
+    out = tenants.set_entitlement(tenant, enabled=data.get("enabled"),
+                                  plan=data.get("plan"), max_keys=data.get("max_keys"),
+                                  allowed_roles=roles)
+    audit.log(_FP_TENANT, "tenant_entitlement", actor=g.get("admin_user", "admin"),
+              user_id=tenant, success=True, detail=str(out))
+    return jsonify({"success": True, **out})
+
+
+@app.route("/admin/api/tenants/offboard", methods=["POST"])
+@admin.require_admin
+def admin_tenant_offboard():
+    """Crypto-erase a tenant: revoke all its keys and delete its store AND its
+    encryption key — making the data cryptographically unrecoverable."""
+    import shutil
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "").strip()
+    if not tenant:
+        return jsonify({"success": False, "message": "tenant required."}), 400
+    revoked = keys.revoke(tenant)
+    store_dir = os.path.join(CONFIG.db_path, "tenants", tenant)
+    erased = os.path.isdir(store_dir)
+    if erased:
+        shutil.rmtree(store_dir, ignore_errors=True)
+    tenants.remove(tenant)
+    audit.log(_FP_TENANT, "tenant_offboard", actor=g.get("admin_user", "admin"),
+              user_id=tenant, success=True,
+              detail=f"revoked {revoked} keys; store erased={erased}")
+    return jsonify({"success": True, "tenant": tenant, "keys_revoked": revoked,
+                    "store_erased": erased})
 
 
 @app.route("/admin/api/overview")
