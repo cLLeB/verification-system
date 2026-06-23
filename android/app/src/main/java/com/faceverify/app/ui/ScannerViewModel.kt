@@ -2,6 +2,8 @@ package com.faceverify.app.ui
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -143,5 +145,59 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             status = "Captured $captured of $enrollTarget$idNote — tap Capture again"
         }
+    }
+
+    /** Enrol from a photo the admin picked from the gallery (PIN-gated in the UI).
+     *  Mirrors the web /api/enroll upload: ID cards auto-branch; a normal photo must
+     *  be front-facing. No liveness (a still image can't perform a head turn), so this
+     *  is enrolment-only — verification still requires the live head-turn challenge. */
+    fun enrollFromPhoto(uri: Uri) {
+        if (!ready) return
+        if (enrollName.isBlank()) { status = "Enter a name first"; return }
+        if (!processing.compareAndSet(false, true)) return
+        viewModelScope.launch(Dispatchers.Default) {
+            var bmp: Bitmap? = null
+            try {
+                bmp = decodeUri(uri)
+                if (bmp == null) { result = ScanResult(false, "Couldn't open photo", "Try another image"); return@launch }
+                val a = engine.assessIdForEnroll(bmp)
+                if (a.faces.isEmpty() || a.primaryFace == null) {
+                    result = ScanResult(false, "No face found", "No clear face in that photo"); return@launch
+                }
+                val fromId = a.assessment.isId
+                val emb: FloatArray?
+                if (fromId) {
+                    emb = a.primaryEmbedding
+                } else {
+                    if (abs(a.primaryFace.yaw) > Config.LIVE_FRONTAL_YAW) {
+                        result = ScanResult(false, "Use a front-facing photo", "Face should look straight ahead")
+                        return@launch
+                    }
+                    emb = engine.embed(bmp, a.primaryFace)
+                }
+                if (emb == null) {
+                    result = ScanResult(false, "Face too unclear", "Use a clearer, larger photo of the face")
+                    return@launch
+                }
+                finishEnroll(engine.repo.enroll(enrollName, emb, source = if (fromId) "id" else "live"), fromId)
+            } catch (_: Exception) {
+                result = ScanResult(false, "Enrolment failed", "Could not process that photo")
+            } finally {
+                bmp?.let { if (!it.isRecycled) it.recycle() }
+                processing.set(false)
+            }
+        }
+    }
+
+    /** Decode a picked image, downscaling very large photos to keep memory sane. */
+    private fun decodeUri(uri: Uri): Bitmap? {
+        val cr = getApplication<Application>().contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        val maxDim = 1600
+        while (bounds.outWidth / sample > maxDim || bounds.outHeight / sample > maxDim) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        return cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
     }
 }

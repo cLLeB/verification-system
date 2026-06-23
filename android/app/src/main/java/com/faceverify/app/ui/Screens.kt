@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
@@ -36,6 +37,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import com.faceverify.app.data.AdminGate
 
 @Composable
@@ -81,6 +85,9 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
     var adminUnlocked by remember { mutableStateOf(false) }
     var showPin by remember { mutableStateOf(false) }
     var lensFacing by remember { mutableIntStateOf(androidx.camera.core.CameraSelector.LENS_FACING_FRONT) }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) vm.enrollFromPhoto(uri)
+    }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -158,6 +165,18 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                     modifier = Modifier.fillMaxWidth(0.6f),
                 ) {
                     Icon(Icons.Filled.Lock, null); Spacer(Modifier.size(8.dp)); Text("Capture")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        if (adminUnlocked)
+                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        else showPin = true
+                    },
+                    enabled = vm.enrollName.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(0.6f),
+                ) {
+                    Icon(Icons.Filled.Image, null); Spacer(Modifier.size(8.dp)); Text("Enrol from photo")
                 }
             }
         }

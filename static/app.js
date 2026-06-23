@@ -114,6 +114,42 @@ async function enrollCapture() {
     } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
 }
 
+// Read a File into a data URL (base64) for /api/enroll.
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+    });
+}
+
+// Enroll from one or more chosen photos (same admin-gated /api/enroll as the camera;
+// ID cards auto-branch server-side via source:"auto").
+async function enrollFromFiles() {
+    if (!userId.value.trim()) { setHint('Enter a name or ID to enroll first'); userId.focus(); return; }
+    const files = Array.from($('enroll-files').files || []);
+    if (!files.length) { setHint('Choose one or more photos first'); return; }
+    if (!(await ensureAdmin())) return;
+    startBusy('Uploading');
+    let ok = 0, last = null;
+    for (let i = 0; i < files.length; i++) {
+        setHint(`Enrolling photo ${i + 1}/${files.length}…`);
+        bar.style.width = Math.round(((i + 1) / files.length) * 100) + '%';
+        try {
+            const img = await fileToDataUrl(files[i]);
+            const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId.value.trim(), image: img }) });
+            last = await res.json();
+            if (last.success) ok++;
+        } catch (e) { /* keep going through the rest */ }
+    }
+    $('enroll-files').value = '';
+    if (last) handle(last);                       // show the final per-photo result + dots
+    else reset('Could not read those photos — try different files.', 'warn');
+    if (ok > 1) setHint(`Enrolled ${ok}/${files.length} photo(s).`);
+}
+
 async function verify() {
     const img0 = grabFrame();
     if (!img0) { setHint('Camera not ready — try again.'); return; }
@@ -198,6 +234,7 @@ function defaultHint() {
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
 captureBtn.addEventListener('click', onCapture);
+$('upload-enroll').addEventListener('click', enrollFromFiles);
 
 function renderDots(n) {
     dots.innerHTML = '';

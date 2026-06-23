@@ -47,6 +47,11 @@
             <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
                    autocapitalize="words" placeholder="Name or ID to enroll">
             <div class="dots" id="dots" aria-label="Enrollment progress"></div>
+            <div class="upload-row">
+                <input id="enroll-files" class="field" type="file" accept="image/*" multiple
+                       aria-label="Choose photos to enroll from">
+                <button class="btn btn-ghost" id="upload-enroll">Enroll from photo</button>
+            </div>
         </div>
 
         <section class="scanner" aria-label="Face scanner">
