@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from face.config import FaceConfig
-from face.storage import FaceStore, FaceTemplate, _MAGIC
+from face.storage import FaceStore, FaceTemplate, _MAGIC, _MAGIC_FT1, _pack, _unpack
 
 
 def _store(tmp_path):
@@ -56,6 +56,32 @@ def test_anchors_never_evicted_by_adaptive(tmp_path):
     assert len(final.anchors) == 2
     assert all(np.allclose(a, b) for a, b in zip(anchors, final.anchors))
     assert len(final.embeddings) <= cfg.adaptive_max_samples
+
+
+def test_ft2_provenance_round_trip(tmp_path):
+    st = _store(tmp_path)
+    st.add_embedding("carol", _unit(3), source="id")
+    st.add_embedding("carol", _unit(4), source="live")
+    got = st.load("carol")
+    assert got.anchor_sources == ["id", "live"]
+    assert got.sources == ["id", "live"]
+    # adaptive folds in as live provenance
+    st.add_adaptive("carol", _unit(5))
+    assert st.load("carol").adaptive_sources == ["live"]
+
+
+def test_ft1_blob_reads_as_live(tmp_path):
+    # An FT1 blob (no provenance bytes) must read back with every row tagged live.
+    t = FaceTemplate(user_id="dave", anchors=[_unit(6), _unit(7)])
+    ft2 = _pack(t)
+    assert ft2[:3] == _MAGIC
+    # Forge the equivalent FT1 blob: same header+uid+float body, no trailing src bytes.
+    n = len(t.anchors)
+    body = ft2[: len(ft2) - n]                 # drop the trailing provenance bytes
+    ft1 = _MAGIC_FT1 + body[3:]                # swap magic FT2 -> FT1
+    back = _unpack(ft1)
+    assert len(back.anchors) == 2
+    assert back.anchor_sources == ["live", "live"]
 
 
 def test_add_many_and_delete_tombstone(tmp_path):

@@ -4,6 +4,14 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Smart ID-document detection on enrollment** — when an enrollment image is an ID
+  card/passport (not a live face), the engine detects the *document* (ghost portrait,
+  small face in a larger card, card edges, printed text/MRZ), extracts the largest
+  face, skips the live-only gates, and tags the template provenance `id` (storage
+  format FT1 → FT2, backward-compatible). New `source` field (`auto`/`live`/`id`) on
+  `enroll` (web + `/v1`). Enrollment-only — verify/identify still require liveness, so
+  a held-up ID is rejected as a spoof. Fails open to the normal path. fp16 APK flavor
+  added alongside fp32 (distinct signed APKs).
 - **Native Android app** (`android/`) — 100% on-device (no INTERNET permission):
   CameraX + ML Kit detect + ArcFace ONNX embed + cosine match + adaptive, encrypted
   Room store, head-turn liveness, PIN-gated enrol, Compose violet UI. Signed release APK.

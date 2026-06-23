@@ -9,6 +9,7 @@ import numpy as np
 from typing import List
 
 from . import engine as _engine
+from . import id_document as _id
 from . import index as _index
 from . import liveness_active as _live
 from . import matcher as _matcher
@@ -71,35 +72,96 @@ def _identify_via_index(emb, st: FaceStore, cfg: FaceConfig) -> dict:
             "candidates": [{"user_id": u, "score": round(s, 4)} for u, s in hits]}
 
 
+def _guards_ok(emb, user_id: str, st: FaceStore, cfg: FaceConfig,
+               consistency_threshold: float):
+    """Shared enrol guards: face must not belong to another user (duplicate), and
+    must match this user's earlier captures (self-consistency). Returns a failure
+    dict, or None when both pass."""
+    for uid, score in _index_for(st, cfg).search(emb, top_k=3):
+        if uid != user_id and score >= cfg.match_threshold:
+            return _fail(f"This face is already enrolled as '{uid}'.", "duplicate",
+                         conflict_user_id=uid, score=round(score, 4))
+    existing = st.load(user_id)
+    if existing is not None and existing.embeddings:
+        score = _matcher.best_score(emb, existing.embeddings)
+        if score < consistency_threshold:
+            return _fail("This doesn't match the earlier capture. Use the SAME person.",
+                         "inconsistent", score=round(float(score), 4))
+    return None
+
+
+def _enroll_from_id(user_id: str, image: np.ndarray, cfg: FaceConfig,
+                    st: FaceStore, assessment) -> dict:
+    """ID-document branch: take the largest face on the card, skip the live-only
+    gates (single-face / frontal-pose / liveness — a card is expected to be a flat
+    printed photo), but keep the duplicate + self-consistency guards. The stored
+    template is tagged with provenance 'id'."""
+    faces = assessment.faces if assessment and assessment.faces else _engine.detect_all(image, cfg)
+    if not faces:
+        return _fail("No face detected on the ID — upload a clearer image.", "no_face")
+    idx = assessment.primary_face_index if assessment and assessment.primary_face_index >= 0 else \
+        max(range(len(faces)), key=lambda i: (faces[i].bbox[2] - faces[i].bbox[0]) *
+            (faces[i].bbox[3] - faces[i].bbox[1]))
+    face = faces[idx]
+    if face.face_px < cfg.id_min_face_px:
+        return _fail("Detected an ID, but the photo on it is too unclear — "
+                     "upload a clearer image or enrol a live face.", "low_quality")
+    emb = face.embedding
+    thr = cfg.id_match_threshold if cfg.id_match_threshold > 0 else cfg.match_threshold
+    fail = _guards_ok(emb, user_id, st, cfg, thr)
+    if fail is not None:
+        return fail
+    tmpl = st.add_embedding(user_id, emb, source="id")
+    _index.on_add(cfg.db_path, user_id, emb)
+    return {"success": True, "code": "enrolled", "source": "id_document",
+            "message": f"Enrolled '{user_id}' from an ID document "
+                       f"({len(tmpl.embeddings)} of {cfg.samples_per_user}). "
+                       f"For best accuracy, add a live capture too.",
+            "user_id": user_id, "samples": len(tmpl.embeddings),
+            "samples_target": cfg.samples_per_user,
+            "id_confidence": round(float(assessment.confidence), 3) if assessment else None,
+            "signals": assessment.signals.as_dict() if assessment else None,
+            "det_score": round(float(face.det_score), 3),
+            "quality": {"det_score": round(float(face.det_score), 3), "face_px": int(face.face_px)}}
+
+
 def enroll(user_id: str, image: np.ndarray, cfg: FaceConfig = CONFIG,
-           store: Optional[FaceStore] = None) -> dict:
+           store: Optional[FaceStore] = None, source: str = "auto") -> dict:
     user_id = (user_id or "").strip()
     if not user_id:
         return _fail("A name or ID is required.", "missing_user_id")
     st = _store(cfg, store)
+
+    # Route: explicit "id"/"live", or "auto" -> detect whether this is an ID
+    # document and branch. Detection fails open to the normal (live) path.
+    source = (source or "auto").lower()
+    if source not in ("auto", "live", "id"):
+        source = "auto"
+    assessment = None
+    if source == "id":
+        return _enroll_from_id(user_id, image, cfg, st, None)
+    if source == "auto" and cfg.id_detection_enabled:
+        try:
+            faces = _engine.detect_all(image, cfg)
+            assessment = _id.assess(image, faces, cfg, live_score=None)
+            if assessment.is_id:
+                return _enroll_from_id(user_id, image, cfg, st, assessment)
+        except Exception:
+            assessment = None                # fail open -> normal path below
+
+    # NORMAL (live) path — unchanged behaviour.
     try:
         sample = _engine.embed(image, cfg)
     except FaceError as exc:
         return _fail(exc.message, exc.code)
 
-    # Duplicate-person guard (vectorized over the index): this face must not
-    # already belong to a DIFFERENT user.
-    for uid, score in _index_for(st, cfg).search(sample.embedding, top_k=3):
-        if uid != user_id and score >= cfg.match_threshold:
-            return _fail(f"This face is already enrolled as '{uid}'.", "duplicate",
-                         conflict_user_id=uid, score=round(score, 4))
-
-    # Self-consistency: a second/third capture must match the first (same person).
-    existing = st.load(user_id)
-    if existing is not None and existing.embeddings:
-        score = _matcher.best_score(sample.embedding, existing.embeddings)
-        if score < cfg.match_threshold:
-            return _fail("This doesn't match the earlier capture. Use the SAME person.",
-                         "inconsistent", score=round(float(score), 4))
+    fail = _guards_ok(sample.embedding, user_id, st, cfg, cfg.match_threshold)
+    if fail is not None:
+        return fail
 
     tmpl = st.add_embedding(user_id, sample.embedding)
     _index.on_add(cfg.db_path, user_id, sample.embedding)
-    return {"success": True, "code": "enrolled",
+    return {"success": True, "code": "enrolled", "source": "live",
             "message": f"Enrolled '{user_id}' ({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
             "user_id": user_id, "samples": len(tmpl.embeddings),
             "samples_target": cfg.samples_per_user,

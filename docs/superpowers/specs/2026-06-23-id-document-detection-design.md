@@ -1,7 +1,7 @@
 # Smart ID-Document Detection on Enrollment
 
 **Date:** 2026-06-23
-**Status:** Approved design — ready for implementation plan
+**Status:** Implemented (Phase 1) — 2026-06-23. Android remains committed Phase 2.
 **Scope:** Phase 1 (Python `face/` engine + `/v1` service + web UI). Phase 2 (offline Android/Kotlin port) is a committed follow-on with its own spec.
 
 ---

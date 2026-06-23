@@ -35,8 +35,24 @@ _MIGRATED_FLAG = "_migrated.flag"
 # Compact on-disk template format: magic + header + raw float32 rows. Avoids the
 # ~2x bloat of the old base64-inside-JSON encoding (and parses far faster on the
 # cold index build — no base64 decode, no JSON parse for the big arrays).
-_MAGIC = b"FT1"
+#
+# FT2 appends a 1-byte provenance tag per embedding row (0=live, 1=id) after the
+# float body, so an ID-sourced enrolment is auditable per embedding. FT1 blobs
+# still read back (every row defaults to "live").
+_MAGIC = b"FT2"                         # current format (with per-row provenance)
+_MAGIC_FT1 = b"FT1"                     # legacy compact format (no provenance)
 _HEADER = struct.Struct("<HHHH")        # uid_len, dim, n_anchors, n_adaptive
+
+_SRC_LIVE = "live"
+_SRC_ID = "id"
+
+
+def _src_to_byte(s: str) -> int:
+    return 1 if s == _SRC_ID else 0
+
+
+def _byte_to_src(b: int) -> str:
+    return _SRC_ID if b == 1 else _SRC_LIVE
 
 
 @dataclass
@@ -44,11 +60,31 @@ class FaceTemplate:
     user_id: str
     anchors: List[np.ndarray] = field(default_factory=list)    # original enrolment (permanent)
     adaptive: List[np.ndarray] = field(default_factory=list)   # rolling, learned over time
+    anchor_sources: List[str] = field(default_factory=list)    # "live"|"id", aligned with anchors
+    adaptive_sources: List[str] = field(default_factory=list)  # aligned with adaptive
+
+    def __post_init__(self) -> None:
+        # Keep provenance aligned with embeddings; default any missing tag to "live"
+        # so templates built the old way (or from FT1) are always well-formed.
+        self.anchor_sources = self._aligned(self.anchor_sources, len(self.anchors))
+        self.adaptive_sources = self._aligned(self.adaptive_sources, len(self.adaptive))
+
+    @staticmethod
+    def _aligned(sources: List[str], n: int) -> List[str]:
+        sources = list(sources)[:n]
+        if len(sources) < n:
+            sources += [_SRC_LIVE] * (n - len(sources))
+        return sources
 
     @property
     def embeddings(self) -> List[np.ndarray]:
         """All embeddings used for matching (anchors never evicted)."""
         return self.anchors + self.adaptive
+
+    @property
+    def sources(self) -> List[str]:
+        """Provenance aligned with ``embeddings`` (anchors then adaptive)."""
+        return self.anchor_sources + self.adaptive_sources
 
 
 def _dec(s: str) -> np.ndarray:                  # legacy base64 row (read-only path)
@@ -56,24 +92,37 @@ def _dec(s: str) -> np.ndarray:                  # legacy base64 row (read-only 
 
 
 def _pack(tmpl: FaceTemplate) -> bytes:
-    """Serialise a template to the compact binary format (raw float32, no base64)."""
+    """Serialise a template to the FT2 binary format (raw float32 rows + a 1-byte
+    provenance tag per row, no base64)."""
     uid = tmpl.user_id.encode("utf-8")
     rows = tmpl.anchors + tmpl.adaptive
     dim = int(rows[0].shape[0]) if rows else 0
     body = b"".join(np.asarray(e, dtype=np.float32).tobytes() for e in rows)
+    src = tmpl._aligned(tmpl.anchor_sources, len(tmpl.anchors)) + \
+        tmpl._aligned(tmpl.adaptive_sources, len(tmpl.adaptive))
+    src_bytes = bytes(_src_to_byte(s) for s in src)
     return (_MAGIC + _HEADER.pack(len(uid), dim, len(tmpl.anchors), len(tmpl.adaptive))
-            + uid + body)
+            + uid + body + src_bytes)
 
 
 def _unpack(raw: bytes) -> FaceTemplate:
+    is_ft2 = raw[:len(_MAGIC)] == _MAGIC
     off = len(_MAGIC)
     uid_len, dim, na, nd = _HEADER.unpack_from(raw, off)
     off += _HEADER.size
     uid = raw[off:off + uid_len].decode("utf-8"); off += uid_len
+    n = na + nd
+    body_len = n * dim * 4               # float32 bytes
     # Slice first (fresh, aligned buffer) so frombuffer never sees an odd offset.
-    flat = np.frombuffer(raw[off:], dtype=np.float32) if dim else np.zeros(0, np.float32)
-    rows = [flat[i * dim:(i + 1) * dim] for i in range(na + nd)]
-    return FaceTemplate(user_id=uid, anchors=rows[:na], adaptive=rows[na:])
+    flat = np.frombuffer(raw[off:off + body_len], dtype=np.float32) if dim else np.zeros(0, np.float32)
+    rows = [flat[i * dim:(i + 1) * dim] for i in range(n)]
+    if is_ft2:                          # trailing provenance bytes
+        sb = raw[off + body_len: off + body_len + n]
+        srcs = [_byte_to_src(b) for b in sb]
+    else:                              # FT1: no provenance -> all live
+        srcs = [_SRC_LIVE] * n
+    return FaceTemplate(user_id=uid, anchors=rows[:na], adaptive=rows[na:],
+                        anchor_sources=srcs[:na], adaptive_sources=srcs[na:])
 
 
 class FaceStore:
@@ -133,7 +182,7 @@ class FaceStore:
                 raw = self._cipher.decrypt(raw)
             except Exception:
                 return None
-        if raw[:len(_MAGIC)] == _MAGIC:          # current compact binary format
+        if raw[:3] in (_MAGIC, _MAGIC_FT1):      # current FT2 or legacy FT1 binary
             try:
                 return _unpack(raw)
             except Exception:
@@ -209,12 +258,16 @@ class FaceStore:
                     yield user_id, (t.embeddings if t else []), int(row_seq)
 
     # --- mutations ----------------------------------------------------------
-    def add_embedding(self, user_id: str, emb: np.ndarray) -> FaceTemplate:
-        """Enrolment: store as a permanent anchor."""
+    def add_embedding(self, user_id: str, emb: np.ndarray,
+                      source: str = _SRC_LIVE) -> FaceTemplate:
+        """Enrolment: store as a permanent anchor, tagged with its provenance
+        ("live" capture or "id" document)."""
         tmpl = self.load(user_id) or FaceTemplate(user_id=user_id)
         tmpl.anchors.append(np.asarray(emb, dtype=np.float32))
+        tmpl.anchor_sources.append(_SRC_ID if source == _SRC_ID else _SRC_LIVE)
         if len(tmpl.anchors) > self.cfg.samples_per_user:
             tmpl.anchors = tmpl.anchors[-self.cfg.samples_per_user:]
+            tmpl.anchor_sources = tmpl.anchor_sources[-self.cfg.samples_per_user:]
         self._write(tmpl)
         return tmpl
 
@@ -229,9 +282,11 @@ class FaceStore:
         if existing and max(float(np.dot(emb, e)) for e in existing) >= self.cfg.adaptive_novelty:
             return False                         # too similar to add value
         tmpl.adaptive.append(emb)
+        tmpl.adaptive_sources.append(_SRC_LIVE)   # adaptation only from live verifies
         cap = max(0, self.cfg.adaptive_max_samples - len(tmpl.anchors))
         if len(tmpl.adaptive) > cap:
             tmpl.adaptive = tmpl.adaptive[-cap:]  # drop oldest adaptive, keep anchors
+            tmpl.adaptive_sources = tmpl.adaptive_sources[-cap:]
         self._write(tmpl)
         return True
 

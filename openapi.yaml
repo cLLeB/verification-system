@@ -127,7 +127,18 @@ paths:
                 user_id: { type: string }
                 image: { type: string }
                 images: { type: array, items: { type: string } }
-      responses: { "200": { description: Enrolment summary } }
+                source:
+                  type: string
+                  enum: [auto, live, id]
+                  default: auto
+                  description: >
+                    Capture routing. 'auto' (default) detects whether an image is an
+                    ID document (card/passport) and, if so, extracts the largest face
+                    and tags the template provenance as 'id'. 'live' forces the normal
+                    live-face path (single-face/pose/liveness gates). 'id' forces the
+                    ID-document path. Detection applies to enrollment only; verify and
+                    identify always require liveness.
+      responses: { "200": { description: "Enrolment summary; per-image results include source ('live'|'id_document'), and for ID-sourced results id_confidence + signals." } }
   /v1/enroll/bulk:
     post:
       summary: "Managed: enrol many users in one call (role: admin)"

@@ -168,8 +168,10 @@ function handle(data) {
     if (mode === 'enroll') {
         const n = data.samples || 0;
         renderDots(n);
-        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} — tap Capture again`); return; }
-        if (data.success) { show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify`); userId.value = ''; renderDots(0); return; }
+        const idNote = data.source === 'id_document'
+            ? ' (from ID document — add a live capture for best accuracy)' : '';
+        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET}${idNote} — tap Capture again`); return; }
+        if (data.success) { show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify${idNote}`); userId.value = ''; renderDots(0); return; }
         if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message, 'warn'); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || ''); return;
     }

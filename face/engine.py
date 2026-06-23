@@ -111,6 +111,34 @@ def detect(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceDetection:
                          yaw=yaw, pitch=pitch, bbox=bbox, age=age, gender=gender)
 
 
+def detect_all(image: np.ndarray, cfg: FaceConfig = CONFIG) -> "list[FaceDetection]":
+    """Return EVERY confidently-detected face (embedding + pose + box), with NO
+    single-face / size / pose gates. Used by ID-document detection and the ID
+    enrolment branch, which must reason about multiple faces (e.g. a card's main
+    portrait + its faint 'ghost' portrait). One detector pass, like ``detect()``."""
+    if image is None or getattr(image, "size", 0) == 0:
+        raise FaceError("No image received.")
+    app = _ensure(cfg)
+    with _lock:
+        faces = app.get(image)
+    out: "list[FaceDetection]" = []
+    for face in faces:
+        if float(face.det_score) < cfg.min_det_score:
+            continue
+        emb = np.asarray(face.normed_embedding, dtype=np.float32)
+        n = float(np.linalg.norm(emb))
+        if n > 0:
+            emb = emb / n
+        pose = getattr(face, "pose", None)
+        pitch, yaw = (float(pose[0]), float(pose[1])) if pose is not None else (0.0, 0.0)
+        bbox = (int(face.bbox[0]), int(face.bbox[1]), int(face.bbox[2]), int(face.bbox[3]))
+        age = int(face.age) if getattr(face, "age", None) is not None else None
+        out.append(FaceDetection(embedding=emb, det_score=float(face.det_score),
+                                 face_px=_bbox_px(face), yaw=yaw, pitch=pitch, bbox=bbox,
+                                 age=age, gender=getattr(face, "sex", None)))
+    return out
+
+
 @dataclass(frozen=True)
 class PoseFrame:
     """A liveness burst frame: detection + head pose only (no embedding yet)."""

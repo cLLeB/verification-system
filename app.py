@@ -443,7 +443,10 @@ def api_enroll():
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
     uid = data.get("user_id", "")
-    result = engine.enroll(uid, img, CONFIG)
+    source = (data.get("source") or "auto").lower()
+    if source not in ("auto", "live", "id"):
+        source = "auto"
+    result = engine.enroll(uid, img, CONFIG, source=source)
     audit.log(_FP_TENANT, "enroll", actor=g.get("admin_user", "admin"), user_id=uid,
               success=bool(result.get("success")), detail=result.get("message", ""))
     save_debug(img, "enroll", result)

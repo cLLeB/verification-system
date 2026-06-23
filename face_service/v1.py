@@ -194,6 +194,9 @@ def enroll():
     store = _store(cfg)
     user_id = (data.get("user_id") or "").strip()
     images = data.get("images") or ([data["image"]] if data.get("image") else [])
+    source = (data.get("source") or "auto").lower()
+    if source not in ("auto", "live", "id"):
+        source = "auto"
     if not user_id:
         return _err("'user_id' is required.")
     if not images:
@@ -201,11 +204,13 @@ def enroll():
     results = []
     for b in images:
         img = _decode(b)
-        results.append(_api.enroll(user_id, img, cfg, store) if img is not None
+        results.append(_api.enroll(user_id, img, cfg, store, source=source) if img is not None
                        else {"success": False, "message": "decode failed"})
     ok = sum(1 for r in results if r.get("success"))
+    id_sourced = sum(1 for r in results if r.get("source") == "id_document")
     audit.log(g.tenant, "enroll", actor=g.key_name, user_id=user_id,
-              success=ok > 0, detail=f"{ok}/{len(images)} captures")
+              success=ok > 0,
+              detail=f"{ok}/{len(images)} captures" + (f", {id_sourced} from ID" if id_sourced else ""))
     webhooks.fire(g.tenant, "enroll", {"user_id": user_id, "enrolled": ok,
                                        "success": ok > 0, "request_id": getattr(g, "request_id", "")})
     return jsonify({"success": ok > 0, "user_id": user_id, "enrolled": ok,

@@ -62,6 +62,36 @@ curl -sk https://HOST:5000/v1/verify -H "X-API-Key: fk_xxx" \
 `success:true` = access granted. Omit `user_id` to **identify** (1:N) — the
 response's `user_id` tells you who it is.
 
+### ID documents during enrollment
+
+If an enrollment image is actually an **ID document** (national card, passport)
+rather than a live face, the service detects it automatically and handles it
+gracefully — you don't need to do anything. Each per-image result carries a
+`source` field:
+
+- `source: "live"` — normal live-face capture (the usual case).
+- `source: "id_document"` — detected as an ID; the largest face on the card was
+  extracted, the live-only gates (single-face/pose/liveness) were skipped, and
+  the stored template is tagged with provenance `id`. The result also includes
+  `id_confidence` and a per-signal `signals` breakdown. A friendly message
+  suggests adding a live capture for best accuracy.
+
+Detection looks for *document* cues (a ghost/secondary portrait, a small face
+inside a larger card, card edges, printed text / MRZ) — not the face itself — so
+a tightly-cropped passport headshot is treated as a normal face (correctly).
+
+Override routing with the `source` field if you need to: `"auto"` (default),
+`"live"` (force the normal path), or `"id"` (force the ID path). Detection is
+**enrollment-only** — `verify` and `identify` always require liveness, so holding
+up someone's ID card at verification is rejected as a spoof.
+
+```bash
+curl -sk https://HOST:5000/v1/enroll -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"alice","image":"<b64-of-id-card>","source":"auto"}'
+# -> {"success":true,"enrolled":1,"results":[{"success":true,"source":"id_document","id_confidence":0.71,...}]}
+```
+
 ## 2B. Stateless flow (bring your own data)
 
 ```bash

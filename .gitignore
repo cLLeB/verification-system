@@ -30,6 +30,10 @@ Thumbs.db
 # scratch screenshots dropped in the repo root
 /image*.png
 
+# Personal face/ID fixtures for ID-detection tests (biometric data — never commit)
+/Image.jpeg
+/me.jpeg
+
 # SourceAFIS jars (re-fetch via Maven; see libs/README.md)
 libs/*.jar
 

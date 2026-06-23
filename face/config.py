@@ -56,6 +56,12 @@ class FaceConfig:
     adaptive_max_samples: int = 8            # total stored embeddings cap (anchors + adaptive)
     adaptive_novelty: float = 0.92           # skip near-duplicate captures (>= this cosine)
 
+    # --- ID-document detection on enrollment (detect the document, not the face) ---
+    id_detection_enabled: bool = True        # auto-branch IDs at enroll (env FACE_ID_DETECTION=0 to disable)
+    id_confidence_threshold: float = 0.45    # combined-signal score to treat input as an ID
+    id_min_face_px: int = 40                 # smallest usable face on a card (looser than live)
+    id_match_threshold: float = 0.0          # relaxed self-consistency for id-sourced (0 = reuse match_threshold)
+
     # --- storage ---
     db_path: str = "face_db"
 
@@ -86,4 +92,13 @@ def load_config() -> FaceConfig:
     env_db = os.environ.get("FACE_DB_PATH")
     if env_db:
         cfg = replace(cfg, db_path=env_db)
+    env_id = os.environ.get("FACE_ID_DETECTION")
+    if env_id is not None:
+        cfg = replace(cfg, id_detection_enabled=env_id not in ("0", "false", "False", ""))
+    env_id_conf = os.environ.get("FACE_ID_CONFIDENCE")
+    if env_id_conf:
+        try:
+            cfg = replace(cfg, id_confidence_threshold=float(env_id_conf))
+        except ValueError:
+            pass
     return cfg
