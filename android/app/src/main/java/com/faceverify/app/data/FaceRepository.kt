@@ -42,7 +42,7 @@ class FaceRepository(context: Context) {
 
     /** Enrol an anchor capture for [userId]. Guards against enrolling the same face
      *  under a different name, and against inconsistent captures for the same name. */
-    suspend fun enroll(userId: String, emb: FloatArray): EnrollResult = mutex.withLock {
+    suspend fun enroll(userId: String, emb: FloatArray, source: String = "live"): EnrollResult = mutex.withLock {
         val id = userId.trim()
         if (id.isEmpty()) return@withLock EnrollResult(false, "A name or ID is required.", "missing_user_id")
 
@@ -60,7 +60,8 @@ class FaceRepository(context: Context) {
         } else {
             dao.insertPerson(Person(id))
         }
-        dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor", blob = Crypto.encrypt(Crypto.floatsToBytes(emb))))
+        val src = if (source == "id") "id" else "live"
+        dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor", blob = Crypto.encrypt(Crypto.floatsToBytes(emb)), source = src))
         index.getOrPut(id) { mutableListOf() }.add(emb)
 
         // keep at most SAMPLES_PER_USER anchors (drop oldest)

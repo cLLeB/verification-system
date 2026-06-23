@@ -23,4 +23,13 @@ object Config {
     const val LIVE_FRONTAL_YAW = 16f          // |yaw| <= this counts as facing the camera
     const val LIVE_TURN_YAW = 18f             // need a frame with |yaw| >= this (a real turn)
     const val LIVE_SWING_YAW = 22f            // need (max - min) yaw span >= this
+
+    // ID-document detection on enrolment (detect the document, not the face).
+    // Mirrors face/id_document.py; OpenCV-only signals (card outline) are omitted
+    // on-device, so detection leans on the ghost portrait + small face + text density.
+    const val ID_DETECTION_ENABLED = true
+    const val ID_CONFIDENCE_THRESHOLD = 0.45f
+    const val ID_MIN_FACE_PX = 40             // looser than live capture (printed photos)
+    const val ID_GHOST_RATIO = 0.7f           // 2nd face this much smaller => candidate ghost
+    const val ID_GHOST_SIMILARITY = 0.45f     // ...and this similar => same person => ghost
 }

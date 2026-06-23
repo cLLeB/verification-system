@@ -109,18 +109,39 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun handleEnroll(bitmap: Bitmap, face: com.faceverify.app.face.DetectedFace, yaw: Float) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
         status = if (abs(yaw) <= Config.LIVE_FRONTAL_YAW) "Hold still — tap Capture" else "Look straight at the camera"
-        if (captureRequested.compareAndSet(true, false) && abs(yaw) <= Config.LIVE_FRONTAL_YAW) {
-            val emb = engine.embed(bitmap, face)
-            if (emb == null) { status = "Couldn't read your face — try again"; return }
-            val r = engine.repo.enroll(enrollName, emb)
-            if (!r.success) { result = ScanResult(false, "Enrolment failed", r.message); return }
-            captured = r.samples
-            if (captured >= enrollTarget) {
-                result = ScanResult(true, "Enrolled", "${enrollName.trim()} is ready to verify")
-                refreshPeople()
-            } else {
-                status = "Captured $captured of $enrollTarget — tap Capture again"
+        if (!captureRequested.compareAndSet(true, false)) return
+
+        // Detect-the-document: if this capture is an ID card/passport, branch — extract
+        // the largest face, skip the live-only frontal gate, tag provenance "id".
+        if (Config.ID_DETECTION_ENABLED) {
+            val a = try { engine.assessIdForEnroll(bitmap) } catch (_: Exception) { null }
+            if (a != null && a.assessment.isId) {
+                val emb = a.primaryEmbedding
+                if (emb == null) {
+                    status = "Detected an ID, but the photo on it is too unclear — try a clearer image or a live face"
+                    return
+                }
+                finishEnroll(engine.repo.enroll(enrollName, emb, source = "id"), fromId = true)
+                return
             }
+        }
+
+        // Normal live path — needs a frontal pose.
+        if (abs(yaw) > Config.LIVE_FRONTAL_YAW) { status = "Look straight at the camera"; return }
+        val emb = engine.embed(bitmap, face)
+        if (emb == null) { status = "Couldn't read your face — try again"; return }
+        finishEnroll(engine.repo.enroll(enrollName, emb), fromId = false)
+    }
+
+    private fun finishEnroll(r: com.faceverify.app.data.EnrollResult, fromId: Boolean) {
+        if (!r.success) { result = ScanResult(false, "Enrolment failed", r.message); return }
+        captured = r.samples
+        val idNote = if (fromId) " (from ID — add a live capture for best accuracy)" else ""
+        if (captured >= enrollTarget) {
+            result = ScanResult(true, "Enrolled", "${enrollName.trim()} is ready to verify$idNote")
+            refreshPeople()
+        } else {
+            status = "Captured $captured of $enrollTarget$idNote — tap Capture again"
         }
     }
 }

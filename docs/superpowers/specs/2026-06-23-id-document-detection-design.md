@@ -1,7 +1,12 @@
 # Smart ID-Document Detection on Enrollment
 
 **Date:** 2026-06-23
-**Status:** Implemented (Phase 1) — 2026-06-23. Android remains committed Phase 2.
+**Status:** Implemented — Phase 1 (server/web) **and** Phase 2 (offline Android) both done 2026-06-23.
+
+> Phase 2 note: Android omits the OpenCV-only card-outline signal (no OpenCV
+> on-device); it relies on the ghost-portrait (decisive), small-face, and a
+> pure-Kotlin text/edge-density signal. Provenance is a Room `embedding.source`
+> column (v1→v2 migration). See `android/.../face/IdDocument.kt` and `docs/ANDROID.md`.
 **Scope:** Phase 1 (Python `face/` engine + `/v1` service + web UI). Phase 2 (offline Android/Kotlin port) is a committed follow-on with its own spec.
 
 ---

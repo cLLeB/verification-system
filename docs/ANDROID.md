@@ -25,6 +25,19 @@ Most of the *logic* (matching threshold, decision, adaptive anti-drift, liveness
 rules) ports directly from `face/` — it's small and math-only. The model file
 (~90 MB ArcFace) ships inside the APK or downloads once on first launch.
 
+### ID-document detection on enrolment (on-device)
+
+`face/IdDocument.kt` ports the server's `face/id_document.py`. When a capture is an
+ID card/passport, enrolment auto-branches: it extracts the largest face, skips the
+live-only frontal gate, and tags the stored embedding provenance `id` (Room column
+`embedding.source`, added by the v1→v2 migration). On-device it uses the signals
+that need no OpenCV — the **ghost portrait** (a smaller, same-identity second face,
+decisive on its own), **small-face ratio**, and a pure-Kotlin **text/edge density**
+around the face. The server's OpenCV card-outline contour signal is omitted on-device;
+the ghost signal carries the common case. Detection is enrolment-only — verify still
+needs the head-turn liveness, so a flat ID card can't pass verification. Tunables live
+in `Config.kt` (`ID_*`). The model variant (fp32/fp16) does not affect detection.
+
 ## Trade-offs to decide up front
 
 - **Data location:** fully on-device means each phone has its *own* enrolments.

@@ -12,6 +12,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "person")
 data class Person(
@@ -34,6 +36,7 @@ data class Embedding(
     val ownerId: String,
     val kind: String,                         // "anchor" (permanent) | "adaptive" (rolling)
     @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val blob: ByteArray,   // encrypted embedding
+    @ColumnInfo(defaultValue = "live") val source: String = "live",   // provenance: "live" | "id"
     val createdAt: Long = System.currentTimeMillis(),
 )
 
@@ -53,16 +56,24 @@ interface FaceDao {
     @Query("SELECT COUNT(*) FROM person") suspend fun personCount(): Int
 }
 
-@Database(entities = [Person::class, Embedding::class], version = 1, exportSchema = false)
+@Database(entities = [Person::class, Embedding::class], version = 2, exportSchema = false)
 abstract class FaceDb : RoomDatabase() {
     abstract fun dao(): FaceDao
 
     companion object {
         @Volatile private var INSTANCE: FaceDb? = null
+
+        // v1 -> v2: add embedding.source provenance (existing rows default to "live").
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE embedding ADD COLUMN source TEXT NOT NULL DEFAULT 'live'")
+            }
+        }
+
         fun get(context: Context): FaceDb = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext, FaceDb::class.java, "faceverify.db"
-            ).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
         }
     }
 }

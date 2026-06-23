@@ -11,7 +11,10 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
   format FT1 → FT2, backward-compatible). New `source` field (`auto`/`live`/`id`) on
   `enroll` (web + `/v1`). Enrollment-only — verify/identify still require liveness, so
   a held-up ID is rejected as a spoof. Fails open to the normal path. fp16 APK flavor
-  added alongside fp32 (distinct signed APKs).
+  added alongside fp32 (distinct signed APKs). **Ported to offline Android**
+  (`face/IdDocument.kt`): ghost-portrait + small-face + pure-Kotlin text-density
+  signals (no OpenCV), Room `embedding.source` provenance (v1→v2 migration),
+  enrolment auto-branch in the scanner. Both release APKs rebuilt + signed.
 - **Native Android app** (`android/`) — 100% on-device (no INTERNET permission):
   CameraX + ML Kit detect + ArcFace ONNX embed + cosine match + adaptive, encrypted
   Room store, head-turn liveness, PIN-gated enrol, Compose violet UI. Signed release APK.

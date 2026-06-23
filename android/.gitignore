@@ -15,5 +15,6 @@ captures/
 keystore.properties
 build_log.txt
 build_release_log.txt
+_*.log
 # built APKs (large; distribute out-of-band)
 *.apk

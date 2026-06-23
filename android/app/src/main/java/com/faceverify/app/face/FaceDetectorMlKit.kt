@@ -43,20 +43,26 @@ class FaceDetectorMlKit {
     )
 
     /** Detect the most prominent face in [bitmap] (already upright). Null if none. */
-    suspend fun detect(bitmap: Bitmap): DetectedFace? {
+    suspend fun detect(bitmap: Bitmap): DetectedFace? =
+        detectAll(bitmap).maxByOrNull { it.box.width() * it.box.height() }
+
+    /** Detect EVERY face (largest first). Used by ID-document detection, which must
+     *  reason about a card's main portrait + its faint 'ghost' portrait. */
+    suspend fun detectAll(bitmap: Bitmap): List<DetectedFace> {
         val faces = detector.process(InputImage.fromBitmap(bitmap, 0)).await()
-        val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() } ?: return null
-        fun pt(type: Int): PointF? = face.getLandmark(type)?.position
-        return DetectedFace(
-            box = face.boundingBox,
-            yaw = face.headEulerAngleY,
-            pitch = face.headEulerAngleX,
-            leftEye = pt(FaceLandmark.LEFT_EYE),
-            rightEye = pt(FaceLandmark.RIGHT_EYE),
-            noseBase = pt(FaceLandmark.NOSE_BASE),
-            mouthLeft = pt(FaceLandmark.MOUTH_LEFT),
-            mouthRight = pt(FaceLandmark.MOUTH_RIGHT),
-        )
+        return faces.map { face ->
+            fun pt(type: Int): PointF? = face.getLandmark(type)?.position
+            DetectedFace(
+                box = face.boundingBox,
+                yaw = face.headEulerAngleY,
+                pitch = face.headEulerAngleX,
+                leftEye = pt(FaceLandmark.LEFT_EYE),
+                rightEye = pt(FaceLandmark.RIGHT_EYE),
+                noseBase = pt(FaceLandmark.NOSE_BASE),
+                mouthLeft = pt(FaceLandmark.MOUTH_LEFT),
+                mouthRight = pt(FaceLandmark.MOUTH_RIGHT),
+            )
+        }.sortedByDescending { it.box.width() * it.box.height() }
     }
 
     fun close() = detector.close()
