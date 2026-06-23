@@ -91,7 +91,10 @@ python bulk_enroll.py dataset/ --tenant acme     # dataset/<person>/<images...>
 | `FACE_CORS_ORIGINS` | same-origin | comma-separated browser origins allowed on `/v1` |
 | `FACE_RATE_LIMIT` / `FACE_RATE_WINDOW` | 120 / 60 | requests per window per caller |
 | `FACE_ACTIVE_LIVENESS` | 1 | require a live head-turn on verify |
-| `FACE_LIVENESS` | 0 | also run the passive single-shot anti-spoof model (opt-in; pairs with active liveness) |
+| `FACE_LIVENESS` | 0 | also run the passive single-shot anti-spoof model (opt-in; pairs with active liveness; self-host only — models ship there) |
+| `FACE_LIVENESS_THRESHOLD` | 0.55 | passive-liveness strictness (only used when `FACE_LIVENESS=1`) |
+| `FACE_ATTRIBUTES` | 0 | estimate age/gender (returned on `/v1/embed`) — loads the small genderage model |
+| `FACE_USE_ANN` | 0 | use the HNSW ANN index instead of exact (needs `hnswlib`; for very large tenants) |
 | `FACE_DB_PATH` | `face_db` | base data directory (store + per-tenant + index) |
 | `FACE_KEYS_FILE` · `FACE_ADMINS_FILE` · `FACE_AUDIT_DIR` · `FACE_USAGE_FILE` | `apikeys.json` · `admins.json` · `audit_logs` · `usage.json` | state locations |
 

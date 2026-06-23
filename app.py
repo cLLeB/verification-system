@@ -183,6 +183,16 @@ if os.environ.get("FACE_LIVENESS", "0") == "0":
 # Active head-turn challenge liveness on verify — ON by default.
 if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
     CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
+# Optional age/gender estimation (loads the small genderage model; surfaced on /v1/embed).
+if os.environ.get("FACE_ATTRIBUTES", "0") == "1":
+    CONFIG = dataclasses.replace(CONFIG, attributes=True)
+# Optional: tune passive-liveness strictness (only used when FACE_LIVENESS=1).
+_lt = os.environ.get("FACE_LIVENESS_THRESHOLD")
+if _lt:
+    try:
+        CONFIG = dataclasses.replace(CONFIG, liveness_threshold=float(_lt))
+    except ValueError:
+        pass
 
 # Restore saved state (keys, operators, templates) BEFORE anything reads it —
 # a no-op unless FACE_PERSIST_DATASET + HF_TOKEN are set (durable state on

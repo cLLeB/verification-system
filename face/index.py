@@ -83,7 +83,7 @@ def _load_json_enc(path: str, cipher):
 # huge-scale (1M-2M) need, but is OFF: the Windows hnswlib build manages only
 # ~250 vec/s, i.e. a ~70 min one-time build at 1M. Re-enable by setting _USE_ANN
 # True once a fast-building ANN (e.g. FAISS) replaces hnswlib.
-_USE_ANN = False
+_USE_ANN = os.environ.get("FACE_USE_ANN", "0") == "1"   # opt-in HNSW (needs hnswlib)
 
 _DIM = 512
 _AUTOSAVE_EVERY = 10_000                 # persist after this many incremental changes

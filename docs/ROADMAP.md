@@ -26,6 +26,21 @@ experience (phone-camera fingerprint capture failed — ridges weren't resolvabl
 **Decision rule:** let customer demand pick — kiosk client → sensor fingerprint;
 phone-only second factor → palmprint. Don't build until a customer needs it.
 
+## Optional features (reviewed — now user-toggleable)
+A second-eye pass over everything we'd disabled. These are off by default (sensible
+defaults) but now switchable per deployment via env, so nothing good is locked away:
+- `FACE_ATTRIBUTES=1` — age/gender on `/v1/embed` (model already ships with buffalo_l).
+- `FACE_LIVENESS=1` (+ `FACE_LIVENESS_THRESHOLD`) — passive single-shot anti-spoof,
+  layered with the head-turn. Self-host only (the 1.9 MB models aren't on the HF Space
+  due to its binary limit). Tune the threshold on real vs. spoof samples before relying on it.
+- `FACE_USE_ANN=1` — HNSW index instead of exact (needs `hnswlib`; for very large tenants).
+- Left as-is on purpose: 2d106det dense landmarks (unused), per-tenant CORS (already an
+  option), binary store / Lax cookie / CSP (improvements).
+
+### Android parity (future)
+The native app uses the head-turn liveness only. Could add passive anti-spoof + age/gender
+on-device too (bundle `antispoof_*.onnx` / `genderage.onnx` into assets, mirror the server gates).
+
 ## Other parked items
 - **Custom domain** (removes the HF iframe admin-cookie quirk; trusted HTTPS).
 - **Non-sleeping host** — Oracle Cloud ARM "Always Free": `docker-compose.yml` +
