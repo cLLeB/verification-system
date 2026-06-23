@@ -264,3 +264,47 @@ startCamera();
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
+
+// --- Install as an app (PWA) -----------------------------------------------
+// Desktop Chrome/Edge + Android Chrome fire `beforeinstallprompt`; we capture it
+// and reveal an explicit Install button that triggers the native prompt on click.
+// iOS Safari has no prompt API → show Add-to-Home-Screen instructions instead.
+(function installSetup() {
+    const btn = $('install-btn');
+    if (!btn) return;
+    let deferred = null;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;        // iOS
+    const ua = navigator.userAgent || '';
+    const isIOS = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
+    const inIframe = window.self !== window.top;
+
+    if (isStandalone) return;                            // already installed → keep hidden
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferred = e;
+        btn.hidden = false;                              // now installable → show button
+    });
+    window.addEventListener('appinstalled', () => { btn.hidden = true; deferred = null; });
+
+    // iOS never fires beforeinstallprompt; offer the button with manual instructions.
+    if (isIOS && !inIframe) btn.hidden = false;
+
+    btn.addEventListener('click', async () => {
+        if (deferred) {
+            deferred.prompt();
+            await deferred.userChoice.catch(() => {});
+            deferred = null; btn.hidden = true;
+            return;
+        }
+        if (isIOS) {
+            setHint('To install: tap the Share icon, then "Add to Home Screen".', 'info');
+            return;
+        }
+        // Fallback (e.g. opened inside the HF Space iframe, where install is blocked)
+        setHint(inIframe
+            ? 'Open this page in its own tab (not embedded) to install it as an app.'
+            : 'Use your browser menu → "Install app" / "Add to Home screen".', 'info');
+    });
+})();

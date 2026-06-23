@@ -133,6 +133,9 @@ body {
 .btn:active { transform: scale(.97); }
 .btn-primary { background: var(--grad); color: var(--on-brand); box-shadow: 0 6px 18px rgba(167,139,250,.22); }
 .btn-ghost { background: var(--inset); color: var(--txt); border: 1px solid var(--line); }
+.install-btn { width: auto; gap: 6px; padding: 0 12px; border-radius: 999px; }
+.install-btn[hidden] { display: none !important; }
+.install-label { font-size: .85rem; font-weight: 600; }
 .btn:disabled { opacity: .55; }
 .upload-row { display: flex; flex-direction: column; gap: 8px; }
 .upload-row .btn { min-height: 44px; }
