@@ -27,6 +27,21 @@ enrolment that keeps recognising a person as they change over months/years.
 | Admin console | `/admin` | your operators | admin password |
 | Integration API | `/v1/*` | other companies' systems | `X-API-Key` + role |
 
+## 📚 Documentation
+
+Full docs in **[`docs/`](docs/README.md)**:
+[Architecture](docs/ARCHITECTURE.md) ·
+[Security & Privacy](docs/SECURITY.md) ·
+[Integration](docs/INTEGRATION.md) ·
+[API errors/codes](docs/ERRORS.md) ·
+[Operations](docs/OPERATIONS.md) ·
+[Deploy](docs/DEPLOY.md) ·
+[Development](docs/DEVELOPMENT.md) ·
+[Android](docs/ANDROID.md) ·
+[Roadmap](docs/ROADMAP.md) ·
+[Changelog](CHANGELOG.md).
+Package maps: [`face/`](face/README.md) (recognition core), [`face_service/`](face_service/README.md) (web API).
+
 ## Quickstart (local)
 
 ```bash
