@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -79,6 +80,7 @@ fun MainScreen() {
 private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
     var adminUnlocked by remember { mutableStateOf(false) }
     var showPin by remember { mutableStateOf(false) }
+    var lensFacing by remember { mutableIntStateOf(androidx.camera.core.CameraSelector.LENS_FACING_FRONT) }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -115,9 +117,22 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         ) {
             CameraPreview(
                 modifier = Modifier.fillMaxSize(),
+                lensFacing = lensFacing,
                 shouldProcess = { vm.tryBeginFrame() },
                 onBitmap = { vm.processFrame(it) },
             )
+            if (vm.result == null) {
+                IconButton(
+                    onClick = {
+                        lensFacing = if (lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT)
+                            androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                        else androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+                    },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                ) {
+                    Icon(Icons.Filled.Cameraswitch, "Flip camera", tint = Color.White)
+                }
+            }
             vm.result?.let { ResultOverlay(it) { vm.scanAgain() } }
         }
 

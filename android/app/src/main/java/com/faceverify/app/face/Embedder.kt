@@ -69,6 +69,8 @@ class Embedder private constructor(
             val opts = OrtSession.SessionOptions().apply {
                 setIntraOpNumThreads(2)
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+                // Use the phone's neural accelerator when available; harmless if not.
+                try { addNnapi() } catch (_: Throwable) { }
             }
             val session = env.createSession(bytes, opts)
             return Embedder(env, session)
