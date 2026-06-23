@@ -8,8 +8,8 @@ app/build/
 captures/
 .externalNativeBuild/
 .cxx/
-# Bundled ArcFace model — large binary, not in git (see copy-model.ps1)
-app/src/main/assets/*.onnx
+# Bundled ArcFace models (per-flavor, large binaries) — not in git (see copy-model.ps1)
+*.onnx
 # Release signing secrets — NEVER commit
 *.keystore
 keystore.properties

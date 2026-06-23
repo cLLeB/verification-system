@@ -20,6 +20,27 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Each flavor bundles a different ArcFace model (same asset filename, different
+    // per-flavor source set) and produces a distinctly-named, side-by-side-installable
+    // APK. fp32 = full precision (default, shipped forever). fp16 = half size, ~lossless.
+    // (int8 is intentionally NOT a flavor yet — add one here once validated; see
+    //  app/src/int8-experimental/README.)
+    flavorDimensions += "model"
+    productFlavors {
+        create("fp32") {
+            dimension = "model"
+            applicationIdSuffix = ".fp32"
+            versionNameSuffix = "-fp32"
+            resValue("string", "app_name", "Face Verify f32")
+        }
+        create("fp16") {
+            dimension = "model"
+            applicationIdSuffix = ".fp16"
+            versionNameSuffix = "-fp16"
+            resValue("string", "app_name", "Face Verify f16")
+        }
+    }
+
     signingConfigs {
         create("release") {
             val ksProps = rootProject.file("keystore.properties")
