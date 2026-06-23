@@ -108,6 +108,9 @@ def load_config() -> PalmConfig:
     env_hf = os.environ.get("PALM_MODEL_HF_REPO")
     if env_hf:
         cfg = replace(cfg, model_hf_repo=env_hf)
+    env_hf_file = os.environ.get("PALM_MODEL_HF_FILE")
+    if env_hf_file:
+        cfg = replace(cfg, model_hf_file=env_hf_file)
     env_hand = os.environ.get("PALM_HAND_MODEL")
     if env_hand:
         cfg = replace(cfg, hand_model_path=env_hand)
