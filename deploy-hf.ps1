@@ -6,9 +6,9 @@
 #   .\deploy-hf.ps1
 #
 # Requires the 'space' git remote to point at your Space (with a write token).
-$ErrorActionPreference = "Stop"
+
 $work = (git branch --show-current)
-git branch -D hf-space 2>$null
+if (git branch --list hf-space) { git branch -D hf-space | Out-Null }
 git checkout --orphan hf-space
 git rm --cached --ignore-unmatch --quiet face/models/antispoof_bin_1.5_128.onnx face/models/antispoof_print_replay_1.5_128.onnx
 # Disposable deploy artifact (pushed only to the HF Space, not GitHub history),
