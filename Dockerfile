@@ -10,6 +10,8 @@ ENV PYTHONUNBUFFERED=1 \
 # (not just headless), which needs these GUI/X libs even on a server.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libglib2.0-0 libgomp1 libgl1 libsm6 libxext6 libxrender1 libxcb1 \
+        libegl1 libgles2 \
+
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 1000 user \
     && mkdir -p /data && chown user:user /data
