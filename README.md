@@ -1,5 +1,5 @@
 ---
-title: FaceVerify
+title: Biometric Verify
 emoji: 🟣
 colorFrom: indigo
 colorTo: purple

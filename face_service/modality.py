@@ -144,6 +144,57 @@ def enroll(user_id: str, image: np.ndarray, face_cfg: FaceConfig,
             "results": results}
 
 
+# --- users (across both modalities) ----------------------------------------
+def list_users(face_cfg: FaceConfig, palm_enabled: bool = True) -> dict:
+    """Union of face + palm enrolled identities (a user may have either or both),
+    with which modality each holds — so the admin count reflects palm too."""
+    fset = set(_face_api._store(face_cfg, None).list_users())
+    pset = set(_palm_api._store(_palm_cfg_for(face_cfg), None).list_users()) if palm_enabled else set()
+    users = sorted(fset | pset)
+    return {"success": True, "users": users,
+            "modalities": {u: [m for m, s in (("face", fset), ("palm", pset)) if u in s] for u in users}}
+
+
+def delete_user(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> dict:
+    """Delete a user from BOTH modalities (face + palm), so removing someone clears
+    all their biometrics."""
+    uid = (user_id or "").strip()
+    f = _face_api.delete_user(uid, face_cfg)
+    p = _palm_api.delete_user(uid, _palm_cfg_for(face_cfg)) if palm_enabled else {"success": False}
+    ok = bool(f.get("success")) or bool(p.get("success"))
+    return {"success": ok, "user_id": uid,
+            "deleted_modalities": [m for m, r in (("face", f), ("palm", p)) if r.get("success")],
+            "message": f"Deleted '{uid}'." if ok else f"User '{uid}' not found."}
+
+
+def export_record(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> dict:
+    """Per-modality summary of what we hold for a user (for data-subject export),
+    covering BOTH face and palm."""
+    out = {}
+    ft = _face_api._store(face_cfg, None).load(user_id)
+    if ft is not None:
+        out["face"] = {"anchors": len(ft.anchors), "adaptive": len(ft.adaptive),
+                       "embedding_dim": int(ft.embeddings[0].shape[0]) if ft.embeddings else 0}
+    if palm_enabled:
+        pt = _palm_api._store(_palm_cfg_for(face_cfg), None).load(user_id)
+        if pt is not None:
+            out["palm"] = {"anchors": len(pt.anchors), "adaptive": len(pt.adaptive),
+                           "embedding_dim": int(pt.embeddings[0].shape[0]) if pt.embeddings else 0}
+    return out
+
+
+def store_and_index(face_cfg: FaceConfig, modality: str = "face"):
+    """The (store, index, match_threshold) for one modality — lets generic features
+    (hybrid sync) work on palm exactly like face."""
+    if modality == "palm":
+        from palm.profile import PALM_PROFILE
+        pcfg = _palm_cfg_for(face_cfg)
+        store = PALM_PROFILE.make_store(pcfg.db_path)
+        return store, PALM_PROFILE.get_index(pcfg.db_path, store), pcfg.match_threshold
+    store = _face_api._store(face_cfg, None)
+    return store, _face_api._index_for(store, face_cfg), face_cfg.match_threshold
+
+
 # --- adaptive threshold ----------------------------------------------------
 def recalibrate_palm(face_cfg: FaceConfig, target_far: float = _CALIB_TARGET_FAR) -> Optional[dict]:
     """Recompute the palm accept threshold from this tenant's enrolled palms and

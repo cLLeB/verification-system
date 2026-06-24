@@ -1,6 +1,6 @@
 {
-  "name": "Face Verify",
-  "short_name": "Face Verify",
+  "name": "Biometric Verify",
+  "short_name": "Biometric Verify",
   "description": "Contactless face verification",
   "start_url": "/",
   "scope": "/",

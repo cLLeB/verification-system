@@ -458,7 +458,7 @@ def admin_tenant_offboard():
 def admin_overview():
     klist = keys.list_keys()
     return jsonify({"success": True,
-                    "people": len(engine.list_users(CONFIG).get("users", [])),
+                    "people": len(_modality.list_users(CONFIG).get("users", [])),
                     "operators": len(admins.list_admins()),
                     "api_keys": len(klist),
                     "tenants": len({k["tenant"] for k in klist}),
@@ -649,7 +649,7 @@ def api_identify():
 @app.route("/api/users", methods=["GET"])
 @admin.require_admin
 def api_users():
-    return jsonify(engine.list_users(CONFIG))
+    return jsonify(_modality.list_users(CONFIG))      # face + palm union
 
 
 @app.route("/api/users/delete", methods=["POST"])
@@ -657,7 +657,7 @@ def api_users():
 def api_delete_user():
     data = request.get_json(silent=True) or {}
     uid = (data.get("user_id") or "").strip()
-    out = engine.delete_user(uid, CONFIG)
+    out = _modality.delete_user(uid, CONFIG)          # delete from both modalities
     audit.log(_FP_TENANT, "delete", actor=g.get("admin_user", "admin"), user_id=uid,
               success=bool(out.get("success")))
     return jsonify(out)
