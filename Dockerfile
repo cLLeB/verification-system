@@ -29,11 +29,19 @@ a=FaceAnalysis(name='buffalo_l', allowed_modules=['detection','landmark_3d_68','
 a.prepare(ctx_id=-1, det_size=(480,480))"
 
 # App code (fingerprint stack is intentionally NOT copied — see .dockerignore).
+COPY --chown=user biometric ./biometric
 COPY --chown=user face ./face
+COPY --chown=user palm ./palm
 COPY --chown=user face_service ./face_service
 COPY --chown=user templates ./templates
 COPY --chown=user static ./static
 COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py openapi.yaml ./
+
+# Bake the palm CCNet encoder (fp16, ~129 MB, ~lossless) into the image so the Space
+# never re-downloads it on restart. The hand-landmarker model ships in palm/models/.
+RUN python -c "from huggingface_hub import hf_hub_download; import shutil; \
+shutil.copyfile(hf_hub_download('kyereboatengcaleb/palm-ccnet-onnx','palm_ccnet_fp16.onnx'), \
+'palm/models/palm_ccnet.onnx')"
 
 # All runtime state lives under /data (writable, owned by 'user'). On compose/Oracle
 # this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).
