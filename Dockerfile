@@ -37,11 +37,13 @@ COPY --chown=user templates ./templates
 COPY --chown=user static ./static
 COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py openapi.yaml ./
 
-# Bake the palm CCNet encoder (fp16, ~129 MB, ~lossless) into the image so the Space
-# never re-downloads it on restart. The hand-landmarker model ships in palm/models/.
-RUN python -c "from huggingface_hub import hf_hub_download; import shutil; \
-shutil.copyfile(hf_hub_download('kyereboatengcaleb/palm-ccnet-onnx','palm_ccnet_fp16.onnx'), \
-'palm/models/palm_ccnet.onnx')"
+# Bake the palm models into the image from Hugging Face (kept out of git: HF Spaces
+# reject committed binaries). CCNet fp16 (~129 MB, ~lossless) + the MediaPipe hand
+# detector, so the Space has everything and never re-downloads on restart.
+RUN python -c "from huggingface_hub import hf_hub_download as d; import shutil, os; \
+os.makedirs('palm/models', exist_ok=True); \
+shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','palm_ccnet_fp16.onnx'), 'palm/models/palm_ccnet.onnx'); \
+shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','hand_landmarker.task'), 'palm/models/hand_landmarker.task')"
 
 # All runtime state lives under /data (writable, owned by 'user'). On compose/Oracle
 # this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).
