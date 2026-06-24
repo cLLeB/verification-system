@@ -48,6 +48,8 @@ def main() -> None:
     p.add_argument("--tenant", default=None, help="tenant id (default: the base store)")
     p.add_argument("--samples", type=int, default=None, help="max embeddings kept per person")
     p.add_argument("--batch", type=int, default=2000, help="users per DB transaction")
+    p.add_argument("--modality", default="face", choices=["face", "palm"],
+                   help="which biometric the dataset holds (default: face)")
     args = p.parse_args()
 
     cfg = load_config()
@@ -56,9 +58,30 @@ def main() -> None:
     if args.tenant:
         cfg = dataclasses.replace(cfg, db_path=os.path.join(cfg.db_path, "tenants", args.tenant))
 
-    print(f"warming engine…", flush=True)
-    _engine.warm(cfg)
-    store = FaceStore(cfg)
+    print(f"warming {args.modality} engine…", flush=True)
+    if args.modality == "palm":
+        from palm import engine as _palm_engine
+        from palm.profile import PALM_PROFILE
+        from palm.config import load_config as _load_palm
+        from palm.errors import PalmError
+        pcfg = dataclasses.replace(_load_palm(), db_path=cfg.db_path,
+                                   samples_per_user=cfg.samples_per_user)
+        _palm_engine.warm(pcfg)
+        store = PALM_PROFILE.make_store(pcfg.db_path)
+        _embed_errors = (PalmError,)
+        def embed_one(img):
+            return _palm_engine.detect(img, pcfg).embedding
+        def build_index():
+            return PALM_PROFILE.get_index(pcfg.db_path, store)
+    else:
+        _engine.warm(cfg)
+        store = FaceStore(cfg)
+        _embed_errors = (FaceError,)
+        def embed_one(img):
+            return _engine.detect(img, cfg).embedding
+        def build_index():
+            faceindex.invalidate(cfg.db_path)
+            return faceindex.get_index(cfg.db_path, store)
 
     people = [d for d in sorted(os.listdir(args.folder))
               if os.path.isdir(os.path.join(args.folder, d))]
@@ -82,10 +105,10 @@ def main() -> None:
                 imgs_fail += 1
                 continue
             try:
-                embs.append(_engine.detect(img, cfg).embedding)
+                embs.append(embed_one(img))
                 imgs_ok += 1
-            except FaceError:
-                imgs_fail += 1                       # no/again unusable face in this image
+            except _embed_errors:
+                imgs_fail += 1                       # no/again unusable biometric in this image
         if embs:
             batch.append((person, embs))
             enrolled += 1
@@ -101,9 +124,8 @@ def main() -> None:
           f"({imgs_fail:,} images skipped)", flush=True)
 
     print("building search index…", flush=True)
-    faceindex.invalidate(cfg.db_path)
     t = time.perf_counter()
-    idx = faceindex.get_index(cfg.db_path, store)
+    idx = build_index()
     users, vectors = idx.count()
     print(f"index ready: {users:,} identities, {vectors:,} vectors "
           f"({time.perf_counter()-t:,.1f}s, backend={idx.backend})", flush=True)

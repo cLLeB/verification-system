@@ -216,6 +216,15 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 if (bmp == null) { result = ScanResult(false, "Couldn't open photo", "Try another image"); return@launch }
                 val a = engine.assessIdForEnroll(bmp)
                 if (a.faces.isEmpty() || a.primaryFace == null) {
+                    // No face — a gallery photo of a palm should enrol as palm.
+                    val p = palm
+                    if (p != null) {
+                        val s = p.embed(bmp)
+                        if (s.embedding != null) {
+                            finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false); return@launch
+                        }
+                        result = ScanResult(false, "No face or palm found", s.message); return@launch
+                    }
                     result = ScanResult(false, "No face found", "No clear face in that photo"); return@launch
                 }
                 val fromId = a.assessment.isId
