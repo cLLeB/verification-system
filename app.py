@@ -146,8 +146,24 @@ def healthz():
 @app.route("/readyz")
 def readyz():
     ready = bool(MODEL_READY)
+    palm = {}
+    try:
+        from palm import engine as _pe, roi as _pr
+        from palm.config import load_config as _lp
+        pc = _lp()
+        palm = {"roi_available": _pr.available(pc), "engine_available": _pe.available(pc),
+                "encoder": _pe.encoder_name(pc), "hand_model": os.path.exists(pc.hand_model_path),
+                "onnx": os.path.exists(pc.model_path)}
+        try:                              # actually build the detector to catch lib/runtime errors
+            _pr._ensure(pc)
+            palm["detector_loads"] = True
+        except Exception as exc:
+            palm["detector_loads"] = False
+            palm["detector_error"] = f"{type(exc).__name__}: {exc}"[:240]
+    except Exception as exc:
+        palm = {"error": f"{type(exc).__name__}: {exc}"[:240]}
     return jsonify({"status": "ready" if ready else "not_ready",
-                    "model_ready": ready}), (200 if ready else 503)
+                    "model_ready": ready, "palm": palm}), (200 if ready else 503)
 
 
 # --- integration developer experience --------------------------------------
