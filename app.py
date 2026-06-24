@@ -567,6 +567,18 @@ def api_challenge():
     return jsonify(ch)
 
 
+@app.route("/api/detect", methods=["POST"])
+def api_detect():
+    """Lightweight pre-check for the web client: is this frame a face, a palm, or
+    nothing? Lets the UI skip the head-turn challenge for a palm."""
+    data = request.get_json(silent=True) or {}
+    img = decode_image(data.get("image", ""))
+    if img is None:
+        return jsonify({"modality": "none"})
+    rr = _modality.route(img, CONFIG, palm_enabled=True, short_circuit=True)
+    return jsonify({"modality": rr.modality})
+
+
 @app.route("/api/enroll", methods=["POST"])
 @admin.require_admin
 def api_enroll():

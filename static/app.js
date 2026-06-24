@@ -195,7 +195,17 @@ async function enrollFromFiles() {
 async function verify() {
     const img0 = grabFrame();
     if (!img0) { setHint('Camera not ready — try again.'); return; }
-    startBusy('Liveness');
+    startBusy('Detecting');
+    // Quick modality check so a palm skips the face head-turn challenge.
+    let modality = 'face';
+    try {
+        const d = await (await fetch('/api/detect', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img0 }) })).json();
+        modality = d.modality || 'face';
+    } catch (e) { /* default to face */ }
+    if (modality === 'palm') return palmVerify();
+    if (modality === 'none') { reset('Show your face — or your open palm — clearly', 'warn'); return; }
+
     let ch;
     try { ch = await (await fetch('/api/challenge')).json(); }
     catch (e) { reset('Network error — is the server running?', 'warn'); return; }
@@ -224,6 +234,24 @@ async function verify() {
         const data = await res.json();
         setTimeout(() => handle(data), 120);
     } catch (e) { reset('Network error — is the server running?', 'warn'); }
+}
+
+// Palm verify: a single steady shot (no head-turn — palm has its own passive liveness).
+async function palmVerify() {
+    setHint('Hold your open palm steady…', 'info');
+    statusText.textContent = 'Checking';
+    await wait(450);
+    const img = grabFrame();
+    if (!img) { reset('Camera not ready — try again.', 'warn'); return; }
+    let p = 30; bar.style.width = '30%';
+    const anim = setInterval(() => { p = Math.min(95, p + 8); bar.style.width = p + '%'; }, 120);
+    try {
+        const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img }) });
+        const data = await res.json();
+        clearInterval(anim); bar.style.width = '100%';
+        setTimeout(() => handle(data), 120);
+    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
 }
 
 async function singleVerify(img) {
