@@ -1,0 +1,4 @@
+{
+  "_note": "CALIBRATED 2026-06-25 from captures/ via palm.training.calibrate_from_images (ONNX encoder). On 10 images / 3 hands: genuine same-hand cosine 0.607-0.865, impostor 0.316-0.591 — cleanly separated, EER 0.0. 0.60 sits centered in the [0.591, 0.607] gap: rejects every observed impostor and accepts every observed genuine. Re-run the calibrator with more captures to tighten this; raise toward 0.605 for stricter anti-spoof, lower toward 0.595 if real users get rejected.",
+  "match_threshold": 0.60
+}

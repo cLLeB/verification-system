@@ -37,6 +37,7 @@ from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
 from face_service import admin, admins, audit, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
 
@@ -145,8 +146,24 @@ def healthz():
 @app.route("/readyz")
 def readyz():
     ready = bool(MODEL_READY)
+    palm = {}
+    try:
+        from palm import engine as _pe, roi as _pr
+        from palm.config import load_config as _lp
+        pc = _lp()
+        palm = {"roi_available": _pr.available(pc), "engine_available": _pe.available(pc),
+                "encoder": _pe.encoder_name(pc), "hand_model": os.path.exists(pc.hand_model_path),
+                "onnx": os.path.exists(pc.model_path)}
+        try:                              # actually build the detector to catch lib/runtime errors
+            _pr._ensure(pc)
+            palm["detector_loads"] = True
+        except Exception as exc:
+            palm["detector_loads"] = False
+            palm["detector_error"] = f"{type(exc).__name__}: {exc}"[:240]
+    except Exception as exc:
+        palm = {"error": f"{type(exc).__name__}: {exc}"[:240]}
     return jsonify({"status": "ready" if ready else "not_ready",
-                    "model_ready": ready}), (200 if ready else 503)
+                    "model_ready": ready, "palm": palm}), (200 if ready else 503)
 
 
 # --- integration developer experience --------------------------------------
@@ -372,10 +389,30 @@ def admin_tenant_entitlement():
         roles = [r.strip() for r in roles.split(",") if r.strip()]
     out = tenants.set_entitlement(tenant, enabled=data.get("enabled"),
                                   plan=data.get("plan"), max_keys=data.get("max_keys"),
-                                  allowed_roles=roles, allow_export=data.get("allow_export"))
+                                  allowed_roles=roles, allow_export=data.get("allow_export"),
+                                  palm_enabled=data.get("palm_enabled"),
+                                  match_policy=data.get("match_policy"))
     audit.log(_FP_TENANT, "tenant_entitlement", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True, detail=str(out))
     return jsonify({"success": True, **out})
+
+
+@app.route("/admin/api/palm/calibrate", methods=["POST"])
+@admin.require_admin
+def admin_palm_calibrate():
+    """Recompute a tenant's palm accept threshold from its enrolled palms (adaptive,
+    impostor-driven). Also runs automatically as palms enrol; this is the manual hook."""
+    from face_service import modality as _modality
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "").strip()
+    if not tenant:
+        return jsonify({"success": False, "message": "tenant required."}), 400
+    face_cfg = dataclasses.replace(CONFIG, db_path=os.path.join(CONFIG.db_path, "tenants", tenant))
+    rec = _modality.recalibrate_palm(face_cfg, target_far=float(data.get("target_far", 0.01)))
+    audit.log(_FP_TENANT, "palm_calibrate", actor=g.get("admin_user", "admin"),
+              user_id=tenant, success=rec is not None, detail=str(rec))
+    return jsonify({"success": rec is not None, "tenant": tenant, "calibration": rec,
+                    "message": "Calibrated." if rec else "Not enough palm enrolments yet."})
 
 
 @app.route("/admin/api/tenants/portal-password", methods=["POST"])
@@ -421,7 +458,7 @@ def admin_tenant_offboard():
 def admin_overview():
     klist = keys.list_keys()
     return jsonify({"success": True,
-                    "people": len(engine.list_users(CONFIG).get("users", [])),
+                    "people": len(_modality.list_users(CONFIG).get("users", [])),
                     "operators": len(admins.list_admins()),
                     "api_keys": len(klist),
                     "tenants": len({k["tenant"] for k in klist}),
@@ -530,6 +567,18 @@ def api_challenge():
     return jsonify(ch)
 
 
+@app.route("/api/detect", methods=["POST"])
+def api_detect():
+    """Lightweight pre-check for the web client: is this frame a face, a palm, or
+    nothing? Lets the UI skip the head-turn challenge for a palm."""
+    data = request.get_json(silent=True) or {}
+    img = decode_image(data.get("image", ""))
+    if img is None:
+        return jsonify({"modality": "none"})
+    rr = _modality.route(img, CONFIG, palm_enabled=True, short_circuit=True)
+    return jsonify({"modality": rr.modality})
+
+
 @app.route("/api/enroll", methods=["POST"])
 @admin.require_admin
 def api_enroll():
@@ -541,9 +590,17 @@ def api_enroll():
     source = (data.get("source") or "auto").lower()
     if source not in ("auto", "live", "id"):
         source = "auto"
-    result = engine.enroll(uid, img, CONFIG, source=source)
+    # Auto-route: a face enrols as a face, a palm as a palm (same name can hold both).
+    out = _modality.enroll(uid, img, CONFIG, palm_enabled=True, source=source)
+    results = out.get("results", {})
+    result = dict(next((r for r in results.values() if r.get("success")), None)
+                  or next(iter(results.values()), None)
+                  or {"success": out.get("success"), "code": out.get("code"),
+                      "message": out.get("message")})
+    result["modality"] = out.get("modality")
     audit.log(_FP_TENANT, "enroll", actor=g.get("admin_user", "admin"), user_id=uid,
-              success=bool(result.get("success")), detail=result.get("message", ""))
+              success=bool(result.get("success")),
+              detail=f"{out.get('modality')}: {result.get('message', '')}")
     save_debug(img, "enroll", result)
     return jsonify(result)
 
@@ -553,28 +610,39 @@ def api_verify():
     data = request.get_json(silent=True) or {}
     user_id = (data.get("user_id") or "").strip()
 
-    # Active-liveness path: a burst of frames + a valid challenge token.
+    # Burst path: a face does the head-turn challenge; a palm in the same burst is
+    # auto-detected and verified on one frame (palm has no head-turn — its own passive
+    # liveness applies). So a user can verify by face OR palm from the same UI.
     frames = data.get("frames")
     if CONFIG.active_liveness and frames:
-        if not _active.valid_token(data.get("token", "")):
-            return jsonify({"success": False, "code": "liveness",
-                            "message": "Challenge expired — try again."})
         imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
         if not imgs:
             return jsonify({"success": False, "message": "Failed to decode frames."})
-        result = engine.verify_live(user_id, imgs, CONFIG)
+        mid = imgs[len(imgs) // 2]
+        routed = _modality.route(mid, CONFIG, palm_enabled=True, short_circuit=True)
+        if routed.modality == "palm":
+            result = (_modality.verify(user_id, mid, CONFIG, palm_enabled=True) if user_id
+                      else _modality.identify(mid, CONFIG, palm_enabled=True))
+        else:
+            if not _active.valid_token(data.get("token", "")):
+                return jsonify({"success": False, "code": "liveness",
+                                "message": "Challenge expired — try again."})
+            result = engine.verify_live(user_id, imgs, CONFIG)
         audit.log(_FP_TENANT, "verify", actor="kiosk", user_id=result.get("user_id") or user_id,
-                  success=bool(result.get("success")), detail=f"score={result.get('score')}")
-        save_debug(imgs[len(imgs) // 2], "verify", result)
+                  success=bool(result.get("success")),
+                  detail=f"modality={result.get('modality')} score={result.get('score')}")
+        save_debug(mid, "verify", result)
         return jsonify(sign(result))
 
-    # Single-image fallback (used when active liveness is off).
+    # Single-image path (active liveness off, or palm) — auto-routed.
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    result = engine.verify(user_id, img, CONFIG) if user_id else engine.identify(img, CONFIG)
+    result = (_modality.verify(user_id, img, CONFIG, palm_enabled=True) if user_id
+              else _modality.identify(img, CONFIG, palm_enabled=True))
     audit.log(_FP_TENANT, "verify", actor="kiosk", user_id=result.get("user_id") or user_id,
-              success=bool(result.get("success")), detail=f"score={result.get('score')}")
+              success=bool(result.get("success")),
+              detail=f"modality={result.get('modality')} score={result.get('score')}")
     save_debug(img, "verify", result)
     return jsonify(sign(result))
 
@@ -585,7 +653,7 @@ def api_identify():
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    result = engine.identify(img, CONFIG)
+    result = _modality.identify(img, CONFIG, palm_enabled=True)
     save_debug(img, "identify", result)
     return jsonify(sign(result))
 
@@ -593,7 +661,7 @@ def api_identify():
 @app.route("/api/users", methods=["GET"])
 @admin.require_admin
 def api_users():
-    return jsonify(engine.list_users(CONFIG))
+    return jsonify(_modality.list_users(CONFIG))      # face + palm union
 
 
 @app.route("/api/users/delete", methods=["POST"])
@@ -601,7 +669,7 @@ def api_users():
 def api_delete_user():
     data = request.get_json(silent=True) or {}
     uid = (data.get("user_id") or "").strip()
-    out = engine.delete_user(uid, CONFIG)
+    out = _modality.delete_user(uid, CONFIG)          # delete from both modalities
     audit.log(_FP_TENANT, "delete", actor=g.get("admin_user", "admin"), user_id=uid,
               success=bool(out.get("success")))
     return jsonify(out)

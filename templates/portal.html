@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0B1020">
-    <title>Face Verify — Developer Portal</title>
+    <title>Biometric Verify — Developer Portal</title>
     <link rel="stylesheet" href="/static/theme.css?v=1">
     <link rel="stylesheet" href="/static/admin.css?v=3">
 </head>
@@ -24,7 +24,7 @@
     <!-- Portal -->
     <section id="console" class="hidden">
         <header class="bar">
-            <strong>Face Verify · Developer Portal</strong>
+            <strong>Biometric Verify · Developer Portal</strong>
             <span id="who" class="muted"></span>
             <button id="logout-btn" class="btn ghost">Sign out</button>
         </header>
@@ -35,6 +35,15 @@
                 <div class="stats" id="ent-stats"></div>
                 <p id="disabled-note" class="err hidden">Your account is disabled — you can't
                     create keys until the provider re-activates it. Existing keys won't work either.</p>
+                <div class="row" id="policy-row">
+                    <label class="muted" for="match-policy">Face + palm match policy</label>
+                    <select id="match-policy" class="field" title="How face and palm combine for users enrolled in both">
+                        <option value="or">Either grants (face OR palm)</option>
+                        <option value="fallback">Palm as fallback (face preferred)</option>
+                        <option value="and">Require both (step-up security)</option>
+                    </select>
+                    <button id="policy-save" class="btn ghost">Save policy</button>
+                </div>
             </div>
 
             <div class="card">

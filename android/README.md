@@ -13,6 +13,21 @@ model and tuning as the server, so behaviour matches.
 5. **Embed** — ArcFace `w600k_r50.onnx` via ONNX Runtime Mobile → 512-d vector (`Embedder`).
 6. **Match** — cosine vs the on-device set; 1:N identify or 1:1 verify (`Matcher`).
 7. **Adaptive** — confident live verifies fold in over time (anti-drift; anchors kept).
+
+## Face **and** palm — auto-detected on-device
+The app also recognises **contactless palm-prints**, and the user never chooses
+which: `ModalityRouter` detects whether a frame holds a face or a palm and routes it
+(face-first short-circuit, so a face frame never pays the palm detector). A person
+can enrol a face, a palm, or both under one id; presenting **either** verifies them.
+
+- **Palm detect + ROI** — MediaPipe Hands (`hand_landmarker.task`) → finger-gap ROI
+  (`PalmRoi`), quality-gated (size, sharpness, finger spread).
+- **Palm embed** — a CCNet-family `palm_ccnet.onnx` via ONNX Runtime → 128-d vector
+  (`PalmEmbedder`), cosine-matched by the shared `Matcher`.
+- **Storage** — palm templates live in their **own** encrypted DB (`palmverify.db`,
+  `PalmRepository`), fully isolated from face — never cross-matched.
+- **Graceful** — if the two palm assets aren't bundled, `PalmEngine.available()` is
+  false and the app runs face-only. See `app/src/main/assets/README_PALM_MODEL.md`.
 8. **Store** — Room DB; every embedding **AES-GCM encrypted** with an Android-Keystore key.
 
 Enrolment is gated by a local **admin PIN**; verification is open.

@@ -111,6 +111,25 @@ def detect(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceDetection:
                          yaw=yaw, pitch=pitch, bbox=bbox, age=age, gender=gender)
 
 
+def has_face(image: np.ndarray, cfg: FaceConfig = CONFIG) -> Tuple[bool, float]:
+    """Fast detection-only presence probe for the auto-router: is there a face, and
+    how confident? Runs ONLY the detector (no recognition), and fails soft — if the
+    model isn't installed or anything goes wrong, returns ``(False, 0.0)`` so the
+    router simply treats face as absent rather than erroring the whole request."""
+    if image is None or getattr(image, "size", 0) == 0:
+        return False, 0.0
+    try:
+        app = _ensure(cfg)
+        with _lock:
+            bboxes, _ = app.det_model.detect(image, max_num=0, metric="default")
+        if bboxes is None or bboxes.shape[0] == 0:
+            return False, 0.0
+        best = max(float(bboxes[i, 4]) for i in range(bboxes.shape[0]))
+        return best >= cfg.min_det_score, best
+    except Exception:
+        return False, 0.0
+
+
 def detect_all(image: np.ndarray, cfg: FaceConfig = CONFIG) -> "list[FaceDetection]":
     """Return EVERY confidently-detected face (embedding + pose + box), with NO
     single-face / size / pose gates. Used by ID-document detection and the ID

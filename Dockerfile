@@ -10,6 +10,8 @@ ENV PYTHONUNBUFFERED=1 \
 # (not just headless), which needs these GUI/X libs even on a server.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libglib2.0-0 libgomp1 libgl1 libsm6 libxext6 libxrender1 libxcb1 \
+        libegl1 libgles2 \
+
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 1000 user \
     && mkdir -p /data && chown user:user /data
@@ -29,11 +31,21 @@ a=FaceAnalysis(name='buffalo_l', allowed_modules=['detection','landmark_3d_68','
 a.prepare(ctx_id=-1, det_size=(480,480))"
 
 # App code (fingerprint stack is intentionally NOT copied — see .dockerignore).
+COPY --chown=user biometric ./biometric
 COPY --chown=user face ./face
+COPY --chown=user palm ./palm
 COPY --chown=user face_service ./face_service
 COPY --chown=user templates ./templates
 COPY --chown=user static ./static
 COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py openapi.yaml ./
+
+# Bake the palm models into the image from Hugging Face (kept out of git: HF Spaces
+# reject committed binaries). CCNet fp16 (~129 MB, ~lossless) + the MediaPipe hand
+# detector, so the Space has everything and never re-downloads on restart.
+RUN python -c "from huggingface_hub import hf_hub_download as d; import shutil, os; \
+os.makedirs('palm/models', exist_ok=True); \
+shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','palm_ccnet_fp16.onnx'), 'palm/models/palm_ccnet.onnx'); \
+shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','hand_landmarker.task'), 'palm/models/hand_landmarker.task')"
 
 # All runtime state lives under /data (writable, owned by 'user'). On compose/Oracle
 # this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).

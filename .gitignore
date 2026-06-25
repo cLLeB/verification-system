@@ -61,3 +61,18 @@ audit_logs/
 usage.json
 backups/
 tests/_test_*
+
+# Palm: CCNet export scratch + large model weights (export via palm/training/export_ccnet_onnx.py)
+_ccnet_work/
+palm/models/*.onnx
+
+# Real palm images for local eval (biometric data — never commit)
+WhatsApp Image*.jpeg
+WhatsApp Image*.jpg
+_eval_palms/
+captures/
+IMG_*.jpg
+IMG_*.JPG
+
+# Android Kotlin daemon session files
+android/.kotlin/

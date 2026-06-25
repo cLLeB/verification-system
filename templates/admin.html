@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0B1020">
-    <title>Face Verify — Admin Console</title>
+    <title>Biometric Verify — Admin Console</title>
     <meta name="theme-color" content="#0B1020">
     <link rel="stylesheet" href="/static/theme.css?v=1">
     <link rel="stylesheet" href="/static/admin.css?v=2">
@@ -24,7 +24,7 @@
     <!-- Console -->
     <section id="console" class="hidden">
         <header class="bar">
-            <strong>Face Verify · Admin</strong>
+            <strong>Biometric Verify · Admin</strong>
             <nav class="tabs">
                 <button class="tab is-active" data-tab="overview">Overview</button>
                 <button class="tab" data-tab="enroll">Enrol</button>
@@ -110,6 +110,15 @@
                 <div class="row">
                     <label class="chk"><input id="ent-export" type="checkbox"> Allow template export
                         (hybrid offline sync — devices may pull this tenant's embeddings)</label>
+                </div>
+                <div class="row">
+                    <label class="chk"><input id="ent-palm" type="checkbox" checked> Enable palm modality
+                        (users can enrol/verify by palm as well as face)</label>
+                    <select id="ent-policy" class="field" title="How face + palm combine for a user enrolled in both">
+                        <option value="or">Match policy: either (face OR palm)</option>
+                        <option value="fallback">Match policy: palm as fallback</option>
+                        <option value="and">Match policy: require both (step-up)</option>
+                    </select>
                 </div>
                 <div class="row">
                     <button id="ent-save" class="btn primary">Save access</button>

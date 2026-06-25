@@ -4,6 +4,27 @@ This service verifies identity and returns a **signed allow/deny** your app can
 trust. You never touch models, frames, or liveness internals — you send
 images (or vectors) and get an outcome.
 
+## Face **and** palm — one API, auto-detected
+
+The service recognises both **faces** and **contactless palm-prints**. You don't
+choose which: every image you send to `enroll` / `verify` / `identify` / `embed` is
+**auto-routed** — the server detects whether it's a face or a palm and handles it.
+
+- A user can enrol a **face, a palm, or both** under the same `user_id`. Presenting
+  **either** verifies them — *a match is a match*. Responses include a `modality`
+  (`"face"` / `"palm"`) and, on a 1:N match, `matched_modality`.
+- Pass an optional `"modality": "face"|"palm"` to **pin** routing (e.g. to enrol a
+  combined photo as only one modality); omit it to auto-detect.
+- Each tenant has a **`match_policy`** for users enrolled in both: `or` (default —
+  either grants), `fallback` (face preferred, palm as backup), or `and` (step-up —
+  require both). Set it in the admin console or the tenant portal.
+- Face and palm templates are stored and searched **separately** (different vector
+  spaces) and are never cross-matched. Palm can be turned off per tenant
+  (`palm_enabled`).
+- **Palm needs no trained model to work** — it ships with a built-in classical
+  (Gabor) encoder; dropping in a trained CCNet→ONNX model (`palm/models/`) is an
+  optional accuracy upgrade, not a requirement.
+
 There are two ways to integrate. Pick either or both.
 
 | | **Managed** | **Stateless** |

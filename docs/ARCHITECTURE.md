@@ -38,6 +38,26 @@ There are **two products that share one recognition core**:
 The **recognition logic and tuning are shared/mirrored** (see `face/config.py` ↔
 `android/.../Config.kt`) so both behave consistently.
 
+### Two modalities, one core (`biometric/` + `face/` + `palm/`)
+
+The recognition core is **modality-agnostic**. The generic machinery —
+`biometric/core/{store,index,matcher,crypto}` — operates on `(user_id, embedding)`
++ cosine and is parameterized by a `Profile` (embedding dim, thresholds, store dir,
+liveness). **Face** (`face/`, ArcFace 512-d) and **palm** (`palm/`, MediaPipe-Hands
+ROI → CCNet ONNX) are two profiles over that same code; `face/` is a thin shim so its
+behaviour is byte-for-byte unchanged.
+
+A server-side **auto-router** (`biometric/router.py` + `face_service/modality.py`)
+detects whether each image is a face or a palm (or both) and routes it — callers
+never declare a modality. A `user_id` may hold a face, a palm, or both (stored in
+separate per-tenant vector spaces, **never cross-matched**); presenting either
+verifies them, subject to the tenant's `match_policy` (or / fallback / and).
+
+```
+   image ─► router ─┬─ has_face? ─► face profile ─► <tenant>/faces.db + /index
+                    └─ has_palm? ─► palm profile ─► <tenant>/palm/palms.db + /palm/index
+```
+
 ---
 
 ## 2. Recognition core (`face/`)

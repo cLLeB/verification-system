@@ -33,3 +33,26 @@ object Config {
     const val ID_GHOST_RATIO = 0.7f           // 2nd face this much smaller => candidate ghost
     const val ID_GHOST_SIMILARITY = 0.45f     // ...and this similar => same person => ghost
 }
+
+/** Palm-print tuning. Mirrors the server's palm/config.py so the on-device palm
+ *  modality behaves like the service. Palm data lives in its OWN encrypted DB
+ *  (palmverify.db), fully isolated from face — never cross-matched. */
+object PalmConfig {
+    const val EMBED_DIM = 128                  // must match the exported palm ONNX output width
+    const val ROI_SIZE = 128                   // square palm ROI fed to the encoder
+    const val MIN_ROI_PX = 90                  // smallest acceptable ROI side in the source frame
+    const val MIN_HAND_SCORE = 0.70f           // MediaPipe hand-presence confidence
+    const val MIN_SHARPNESS = 35.0f            // variance-of-Laplacian floor (reject blur)
+    const val MIN_FINGER_SPREAD = 0.55f        // open-palm gate (index↔pinky tip vs knuckle width)
+
+    // matching (cosine on L2-normalised embeddings) — palm-tuned
+    const val MATCH_THRESHOLD = 0.30f
+    const val IDENTIFY_MARGIN = 0.05f
+    const val SAMPLES_PER_USER = 3
+
+    // adaptive enrolment
+    const val ADAPTIVE_UPDATE_THRESHOLD = 0.45f
+    const val ADAPTIVE_MARGIN = 0.08f
+    const val ADAPTIVE_MAX_SAMPLES = 8
+    const val ADAPTIVE_NOVELTY = 0.92f
+}

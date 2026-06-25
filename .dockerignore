@@ -26,3 +26,9 @@ face_db/
 sdk/
 docs/
 *.md
+# palm: large model weights (CCNet baked from HF at build); android + scratch
+palm/models/*.onnx
+android/
+_ccnet_work/
+_eval_palms/
+*.apk

@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Face Verify API (v1)",
-    "description": "Import this, set the `base_url` and `api_key` collection variables, and go. Images are base64 strings.",
+    "name": "Face + Palm Verify API (v1)",
+    "description": "Import this, set the `base_url` and `api_key` collection variables, and go. Images are base64 strings. Face AND palm are auto-detected — every image you send to enroll/verify/identify/embed is routed to the right modality automatically; responses include `modality`. Add an optional \"modality\": \"face\"|\"palm\" to any of those bodies only to pin it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

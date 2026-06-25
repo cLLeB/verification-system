@@ -1,6 +1,7 @@
 # Face verification backbone — service/container deps only (no fingerprint stack).
 insightface>=0.7
 onnxruntime>=1.16
+mediapipe>=0.10.18              # palm: hand-landmark detection (Tasks API) for ROI
 opencv-python-headless>=4.8     # headless: no system GUI libs needed on a server
 numpy>=1.24
 flask>=3.0

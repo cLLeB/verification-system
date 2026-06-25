@@ -83,8 +83,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
-    // The ArcFace .onnx in assets is already compressed-ish; don't let AAPT recompress it.
-    androidResources { noCompress += "onnx" }
+    // The .onnx (ArcFace + CCNet) and .task (MediaPipe Hands) assets must stay
+    // uncompressed so they can be mmap'd at runtime; don't let AAPT recompress them.
+    androidResources { noCompress += listOf("onnx", "task") }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
@@ -115,7 +116,10 @@ dependencies {
     // On-device face detection (bundled model — no network, no download).
     implementation("com.google.mlkit:face-detection:16.1.7")
 
-    // On-device ArcFace embedding inference.
+    // On-device palm (hand) landmark detection for the palm modality's ROI.
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
+    // On-device ArcFace (face) + CCNet (palm) embedding inference.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
 
     // Encrypted local storage.

@@ -49,6 +49,7 @@ async function startCamera() {
         video.classList.toggle('mirror', facing === 'user');   // mirror front only
         statusText.textContent = 'Ready';
         captureBtn.disabled = false;
+        showDeviceTip();                                        // palm camera guidance
     } catch (err) {
         statusText.textContent = 'No camera';
         setHint('Camera unavailable — allow camera access and reload.', 'warn');
@@ -63,6 +64,47 @@ async function swapCamera() {
 }
 
 function setHint(t, kind = '') { hint.textContent = t; hint.className = 'hint' + (kind ? ' ' + kind : ''); }
+
+// Smart palm guidance: nudge toward the rear camera (sharpest for palm) on phones,
+// or toward face on laptops / low-res webcams. Quick, model-free.
+let deviceTipDismissed = false;
+let tipTimer = null;
+function hideDeviceTip() {
+    if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; }
+    $('device-tip').classList.add('hidden');
+}
+function renderTip(adv, autoHideMs) {
+    const tip = $('device-tip'); if (!tip) return;
+    $('device-tip-text').textContent = adv.text;
+    const btn = $('device-tip-action');
+    if (adv.action === 'switch-rear') {
+        btn.textContent = 'Use back camera'; btn.hidden = false;
+        btn.onclick = () => { hideDeviceTip(); if (facing !== 'environment') swapCamera(); };
+    } else {
+        btn.hidden = true;                       // 'use-face' is informational only
+    }
+    tip.classList.remove('hidden');
+    if (tipTimer) clearTimeout(tipTimer);
+    if (autoHideMs) tipTimer = setTimeout(() => tip.classList.add('hidden'), autoHideMs);
+}
+// One gentle note at the start of a session — shown once, auto-dismissed, never spammed.
+async function showDeviceTip() {
+    if (deviceTipDismissed || !window.DeviceGuide) return;
+    if (sessionStorage.getItem('palmTipShown')) return;
+    let adv = null;
+    try { adv = await window.DeviceGuide.palmAdvice(video.srcObject); } catch (_) {}
+    if (!adv) return;
+    sessionStorage.setItem('palmTipShown', '1');
+    renderTip(adv, 7000);
+}
+// Reactive + accurate: the server just routed a capture to PALM, so we KNOW the user
+// is using palm. If the camera isn't ideal for it, nudge now (auto-dismissed).
+async function palmCameraNudge() {
+    if (deviceTipDismissed || !window.DeviceGuide) return;
+    let adv = null;
+    try { adv = await window.DeviceGuide.palmAdvice(video.srcObject); } catch (_) {}
+    if (adv && adv.action) renderTip(adv, 8000);
+}
 function grabFrame() {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return null;
@@ -153,7 +195,17 @@ async function enrollFromFiles() {
 async function verify() {
     const img0 = grabFrame();
     if (!img0) { setHint('Camera not ready — try again.'); return; }
-    startBusy('Liveness');
+    startBusy('Detecting');
+    // Quick modality check so a palm skips the face head-turn challenge.
+    let modality = 'face';
+    try {
+        const d = await (await fetch('/api/detect', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img0 }) })).json();
+        modality = d.modality || 'face';
+    } catch (e) { /* default to face */ }
+    if (modality === 'palm') return palmVerify();
+    if (modality === 'none') { reset('Show your face — or your open palm — clearly', 'warn'); return; }
+
     let ch;
     try { ch = await (await fetch('/api/challenge')).json(); }
     catch (e) { reset('Network error — is the server running?', 'warn'); return; }
@@ -184,6 +236,24 @@ async function verify() {
     } catch (e) { reset('Network error — is the server running?', 'warn'); }
 }
 
+// Palm verify: a single steady shot (no head-turn — palm has its own passive liveness).
+async function palmVerify() {
+    setHint('Hold your open palm steady…', 'info');
+    statusText.textContent = 'Checking';
+    await wait(450);
+    const img = grabFrame();
+    if (!img) { reset('Camera not ready — try again.', 'warn'); return; }
+    let p = 30; bar.style.width = '30%';
+    const anim = setInterval(() => { p = Math.min(95, p + 8); bar.style.width = p + '%'; }, 120);
+    try {
+        const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img }) });
+        const data = await res.json();
+        clearInterval(anim); bar.style.width = '100%';
+        setTimeout(() => handle(data), 120);
+    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
+}
+
 async function singleVerify(img) {
     let p = 25; bar.style.width = '25%'; setHint('Checking…');
     const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
@@ -199,6 +269,10 @@ async function singleVerify(img) {
 function handle(data) {
     statusText.textContent = 'Ready'; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
+    // The server routed this to palm (a hand was seen) — if the camera isn't ideal
+    // for palm, nudge toward the rear/face now. This is the accurate palm-intent signal.
+    if (data.modality === 'palm' || data.matched_modality === 'palm' ||
+        (typeof data.code === 'string' && data.code.startsWith('palm_'))) palmCameraNudge();
     if (['liveness', 'low_quality', 'multiple_faces'].includes(data.code)) { reset(data.message, 'warn'); return; }
 
     if (mode === 'enroll') {
@@ -211,8 +285,17 @@ function handle(data) {
         if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message, 'warn'); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || ''); return;
     }
-    if (data.success) show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}` : '');
-    else show('bad', ICON_BAD, 'Access denied', 'Face not recognised');
+    if (data.success) {
+        const via = data.matched_modality || data.modality;
+        const tag = (via === 'face' || via === 'palm') ? ` (via ${via})` : '';
+        show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}` : '');
+    } else if (data.code === 'no_biometric_detected') {
+        show('bad', ICON_BAD, 'Nothing detected', 'Show your face — or your open palm — clearly');
+    } else if (data.code === 'step_up_required') {
+        show('warn', ICON_BAD, 'One more step', data.message || 'Also present your other biometric');
+    } else {
+        show('bad', ICON_BAD, 'Access denied', 'Face or palm not recognised');
+    }
 }
 
 function show(kind, icon, title, sub) {
@@ -228,8 +311,8 @@ function reset(msg, kind = '') {
     setHint(msg || defaultHint(), kind);
 }
 function defaultHint() {
-    return mode === 'enroll' ? 'Center your face, then tap Capture (3 times)'
-                             : 'Center your face, tap Verify, then turn your head';
+    return mode === 'enroll' ? 'Show your face or open palm, then tap Capture (3 times)'
+                             : 'Show your face — or your open palm — then tap Verify';
 }
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
@@ -256,6 +339,13 @@ modeEnroll.addEventListener('click', () => setMode('enroll'));
 modeVerify.addEventListener('click', () => setMode('verify'));
 
 swapBtn.addEventListener('click', swapCamera);
+{
+    const dismiss = $('device-tip-dismiss');
+    if (dismiss) dismiss.addEventListener('click', () => {
+        deviceTipDismissed = true;          // user dismissed — don't nudge again this session
+        hideDeviceTip();
+    });
+}
 
 setMode('verify');
 startCamera();
