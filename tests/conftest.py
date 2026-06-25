@@ -23,6 +23,7 @@ shutil.rmtree(_TMP, ignore_errors=True)
 os.makedirs(_TMP, exist_ok=True)
 
 os.environ["FACE_KEYS_FILE"] = os.path.join(_TMP, "apikeys.json")
+os.environ["FACE_INVITES_FILE"] = os.path.join(_TMP, "invites.json")
 os.environ["FACE_AUDIT_DIR"] = os.path.join(_TMP, "audit")
 os.environ["FACE_USAGE_FILE"] = os.path.join(_TMP, "usage.json")
 os.environ["FACE_DB_PATH"] = os.path.join(_TMP, "face_db")   # isolated store/tenants
@@ -88,6 +89,16 @@ def fresh_keys():
         os.remove(kf)
     from face_service import keys
     return keys
+
+
+@pytest.fixture
+def fresh_invites():
+    """Empty the invite store before a test that asserts on invite contents."""
+    inf = os.environ["FACE_INVITES_FILE"]
+    if os.path.exists(inf):
+        os.remove(inf)
+    from face_service import invites
+    return invites
 
 
 @pytest.fixture

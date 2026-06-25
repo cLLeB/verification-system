@@ -16,7 +16,7 @@ from functools import wraps
 from flask import Blueprint, g, jsonify, make_response, render_template, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from . import keys, tenants
+from . import invites, keys, tenants
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -171,3 +171,68 @@ def portal_keys_revoke():
     if not any(k["key_id"] == key_id for k in _own_keys(g.portal_tenant)):
         return jsonify({"success": False, "message": "No such key for this account."}), 404
     return jsonify({"success": keys.revoke_key(key_id), "revoked": 1})
+
+
+# --- enrolment invites (scoped to this tenant only) ------------------------
+def _invite_links(batch: list) -> list:
+    base = request.host_url.rstrip("/")
+    return [{**b, "link": f"{base}/enroll?token={b['token']}"} for b in batch]
+
+
+def _enabled_or_402():
+    if not tenants.is_enabled(g.portal_tenant):
+        return jsonify({"success": False, "code": "payment_required",
+                        "message": "Account disabled — contact the provider."}), 402
+    return None
+
+
+@portal_bp.get("/portal/api/invites")
+@require_tenant
+def portal_invites_list():
+    return jsonify({"success": True, "invites": invites.list_invites(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/invites")
+@require_tenant
+def portal_invites_create():
+    blocked = _enabled_or_402()
+    if blocked:
+        return blocked
+    data = request.get_json(silent=True) or {}
+    name = (data.get("user_id") or data.get("name") or "").strip()
+    if not name:
+        return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
+    info = invites.create_invite(name, g.portal_tenant,          # tenant fixed to session
+                                 expires_in_hours=data.get("expires_in_hours"))
+    return jsonify({"success": True, **_invite_links([info])[0]})
+
+
+@portal_bp.post("/portal/api/invites/bulk")
+@require_tenant
+def portal_invites_bulk():
+    blocked = _enabled_or_402()
+    if blocked:
+        return blocked
+    data = request.get_json(silent=True) or {}
+    names = data.get("names")
+    if isinstance(names, list):
+        names = [str(n).strip() for n in names if str(n).strip()]
+    else:
+        names = invites.parse_roster(names if isinstance(names, str) else data.get("roster", ""))
+    if not names:
+        return jsonify({"success": False, "message": "No names found in the upload."}), 400
+    batch = invites.create_invites(names, g.portal_tenant,
+                                   expires_in_hours=data.get("expires_in_hours"))
+    return jsonify({"success": True, "tenant": g.portal_tenant, "count": len(batch),
+                    "invites": _invite_links(batch)})
+
+
+@portal_bp.post("/portal/api/invites/revoke")
+@require_tenant
+def portal_invites_revoke():
+    data = request.get_json(silent=True) or {}
+    invite_id = (data.get("invite_id") or "").strip()
+    # ownership: the invite must belong to THIS tenant
+    if not any(i["invite_id"] == invite_id for i in invites.list_invites(g.portal_tenant)):
+        return jsonify({"success": False, "message": "No such invite for this account."}), 404
+    return jsonify({"success": invites.revoke(invite_id)})

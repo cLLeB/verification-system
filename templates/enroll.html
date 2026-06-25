@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0B1020">
+    <title>Self-enrolment</title>
+    <link rel="stylesheet" href="/static/app.css?v=15">
+    <style>
+        /* Enrolment-progress chips (face / palm) + invite gate — page-specific. */
+        .invite-head { text-align: center; padding: 0 16px 8px; }
+        .invite-head .who { font-size: 1.15rem; font-weight: 700; }
+        .invite-head .sub { color: var(--muted, #8a94ad); font-size: .85rem; margin-top: 2px; }
+        .chips { display: flex; gap: 10px; justify-content: center; margin: 12px 0; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+                border: 1px solid var(--line, #2a3350); border-radius: 999px;
+                font-size: .85rem; color: var(--muted, #8a94ad); }
+        .chip .tick { opacity: .35; }
+        .chip.on { color: #1ec98b; border-color: #1ec98b66; }
+        .chip.on .tick { opacity: 1; }
+        .gate { text-align: center; padding: 48px 24px; }
+        .gate h2 { margin: 0 0 8px; }
+        .gate p { color: var(--muted, #8a94ad); }
+        .done { text-align: center; padding: 48px 24px; }
+        .done .big { font-size: 3rem; line-height: 1; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div class="brand">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/>
+                </svg>
+                <span>Self-enrolment</span>
+            </div>
+            <div class="top-right">
+                <button class="icon-btn" id="swap-btn" aria-label="Switch front/back camera" title="Switch front/back camera">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M15 4h3a2 2 0 0 1 2 2v9"/><path d="M9 20H6a2 2 0 0 1-2-2V9"/>
+                        <path d="m18 12 2 3 2-3"/><path d="M6 12 4 9 2 12"/><circle cx="12" cy="11" r="3"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Invalid / used / expired / revoked invite -->
+        <section class="gate hidden" id="gate" role="alert">
+            <h2>Link unavailable</h2>
+            <p id="gate-text">This enrolment link is not valid.</p>
+        </section>
+
+        <!-- Capture flow -->
+        <div id="capture-area">
+            <div class="invite-head">
+                <div class="who">Enrolling: <span id="person-name">…</span></div>
+                <div class="sub">Your identity is set by your administrator and can't be changed here.</div>
+            </div>
+
+            <div class="chips" aria-label="Enrolment progress">
+                <span class="chip" id="chip-face"><span class="tick">✓</span> Face</span>
+                <span class="chip" id="chip-palm"><span class="tick">✓</span> Palm</span>
+            </div>
+
+            <section class="scanner" aria-label="Camera">
+                <video id="video" autoplay playsinline muted></video>
+            </section>
+
+            <p class="hint" id="hint">Show your face — or your open palm — then tap Capture</p>
+            <div class="actions">
+                <button class="btn btn-primary" id="capture-btn" disabled>Capture</button>
+                <button class="btn btn-ghost" id="finish-btn" disabled>Finish</button>
+            </div>
+        </div>
+
+        <!-- Completed -->
+        <section class="done hidden" id="done" role="status">
+            <div class="big">✓</div>
+            <h2>You're enrolled</h2>
+            <p><span id="done-name"></span> can now be verified. You can close this page.</p>
+        </section>
+    </main>
+
+    <canvas id="canvas" hidden></canvas>
+    <script src="/static/enroll.js?v=1"></script>
+</body>
+</html>

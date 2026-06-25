@@ -51,6 +51,7 @@ shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','hand_landmarker.task'), '
 # this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).
 ENV FACE_DB_PATH=/data/face_db \
     FACE_KEYS_FILE=/data/apikeys.json \
+    FACE_INVITES_FILE=/data/invites.json \
     FACE_ADMINS_FILE=/data/admins.json \
     FACE_TENANTS_FILE=/data/tenants.json \
     FACE_USAGE_FILE=/data/usage.json \

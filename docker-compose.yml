@@ -18,6 +18,7 @@ services:
       # state is redirected onto the mounted volume (overrides app defaults)
       FACE_DB_PATH: /data/face_db
       FACE_KEYS_FILE: /data/apikeys.json
+      FACE_INVITES_FILE: /data/invites.json
       FACE_ADMINS_FILE: /data/admins.json
       FACE_TENANTS_FILE: /data/tenants.json
       FACE_USAGE_FILE: /data/usage.json

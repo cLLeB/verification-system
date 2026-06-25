@@ -36,7 +36,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, invites, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
@@ -441,6 +441,7 @@ def admin_tenant_offboard():
     if not tenant:
         return jsonify({"success": False, "message": "tenant required."}), 400
     revoked = keys.revoke(tenant)
+    invites_revoked = invites.revoke_for_tenant(tenant)
     store_dir = os.path.join(CONFIG.db_path, "tenants", tenant)
     erased = os.path.isdir(store_dir)
     if erased:
@@ -448,9 +449,9 @@ def admin_tenant_offboard():
     tenants.remove(tenant)
     audit.log(_FP_TENANT, "tenant_offboard", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True,
-              detail=f"revoked {revoked} keys; store erased={erased}")
+              detail=f"revoked {revoked} keys, {invites_revoked} invites; store erased={erased}")
     return jsonify({"success": True, "tenant": tenant, "keys_revoked": revoked,
-                    "store_erased": erased})
+                    "invites_revoked": invites_revoked, "store_erased": erased})
 
 
 @app.route("/admin/api/overview")
@@ -547,6 +548,67 @@ def admin_keys_revoke():
     return jsonify({"success": n > 0, "revoked": n})
 
 
+# --- enrolment invites (first-party; admin may target any tenant) ----------
+def _invite_links(batch: list) -> list:
+    """Attach the full self-enrol link to each freshly-minted invite. The raw token
+    is present ONLY here (creation response) — it's never stored or re-exposed."""
+    base = request.host_url.rstrip("/")
+    return [{**b, "link": f"{base}/enroll?token={b['token']}"} for b in batch]
+
+
+@app.route("/admin/api/invites", methods=["GET"])
+@admin.require_admin
+def admin_invites_list():
+    tenant = request.args.get("tenant")          # omit -> all tenants
+    return jsonify({"success": True, "invites": invites.list_invites(tenant)})
+
+
+@app.route("/admin/api/invites", methods=["POST"])
+@admin.require_admin
+def admin_invites_create():
+    data = request.get_json(silent=True) or {}
+    name = (data.get("user_id") or data.get("name") or "").strip()
+    if not name:
+        return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
+    tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+    info = invites.create_invite(name, tenant, expires_in_hours=data.get("expires_in_hours"))
+    audit.log(_FP_TENANT, "invite_create", actor=g.get("admin_user", "admin"),
+              user_id=name, success=True, detail=f"tenant={tenant}")
+    return jsonify({"success": True, **_invite_links([info])[0]})
+
+
+@app.route("/admin/api/invites/bulk", methods=["POST"])
+@admin.require_admin
+def admin_invites_bulk():
+    """Mint one invite per name from an uploaded roster (.txt — names separated by
+    newlines and/or commas). Raw links returned ONCE for the console to show + export."""
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+    names = data.get("names")
+    if isinstance(names, list):
+        names = [str(n).strip() for n in names if str(n).strip()]
+    else:
+        names = invites.parse_roster(names if isinstance(names, str) else data.get("roster", ""))
+    if not names:
+        return jsonify({"success": False, "message": "No names found in the upload."}), 400
+    batch = invites.create_invites(names, tenant, expires_in_hours=data.get("expires_in_hours"))
+    audit.log(_FP_TENANT, "invite_bulk", actor=g.get("admin_user", "admin"),
+              success=True, detail=f"{len(batch)} invites, tenant={tenant}")
+    return jsonify({"success": True, "tenant": tenant, "count": len(batch),
+                    "invites": _invite_links(batch)})
+
+
+@app.route("/admin/api/invites/revoke", methods=["POST"])
+@admin.require_admin
+def admin_invites_revoke():
+    data = request.get_json(silent=True) or {}
+    invite_id = (data.get("invite_id") or "").strip()
+    ok = invites.revoke(invite_id)
+    audit.log(_FP_TENANT, "invite_revoke", actor=g.get("admin_user", "admin"),
+              user_id=invite_id, success=ok)
+    return jsonify({"success": ok})
+
+
 @app.route("/api/health")
 def health():
     return jsonify({"success": True, "status": "ok",
@@ -577,6 +639,103 @@ def api_detect():
         return jsonify({"modality": "none"})
     rr = _modality.route(img, CONFIG, palm_enabled=True, short_circuit=True)
     return jsonify({"modality": rr.modality})
+
+
+# --- unsupervised self-enrolment via a pre-assigned invite token -----------
+# An invite lets a pre-named person enrol THEMSELVES once, on their own device,
+# with no admin password and no operator present. The token (not the admin cookie)
+# authenticates them; the user_id is FORCED from the token, never from a form field.
+_INVITE_MESSAGES = {
+    "used": "This invite has already been used.",
+    "expired": "This invite link has expired. Ask your administrator for a new one.",
+    "revoked": "This invite has been revoked. Ask your administrator for a new one.",
+    "invalid": "This invite link is not valid.",
+}
+
+
+def _invite_target(tenant: str):
+    """(face_cfg, palm_enabled) for an invite's tenant. ``first_party`` writes to the
+    built-in app store; any other tenant writes to its own isolated store (like /v1)."""
+    if tenant == _FP_TENANT:
+        return CONFIG, True
+    cfg = dataclasses.replace(CONFIG, db_path=os.path.join(CONFIG.db_path, "tenants", tenant))
+    return cfg, bool(tenants.get(tenant).get("palm_enabled", True))
+
+
+def _invite_or_error(token: str):
+    """Return (record, None) for a usable token, or (None, response) to short-circuit."""
+    rec = invites.lookup(token)
+    if rec is not None:
+        return rec, None
+    st = invites.state(token)
+    status = 410 if st in ("used", "expired", "revoked") else 404
+    return None, (jsonify({"success": False, "code": st,
+                           "message": _INVITE_MESSAGES.get(st, _INVITE_MESSAGES["invalid"])}), status)
+
+
+@app.route("/enroll")
+def self_enroll_page():
+    """Token-aware self-enrolment page (opened from an invite link)."""
+    return render_template("enroll.html")
+
+
+@app.route("/api/invite", methods=["GET"])
+def api_invite_info():
+    """Page load: resolve the token to its pre-assigned (locked) name + progress."""
+    rec, err = _invite_or_error(request.args.get("token", ""))
+    if err:
+        return err
+    return jsonify({"success": True, "user_id": rec["user_id"], "tenant": rec["tenant"],
+                    "enrolled": rec.get("enrolled", []), "expires": rec.get("expires")})
+
+
+@app.route("/api/invite/enroll", methods=["POST"])
+def api_invite_enroll():
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "")
+    rec, err = _invite_or_error(token)
+    if err:
+        return err
+    img = decode_image(data.get("image", ""))
+    if img is None:
+        return jsonify({"success": False, "message": "Failed to decode image."})
+    uid = rec["user_id"]                       # FORCED from token — client cannot choose
+    tenant = rec["tenant"]
+    face_cfg, palm_enabled = _invite_target(tenant)
+    out = _modality.enroll(uid, img, face_cfg, palm_enabled=palm_enabled, source="live")
+    results = out.get("results", {})
+    result = dict(next((r for r in results.values() if r.get("success")), None)
+                  or next(iter(results.values()), None)
+                  or {"success": out.get("success"), "code": out.get("code"),
+                      "message": out.get("message")})
+    result["modality"] = out.get("modality")
+    if result.get("success") and out.get("modality"):
+        invites.mark_progress(token, out["modality"])   # progress, does NOT burn the token
+    audit.log(tenant, "self_enroll", actor=f"invite:{rec['invite_id']}", user_id=uid,
+              success=bool(result.get("success")),
+              detail=f"{out.get('modality')}: {result.get('message', '')}")
+    fresh = invites.lookup(token)
+    result["enrolled"] = fresh.get("enrolled", []) if fresh else []
+    result["user_id"] = uid
+    save_debug(img, "self_enroll", result)
+    return jsonify(result)
+
+
+@app.route("/api/invite/finish", methods=["POST"])
+def api_invite_finish():
+    """Enrollee tapped Finish — burn the token. Resumable until this point."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "")
+    rec, err = _invite_or_error(token)
+    if err:
+        return err
+    if not rec.get("enrolled"):
+        return jsonify({"success": False, "code": "nothing_enrolled",
+                        "message": "Capture your face or palm before finishing."}), 400
+    invites.consume(token)
+    audit.log(rec["tenant"], "self_enroll_finish", actor=f"invite:{rec['invite_id']}",
+              user_id=rec["user_id"], success=True, detail=f"modalities={rec.get('enrolled')}")
+    return jsonify({"success": True, "user_id": rec["user_id"], "enrolled": rec.get("enrolled", [])})
 
 
 @app.route("/api/enroll", methods=["POST"])

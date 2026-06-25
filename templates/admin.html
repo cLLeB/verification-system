@@ -28,6 +28,7 @@
             <nav class="tabs">
                 <button class="tab is-active" data-tab="overview">Overview</button>
                 <button class="tab" data-tab="enroll">Enrol</button>
+                <button class="tab" data-tab="invites">Invites</button>
                 <button class="tab" data-tab="people">People</button>
                 <button class="tab" data-tab="keys">API Keys</button>
                 <button class="tab" data-tab="usage">Usage</button>
@@ -60,6 +61,37 @@
                 <input id="enroll-files" class="field" type="file" accept="image/*" multiple>
                 <button id="upload-enroll" class="btn ghost">Enrol from selected photos</button>
                 <p id="enroll-msg" class="muted"></p>
+            </div>
+        </div>
+
+        <!-- Invites -->
+        <div class="panel hidden" id="tab-invites">
+            <div class="card">
+                <h2>Invite people to self-enrol</h2>
+                <p class="muted">Send each person a private link. They open it on their own phone and
+                    enrol their face/palm under the name <b>you</b> assign — no admin password shared.
+                    Each link is single-use and expires. Links are shown <b>once</b> below — copy or
+                    download them now; afterwards only their status is kept.</p>
+                <input id="inv-name" class="field" type="text" placeholder="Person's full name or ID (e.g. Kofi Mensah)">
+                <div class="row">
+                    <input id="inv-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <input id="inv-hours" class="field" type="number" min="1" max="72" value="24" placeholder="Expires in hours (1–72)">
+                </div>
+                <button id="inv-create" class="btn primary">Create invite</button>
+
+                <p class="muted" style="margin-top:18px">…or create many at once from a list of names
+                    (one per line and/or comma-separated) — paste below or upload a <code>.txt</code> file:</p>
+                <textarea id="inv-roster" class="field" rows="4"
+                          placeholder="Kofi Mensah&#10;Ama Owusu&#10;Yaw Boateng"></textarea>
+                <input id="inv-file" class="field" type="file" accept=".txt,text/plain">
+                <button id="inv-bulk" class="btn primary">Create invites for all</button>
+
+                <div id="inv-new" class="newkey hidden"></div>
+            </div>
+            <div class="card">
+                <h2>Existing invites <span class="muted">(status updates as people enrol)</span></h2>
+                <input id="inv-search" class="field" type="text" placeholder="Filter by name…">
+                <div id="inv-list" class="list"></div>
             </div>
         </div>
 
