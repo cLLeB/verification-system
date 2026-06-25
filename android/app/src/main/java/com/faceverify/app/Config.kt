@@ -45,8 +45,12 @@ object PalmConfig {
     const val MIN_SHARPNESS = 35.0f            // variance-of-Laplacian floor (reject blur)
     const val MIN_FINGER_SPREAD = 0.55f        // open-palm gate (index↔pinky tip vs knuckle width)
 
-    // matching (cosine on L2-normalised embeddings) — palm-tuned
-    const val MATCH_THRESHOLD = 0.30f
+    // matching (cosine on L2-normalised embeddings) — palm-tuned.
+    // Calibrated 2026-06-25 on the CCNet ONNX (same encoder the server bundles):
+    // genuine same-hand cosine 0.607-0.865 vs impostor 0.316-0.591 (EER 0.0). 0.60
+    // sits in the gap. Mirrors palm/calibration.json — keep the two in sync. The old
+    // 0.30 placeholder accepted different palms (every palm matched the enrolled one).
+    const val MATCH_THRESHOLD = 0.60f
     const val IDENTIFY_MARGIN = 0.05f
     const val SAMPLES_PER_USER = 3
 
