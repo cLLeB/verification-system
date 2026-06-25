@@ -70,6 +70,9 @@ palm/models/*.onnx
 WhatsApp Image*.jpeg
 WhatsApp Image*.jpg
 _eval_palms/
+captures/
+IMG_*.jpg
+IMG_*.JPG
 
 # Android Kotlin daemon session files
 android/.kotlin/
