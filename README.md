@@ -9,7 +9,76 @@ pinned: false
 short_description: Contactless face verification + identification API
 ---
 
-# Face Verification Backbone
+# Inclusive, contactless identity — on any phone
+
+**Confirm who someone is using just a phone or tablet camera — by their face or the
+palm of their hand. No fingerprint scanner, no cards, no internet required.**
+
+Think of it as a universal *"prove it's really you"* button that any app or
+organisation can plug in: point a camera at a person, and it either confirms they're
+who they claim to be, or tells you who they are — in a second or two, on the cheap
+phones people already have, and it keeps working when the internet is down.
+
+## The problem it solves
+
+Most identity systems today rely on **fingerprint scanners**, which have two big
+problems:
+
+1. **They exclude people.** Farmers, cleaners, builders, traders and the elderly
+   often have worn or damaged fingerprints that scanners can't read — so they get
+   turned away from their own benefits, SIM cards, wages or exams. This is a real,
+   documented failure of large fingerprint-based ID programmes.
+2. **They cost money and break.** Every scanner is hardware to buy, install, clean
+   and maintain.
+
+This fixes both:
+
+- **Nobody gets excluded** — if your palm doesn't read, your face does (and
+  vice-versa). *A match is a match.*
+- **No special hardware** — it's the camera already in every phone.
+- **Contactless & hygienic** — nothing to touch.
+- **Works fully offline** — for rural clinics, remote sites and field work with no
+  signal (there's an air-gapped Android build too).
+- **Private by design** — it never stores photos, only a scrambled mathematical
+  signature that can't be turned back into a face, and it can be wiped on request.
+
+## Who needs it, and why
+
+Anyone who must answer *"is this the right person?"* at scale, cheaply, without
+leaving people out:
+
+| Who | Why |
+|-----|-----|
+| **Employers** (factories, farms, schools) | Stop "buddy-punching" on attendance where fingerprint clocks fail on manual workers |
+| **Governments & NGOs** (cash transfers, welfare) | Eliminate ghost/duplicate beneficiaries **and** pay people out without excluding worn-fingerprint citizens |
+| **Exam boards & universities** | Stop candidates sitting exams for one another |
+| **Clinics & hospitals** | Find a patient's record instantly when the card is lost; avoid duplicate records |
+| **Banks, microfinance, mobile-money agents** | Verify members and stop multi-branch fraud, even in villages with no connectivity |
+| **Software teams** | Add trustworthy identity to *their* product with a couple of API calls — no biometric work of their own |
+
+See **[`examples/`](examples/)** for four small, working products built on it
+(attendance, exams, welfare, clinics) — proof it weaves into anything.
+
+## "Isn't this already solved?"
+
+Parts exist — but no one combines them for these people and places, and the most
+common existing tool (fingerprints) *is* the problem we solve:
+
+| Existing approach | Gap it leaves |
+|-------------------|---------------|
+| **Fingerprint / national-ID scanners** | Exclude worn fingerprints; need hardware everywhere |
+| **Cloud face APIs** (AWS, Azure, Face++, NEC) | Need constant internet; costly; no palm fallback; data in someone's cloud |
+| **Palm-payment** (Amazon One) | Needs special infra-red scanners — not a phone |
+| **Digital KYC / onboarding** (Smile ID, Onfido, Jumio) | One-time, online account-opening — not repeated, offline, field verification |
+
+We're the only option that is **camera-only, face-or-palm, offline, and private** —
+built for the settings the others don't reach. The face-matching tech itself is
+mature and proven; the edge is the *packaging and fit* — inclusive, hardware-free,
+offline, embeddable, and tuned/tested on the target population.
+
+---
+
+## For developers & operators
 
 A contactless **face + palm** verification + identification service: a phone web
 client, an operator admin console, and a multi-tenant REST API other apps integrate

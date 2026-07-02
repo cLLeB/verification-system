@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance kiosk</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0b1020; color: #e8ecf5; }
+    header { padding: 14px 20px; font-weight: 700; border-bottom: 1px solid #232c46; }
+    main { max-width: 720px; margin: 0 auto; padding: 20px; }
+    video { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4/3; object-fit: cover; }
+    button { font: inherit; padding: 12px 18px; border-radius: 10px; border: 0; cursor: pointer; }
+    .primary { background: #6d5efc; color: #fff; width: 100%; margin-top: 12px; font-size: 1.1rem; }
+    .ghost { background: transparent; color: #9aa4bd; border: 1px solid #2a3350; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #2a3350; background: #131a30; color: #e8ecf5; }
+    .msg { margin-top: 12px; padding: 12px; border-radius: 10px; background: #131a30; min-height: 1.2em; }
+    .ok { color: #1ec98b; } .warn { color: #f4b739; }
+    ul { list-style: none; padding: 0; } li { padding: 6px 0; border-bottom: 1px solid #1b2338; font-size: .95rem; }
+    details { margin-top: 20px; } summary { cursor: pointer; color: #9aa4bd; }
+  </style>
+</head>
+<body>
+  <header>🟣 Attendance kiosk <span style="color:#9aa4bd;font-weight:400">— face or palm, no scanner</span></header>
+  <main>
+    <video id="video" autoplay playsinline muted></video>
+    <button class="primary" id="clock">Clock in / out</button>
+    <div class="msg" id="msg">Step up and tap Clock in / out.</div>
+
+    <details>
+      <summary>Operator: enrol a staff member</summary>
+      <div class="row">
+        <input id="name" placeholder="Full name / staff ID" autocomplete="off">
+        <button class="ghost" id="enroll">Enrol from camera</button>
+      </div>
+    </details>
+
+    <h3>Today</h3>
+    <ul id="today"></ul>
+  </main>
+
+  <canvas id="canvas" hidden></canvas>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
+    let busy = false;
+
+    async function startCamera() {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = s;
+      } catch (e) { setMsg('Allow camera access and reload.', 'warn'); }
+    }
+    function grab() {
+      const w = Math.min(720, video.videoWidth), h = Math.round(w * video.videoHeight / video.videoWidth);
+      canvas.width = w; canvas.height = h; ctx.drawImage(video, 0, 0, w, h);
+      return canvas.toDataURL('image/jpeg', 0.9);
+    }
+    function setMsg(t, cls = '') { const m = $('msg'); m.textContent = t; m.className = 'msg ' + cls; }
+
+    async function post(url, body) {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return r.json();
+    }
+
+    async function clock() {
+      if (busy) return; busy = true; setMsg('Checking…');
+      try {
+        const d = await post('/api/clock', { image: grab() });
+        setMsg(d.message, d.ok ? 'ok' : 'warn');
+        if (d.ok) loadToday();
+      } catch (e) { setMsg('Network error — is the kiosk online?', 'warn'); }
+      finally { busy = false; }
+    }
+
+    async function enroll() {
+      const name = $('name').value.trim();
+      if (!name) { setMsg('Enter a name first.', 'warn'); return; }
+      if (busy) return; busy = true; setMsg('Enrolling…');
+      try {
+        const d = await post('/api/enroll', { name, image: grab() });
+        setMsg(d.message, d.ok ? 'ok' : 'warn');
+        if (d.ok) $('name').value = '';
+      } catch (e) { setMsg('Network error.', 'warn'); }
+      finally { busy = false; }
+    }
+
+    async function loadToday() {
+      try {
+        const d = await (await fetch('/api/report')).json();
+        $('today').innerHTML = (d.punches || []).map((p) =>
+          `<li>${p.direction === 'in' ? '🟢 IN ' : '🔴 OUT'} &nbsp; ${p.user_id}
+           &nbsp; <span style="color:#9aa4bd">${new Date(p.ts * 1000).toLocaleTimeString()}</span></li>`).join('');
+      } catch (e) { /* ignore */ }
+    }
+
+    $('clock').addEventListener('click', clock);
+    $('enroll').addEventListener('click', enroll);
+    startCamera(); loadToday();
+  </script>
+</body>
+</html>

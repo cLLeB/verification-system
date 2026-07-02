@@ -76,3 +76,8 @@ IMG_*.JPG
 
 # Android Kotlin daemon session files
 android/.kotlin/
+
+# Exported user lists (PII) + benchmark snapshots (contain biometric embeddings)
+people*.csv
+_bench_snaps/
+examples/**/*.db
