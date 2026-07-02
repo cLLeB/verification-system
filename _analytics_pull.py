@@ -132,8 +132,14 @@ def main() -> None:
     ap.add_argument("--url", default=os.environ.get("SPACE_URL", "https://kyereboatengcaleb-faceverify-palm.hf.space"))
     ap.add_argument("--token", default=os.environ.get("FACE_ANALYTICS_TOKEN", ""))
     args = ap.parse_args()
+    if not args.token:                            # fall back to the locally-stored secret
+        try:
+            with open(os.path.join(OUT, ".token"), encoding="utf-8") as fh:
+                args.token = fh.read().strip()
+        except OSError:
+            pass
     if not args.token:
-        raise SystemExit("Set FACE_ANALYTICS_TOKEN (or --token) to the Space's analytics secret.")
+        raise SystemExit("Set FACE_ANALYTICS_TOKEN (or --token), or store it in _analytics/.token")
 
     data = fetch(args.url, args.token)
     if not data.get("success"):
@@ -151,7 +157,7 @@ def main() -> None:
             print(f"   genuine {r['genuine']} | impostor {r.get('impostor')}")
         dups = r.get("duplicate_candidates") or []
         if dups:
-            print(f"   ⚠ {len(dups)} possible duplicate identit(y/ies): "
+            print(f"   [!] {len(dups)} possible duplicate identit(y/ies): "
                   + ", ".join(f"{d['a']}~{d['b']}({d['score']})" for d in dups[:5]))
     print(f"\nsaved -> _analytics/  (history.csv tracks trends over the pilot)")
 
