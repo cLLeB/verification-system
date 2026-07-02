@@ -236,18 +236,25 @@ async function verify() {
     } catch (e) { reset('Network error — is the server running?', 'warn'); }
 }
 
-// Palm verify: a single steady shot (no head-turn — palm has its own passive liveness).
+// Palm verify: a short steady burst (no head-turn — that's a face challenge). The
+// server picks the SHARPEST frame, so one motion-ghosted frame in dim light doesn't
+// sink the attempt.
 async function palmVerify() {
     setHint('Hold your open palm steady…', 'info');
     statusText.textContent = 'Checking';
     await wait(450);
-    const img = grabFrame();
-    if (!img) { reset('Camera not ready — try again.', 'warn'); return; }
-    let p = 30; bar.style.width = '30%';
+    const frames = [];
+    for (let i = 0; i < 3; i++) {
+        const f = grabFrame(); if (f) frames.push(f);
+        bar.style.width = (20 + i * 10) + '%';
+        if (i < 2) await wait(220);
+    }
+    if (!frames.length) { reset('Camera not ready — try again.', 'warn'); return; }
+    let p = 50; bar.style.width = '50%';
     const anim = setInterval(() => { p = Math.min(95, p + 8); bar.style.width = p + '%'; }, 120);
     try {
         const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: img }) });
+            body: JSON.stringify({ frames }) });
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 120);

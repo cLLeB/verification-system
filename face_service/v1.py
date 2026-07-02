@@ -332,17 +332,32 @@ def enroll_bulk():
 
 
 def _verify_dispatch(cfg, store, data, user_id):
-    # Active-liveness head-turn burst is a face-specific challenge — keep it on the
-    # face path unchanged.
+    # Frame bursts: a face burst runs the active-liveness head-turn (face-specific
+    # challenge, unchanged); a PALM burst is verified on its sharpest frame so one
+    # soft frame (dim light / motion) doesn't sink the attempt — mirrors /api/verify.
     frames = data.get("frames")
-    if cfg.active_liveness and frames:
-        if not _active.valid_token(data.get("token", "")):
-            return {"success": False, "code": "liveness", "message": "Challenge expired — request a new one."}
+    if frames:
         imgs = [im for im in (_decode(f) for f in frames) if im is not None]
         if not imgs:
             return {"success": False, "message": "Failed to decode frames."}
-        return _api.verify_live(user_id, imgs, cfg, store)
-    img = _decode(data.get("image", ""))
+        settings = tenants.get(g.tenant)
+        mid = imgs[len(imgs) // 2]
+        routed = _modality.route(mid, cfg, settings["palm_enabled"], short_circuit=True)
+        if routed.modality == "palm":
+            best = _modality.best_palm_frame(imgs, cfg)
+            if user_id:
+                return _modality.verify(user_id, best, cfg, settings["palm_enabled"],
+                                        settings["match_policy"])
+            return _modality.identify(best, cfg, settings["palm_enabled"],
+                                      settings["match_policy"])
+        if cfg.active_liveness:
+            if not _active.valid_token(data.get("token", "")):
+                return {"success": False, "code": "liveness",
+                        "message": "Challenge expired — request a new one."}
+            return _api.verify_live(user_id, imgs, cfg, store)
+        img = mid                                   # face, liveness off: single shot
+    else:
+        img = _decode(data.get("image", ""))
     if img is None:
         return {"success": False, "message": "'image' or 'frames' is required."}
     # Single-shot: auto-route the image to face or palm (the caller never declares

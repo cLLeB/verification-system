@@ -139,6 +139,11 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
            "message": "Identity confirmed." if dec.granted else "Does not match.",
            "user_id": user_id, "score": round(dec.score, 4),
            "threshold": cfg.match_threshold, "quality": _quality(sample)}
+    if not dec.granted:
+        # Left and right palms are different biometrics — the most common genuine
+        # failure is presenting the hand that was never enrolled.
+        out["hint"] = ("Use the SAME hand you enrolled (left and right palms differ) — "
+                       "or enrol both hands under your name.")
     return _maybe_adapt(out, sample.embedding, user_id, st, cfg)
 
 

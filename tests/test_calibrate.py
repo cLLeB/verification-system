@@ -52,5 +52,9 @@ def test_modality_recalibrate_persists_and_is_applied(tmp_path):
     assert rec is not None
     # a calibration.json was written under the tenant's palm/ dir
     assert os.path.exists(os.path.join(str(tmp_path), "palm", "calibration.json"))
-    # and _palm_cfg_for now reflects the learned threshold
-    assert modality._palm_cfg_for(face_cfg).match_threshold == rec["threshold"]
+    # and _palm_cfg_for applies the learned threshold CLAMPED to [base, base+0.12]
+    # (a small-sample auto-calibration may only tighten, never loosen below the
+    # curated baseline — see tests/test_palm_thresholds.py)
+    base = modality._PALM_BASE.match_threshold
+    expected = min(max(rec["threshold"], base), base + 0.12)
+    assert abs(modality._palm_cfg_for(face_cfg).match_threshold - expected) < 1e-6

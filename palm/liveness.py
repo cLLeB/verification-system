@@ -1,14 +1,27 @@
-"""Passive anti-spoofing for palm captures.
+"""Passive anti-spoofing for palm captures — screen/print re-presentation cues.
 
-Returns a 0..1 "live palm" probability from a single ROI. A re-presented palm
-(printed photo or phone/monitor screen) differs from live skin in ways visible
-without a depth sensor: screens add periodic moiré in the frequency domain and a
-narrow specular highlight; prints are flatter in local texture and often colour-
-shifted. This combines a few such cues into a score.
+Returns a 0..1 "live palm" probability from a single ROI, built from cues a
+re-presented palm shows and a live one doesn't:
 
-This is a deliberately lightweight heuristic so the modality has real spoof
-resistance out of the box; a trained palm PAD model can replace ``real_score``
-later behind the same interface (the engine only calls ``available`` + ``real_score``).
+  * **moiré** — a phone/monitor re-capture adds a narrow, very strong periodic
+    spike in the frequency domain (the display's pixel grid). Organic palm
+    ridges are broadband and stay well under the floor.
+  * **specular** — screens and glossy prints throw a small, near-saturated
+    highlight blob; live skin under normal light doesn't.
+
+**Deliberately NOT a cue: sharpness/texture.** Softness is a CAPTURE-QUALITY
+problem (dim light, motion, focus hunting on a close palm), not evidence of a
+spoof — the encoder still matches soft palms reliably (measured 2026-07-02:
+a motion-ghosted live palm at variance-of-Laplacian 35 matched its enrolment at
+0.846; even Gaussian-blurred to 14 it matched at 0.868). Treating low texture as
+"not live" falsely rejected genuine users with a misleading "use a real palm"
+message. Blur is gated by ``roi.quality_ok`` (``min_sharpness``) with an
+actionable "hold steady / add light" message instead.
+
+Honest limitation: a flat matte PRINT without moiré or specular is not caught by
+these heuristics. Real presentation-attack detection needs a trained PAD model —
+this module keeps the same ``available``/``real_score`` interface so one can drop
+in behind it later.
 """
 
 from __future__ import annotations
@@ -23,20 +36,13 @@ def available() -> bool:
     return True
 
 
-# Calibrated against real phone palm captures (sharpness ~140-150 -> texture ~1.0)
-# so a genuine, well-focused palm clears the gate, while flat prints (low texture)
-# and obvious screen recaptures (a sharp narrow moire spike) are still penalised.
-# These are tunable from palm/calibration.json; full PAD wants a trained model.
-_TEXTURE_NORM = 150.0       # variance-of-Laplacian that maps to a "rich texture" score of 1.0
+# A live palm has neither cue -> score 1.0. A hard moiré spike alone drives the
+# score to ~0.3 (< the 0.55 default threshold); a fully saturated highlight alone
+# to 0.5 (borderline); both together well below. Tunable via palm/calibration.json.
 _MOIRE_FLOOR = 80.0         # FFT peak/mean ratio below which texture is treated as organic
-_MOIRE_SPAN = 120.0         # how fast the moire penalty ramps above the floor
-
-
-def _texture_richness(gray: np.ndarray) -> float:
-    """Live skin carries fine, broadband ridge/crease texture; flat prints don't.
-    Normalised variance-of-Laplacian, squashed to 0..1."""
-    v = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    return float(np.clip(v / _TEXTURE_NORM, 0.0, 1.0))
+_MOIRE_SPAN = 120.0         # how fast the moiré penalty ramps above the floor
+_MOIRE_WEIGHT = 0.7
+_SPECULAR_WEIGHT = 0.5
 
 
 def _specular_penalty(gray: np.ndarray) -> float:
@@ -56,21 +62,23 @@ def _moire_penalty(gray: np.ndarray) -> float:
     h, w = mag.shape
     cy, cx = h // 2, w // 2
     mag[cy - 4:cy + 4, cx - 4:cx + 4] = 0.0           # drop the DC / low-freq core
-    high = mag[mag > 0]
-    if high.size == 0:
-        return 0.0
-    ratio = float(high.max()) / (float(high.mean()) + 1e-6)
+    # Spike-to-background ratio over the WHOLE (core-blanked) spectrum. Using the
+    # mean of only-nonzero bins was numerically fragile: a strong pure grid leaves
+    # most bins exactly zero, so its own spike dominated the denominator and the
+    # detector failed to fire on exactly the signal it exists to catch.
+    denom = float(mag.mean()) + 1e-6
+    ratio = float(mag.max()) / denom
     return float(np.clip((ratio - _MOIRE_FLOOR) / _MOIRE_SPAN, 0.0, 1.0))
 
 
 def real_score(roi_bgr: np.ndarray, cfg: PalmConfig = CONFIG) -> float:
     """Probability (0..1) that the ROI is a live palm rather than a re-presentation.
-    Texture is the primary live signal; specular + (conservative) moire are penalties."""
+    Driven by spoof CUES only (moiré + specular) — a soft-but-live palm scores 1.0
+    (softness is handled by the quality gate, with an actionable message)."""
     if roi_bgr is None or roi_bgr.size == 0:
         return 0.0
     gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
-    texture = _texture_richness(gray)
     spec = _specular_penalty(gray)
     moire = _moire_penalty(gray)
-    score = texture * (1.0 - 0.5 * spec) * (1.0 - 0.4 * moire)
+    score = (1.0 - _MOIRE_WEIGHT * moire) * (1.0 - _SPECULAR_WEIGHT * spec)
     return float(np.clip(score, 0.0, 1.0))

@@ -127,6 +127,17 @@ def load_config() -> PalmConfig:
             explicit_threshold = True
         except ValueError:
             pass
+    # Passive palm anti-spoof (moiré/specular re-presentation cues): PALM_LIVENESS=0
+    # disables it; PALM_LIVENESS_THRESHOLD tunes strictness — parity with the face
+    # modality's FACE_LIVENESS / FACE_LIVENESS_THRESHOLD env switches.
+    if os.environ.get("PALM_LIVENESS") == "0":
+        cfg = replace(cfg, liveness_enabled=False)
+    env_live = os.environ.get("PALM_LIVENESS_THRESHOLD")
+    if env_live:
+        try:
+            cfg = replace(cfg, liveness_threshold=float(env_live))
+        except ValueError:
+            pass
     env_db = os.environ.get("FACE_DB_PATH")   # shared tenant root with face
     if env_db:
         cfg = replace(cfg, db_path=env_db)

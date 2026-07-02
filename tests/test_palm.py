@@ -93,12 +93,33 @@ def test_quality_gate_passes_and_flags():
 
 
 # --- liveness heuristic ----------------------------------------------------
-def test_liveness_textured_beats_flat():
+# Spec (2026-07-02): liveness is gated by SPOOF CUES ONLY (screen moiré + specular
+# saturation). Softness/low texture is a capture-QUALITY problem (min_sharpness gate
+# with an actionable message), NOT evidence of a spoof — the old texture-as-liveness
+# design falsely rejected genuine soft palms that still matched at 0.85.
+def test_liveness_passes_organic_and_soft_palms():
+    import cv2
     rng = np.random.default_rng(2)
-    textured = rng.integers(0, 255, (128, 128, 3), dtype=np.uint8)   # broadband texture
-    flat = np.full((128, 128, 3), 127, np.uint8)                     # printed-flat
-    assert palm_liveness.real_score(textured) > palm_liveness.real_score(flat)
+    organic = rng.integers(0, 200, (128, 128, 3), dtype=np.uint8)    # broadband, no cues
+    soft = cv2.GaussianBlur(organic, (9, 9), 4)                      # soft-but-live
+    assert palm_liveness.real_score(organic) > 0.9
+    assert palm_liveness.real_score(soft) > 0.9                      # softness != spoof
     assert palm_liveness.real_score(None) == 0.0
+
+
+def test_liveness_flags_screen_moire_and_specular():
+    rng = np.random.default_rng(2)
+    organic = rng.integers(0, 200, (128, 128, 3), dtype=np.uint8)
+    # screen re-capture: a strong narrow periodic spike (display pixel grid);
+    # integer cycles across the ROI -> leakage-free spike, deterministic ratio
+    xx, _yy = np.meshgrid(np.arange(128), np.arange(128))
+    grid = (127 + 100 * np.sin(xx * 2 * np.pi * 44 / 128)).astype(np.uint8)
+    screen = np.stack([grid] * 3, axis=-1)
+    # glossy highlight: a large near-saturated blob
+    spec = organic.copy(); spec[:40, :40] = 255
+    cfg = PalmConfig()
+    assert palm_liveness.real_score(screen) < cfg.liveness_threshold  # moiré-gated
+    assert palm_liveness.real_score(spec) < palm_liveness.real_score(organic)
 
 
 # --- palm recognition needs NO trained model: classical encoder is built in ---

@@ -987,24 +987,29 @@ def api_verify():
         return jsonify({"success": False, "code": "identify_disabled",
                         "message": "Enter your name/ID to verify."}), 400
 
-    # Burst path: a face does the head-turn challenge; a palm in the same burst is
-    # auto-detected and verified on one frame (palm has no head-turn — its own passive
-    # liveness applies). So a user can verify by face OR palm from the same UI.
+    # Burst path: a face does the head-turn challenge; a palm burst is auto-detected
+    # and verified on its SHARPEST frame — so one soft/ghosted frame (dim light,
+    # motion) doesn't sink the attempt. Works whether or not face active liveness is
+    # enabled; the head-turn check itself still applies only to faces.
     frames = data.get("frames")
-    if CONFIG.active_liveness and frames:
+    if frames:
         imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
         if not imgs:
             return jsonify({"success": False, "message": "Failed to decode frames."})
         mid = imgs[len(imgs) // 2]
         routed = _modality.route(mid, CONFIG, palm_enabled=True, short_circuit=True)
         if routed.modality == "palm":
-            result = (_modality.verify(user_id, mid, CONFIG, palm_enabled=True) if user_id
-                      else _modality.identify(mid, CONFIG, palm_enabled=True))
-        else:
+            best = _modality.best_palm_frame(imgs, CONFIG)
+            result = (_modality.verify(user_id, best, CONFIG, palm_enabled=True) if user_id
+                      else _modality.identify(best, CONFIG, palm_enabled=True))
+        elif CONFIG.active_liveness:
             if not _active.valid_token(data.get("token", "")):
                 return jsonify({"success": False, "code": "liveness",
                                 "message": "Challenge expired — try again."})
             result = engine.verify_live(user_id, imgs, CONFIG)
+        else:                                   # face, active liveness off: single shot
+            result = (_modality.verify(user_id, mid, CONFIG, palm_enabled=True) if user_id
+                      else _modality.identify(mid, CONFIG, palm_enabled=True))
         audit.log(_FP_TENANT, "verify", actor="kiosk", user_id=result.get("user_id") or user_id,
                   success=bool(result.get("success")),
                   detail=f"modality={result.get('modality')} score={result.get('score')}")

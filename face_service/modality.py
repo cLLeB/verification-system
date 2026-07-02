@@ -61,11 +61,15 @@ def _load_calibrated_threshold(face_cfg: FaceConfig) -> Optional[float]:
 
 def _palm_cfg_for(face_cfg: FaceConfig) -> PalmConfig:
     """Palm config sharing the tenant's data root with the given face config. Applies
-    the tenant's data-driven (auto-calibrated) threshold when one has been learned."""
+    the tenant's data-driven (auto-calibrated) threshold when one has been learned —
+    but ONLY to tighten: the learned value is clamped to [base, base+0.12] so a
+    small-sample auto-calibration can never drop below the curated baseline
+    (re-opening false-accepts) or drift so high it locks genuine users out."""
     cfg = dataclasses.replace(_PALM_BASE, db_path=face_cfg.db_path)
     thr = _load_calibrated_threshold(face_cfg)
     if thr is not None:
-        cfg = dataclasses.replace(cfg, match_threshold=thr)
+        base = _PALM_BASE.match_threshold
+        cfg = dataclasses.replace(cfg, match_threshold=min(max(thr, base), base + 0.12))
     return cfg
 
 
@@ -295,6 +299,22 @@ def _maybe_recalibrate(face_cfg: FaceConfig) -> None:
         return
     if n and n % _RECAL_EVERY == 0:
         recalibrate_palm(face_cfg)
+
+
+def best_palm_frame(images: list, face_cfg: FaceConfig):
+    """From a short client burst, the frame with the SHARPEST detectable palm ROI —
+    so one soft/ghosted frame (dim light, motion) doesn't sink the whole attempt.
+    Fail-soft: if no frame yields a palm ROI, return the middle frame unchanged."""
+    pcfg = _palm_cfg_for(face_cfg)
+    best_img, best_sharp = None, -1.0
+    for img in images:
+        try:
+            det = _palm_roi.detect(img, pcfg)
+        except Exception:
+            continue
+        if det.sharpness > best_sharp:
+            best_img, best_sharp = img, det.sharpness
+    return best_img if best_img is not None else images[len(images) // 2]
 
 
 # --- verify (1:1) ----------------------------------------------------------

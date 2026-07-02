@@ -23,20 +23,30 @@ def _unit(v: np.ndarray) -> np.ndarray:
 
 
 def impostor_scores(embeddings_by_user: Iterable[Tuple[str, List[np.ndarray]]]) -> np.ndarray:
-    """For each identity, the highest cosine to any OTHER identity — i.e. the score
-    an impostor would achieve against them. Uses one mean embedding per user (fast,
-    and what matters for the operating point)."""
-    reps = []
+    """For each identity, the highest cosine any OTHER identity's anchors achieve
+    against theirs — i.e. the best score an impostor would get at verify time.
+
+    Uses MAX over each user's stored anchors, because that is exactly what serving
+    computes (``matcher.best_score``). Mean-embedding representatives were measured
+    (2026-07-02) to distort this: noise cancellation pulls different people's means
+    together (a cross-identity pair read 0.69 by means vs 0.622 by max-pairwise),
+    so calibrating on means mis-places the operating point."""
+    users = []
     for _uid, embs in embeddings_by_user:
-        embs = [np.asarray(e, np.float32) for e in embs if e is not None and np.size(e)]
-        if embs:
-            reps.append(_unit(np.mean(np.stack(embs), axis=0)))
-    if len(reps) < 3:
+        vecs = [_unit(np.asarray(e, np.float32)) for e in embs if e is not None and np.size(e)]
+        if vecs:
+            users.append(np.stack(vecs))
+    if len(users) < 3:
         return np.empty(0, np.float32)
-    M = np.stack(reps).astype(np.float32)
-    sims = M @ M.T
-    np.fill_diagonal(sims, -1.0)
-    return sims.max(axis=1)
+    out = []
+    for i, mine in enumerate(users):
+        best = -1.0
+        for j, theirs in enumerate(users):
+            if i == j:
+                continue
+            best = max(best, float((mine @ theirs.T).max()))
+        out.append(best)
+    return np.asarray(out, np.float32)
 
 
 def recommend_threshold(embeddings_by_user: Iterable[Tuple[str, List[np.ndarray]]],
