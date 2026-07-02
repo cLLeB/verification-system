@@ -81,3 +81,8 @@ android/.kotlin/
 people*.csv
 _bench_snaps/
 examples/**/*.db
+
+# PAD / anti-spoof eval data (live + spoof face images — biometric data) + its output
+pad_data/
+_pad_threshold.json
+android/build_fresh.log
