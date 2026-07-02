@@ -42,6 +42,18 @@ class PalmConfig:
     min_finger_spread: float = 0.55         # normalised spread of the four fingers (open palm)
     require_palm_facing: bool = True        # reject the back of the hand
 
+    # --- STRICTER gates for ENROLMENT only (anchor quality) ---
+    # A weak verify frame costs one retry; a weak enrolment ANCHOR drags every future
+    # verify for that person toward the impostor zone, permanently. So anchors must
+    # clear a higher bar (verify keeps the lenient floors above — soft probes still
+    # match reliably, measured 2026-07-02: varLap-35 probe matched its anchors 0.846).
+    # Floors from measured data: good captures 164-332 varLap / ROI 48-57% of frame /
+    # ROI brightness 169-184; the motion-ghosted reject case was varLap 35 @ mean 92.
+    enroll_min_sharpness: float = 120.0     # crisp anchors only (good light + held still)
+    enroll_min_roi_frac: float = 0.30       # ROI side >= 30% of the frame's short side
+    enroll_min_brightness: float = 70.0     # ROI gray mean floor (too dark to enrol)
+    enroll_max_brightness: float = 235.0    # ...and ceiling (blown-out highlights)
+
     # --- matching (cosine similarity on L2-normalised embeddings) ---
     # Thresholds are ENCODER-SPECIFIC: a learned CCNet embedding is sparse/peaky
     # (low impostor cosines) while the classical Gabor descriptor is denser (higher

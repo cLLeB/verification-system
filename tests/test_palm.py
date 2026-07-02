@@ -92,6 +92,33 @@ def test_quality_gate_passes_and_flags():
     assert quality_ok(_det(palm_facing=False), cfg)[0] == "palm_not_facing"
 
 
+def test_enroll_gate_is_stricter_than_verify():
+    """Anchor quality (2026-07-02): enrolment demands crisp, well-lit, frame-filling
+    palms — while the SAME capture stays acceptable for verify (soft probes still
+    match; a weak ANCHOR degrades that user's matching forever)."""
+    from palm.roi import enroll_quality_ok
+    cfg = PalmConfig()
+    frame = np.zeros((720, 720, 3), np.uint8)
+    mid_roi = np.full((128, 128, 3), 150, np.uint8)          # well-lit ROI
+
+    # A soft-but-legal capture (sharpness 80 >= verify floor 35, < enrol floor 120):
+    soft = _det(roi=mid_roi, sharpness=80.0, roi_px=400)
+    assert quality_ok(soft, cfg) is None                      # verify: fine
+    assert enroll_quality_ok(soft, frame, cfg)[0] == "palm_enroll_blurry"
+
+    crisp = _det(roi=mid_roi, sharpness=200.0, roi_px=400)
+    assert enroll_quality_ok(crisp, frame, cfg) is None       # crisp + lit + close: enrols
+
+    far = _det(roi=mid_roi, sharpness=200.0, roi_px=120)      # 120px of a 720px frame
+    assert enroll_quality_ok(far, frame, cfg)[0] == "palm_enroll_too_far"
+
+    dark = _det(roi=np.full((128, 128, 3), 40, np.uint8), sharpness=200.0, roi_px=400)
+    assert enroll_quality_ok(dark, frame, cfg)[0] == "palm_enroll_too_dark"
+
+    blown = _det(roi=np.full((128, 128, 3), 250, np.uint8), sharpness=200.0, roi_px=400)
+    assert enroll_quality_ok(blown, frame, cfg)[0] == "palm_enroll_too_bright"
+
+
 # --- liveness heuristic ----------------------------------------------------
 # Spec (2026-07-02): liveness is gated by SPOOF CUES ONLY (screen moiré + specular
 # saturation). Softness/low texture is a capture-QUALITY problem (min_sharpness gate

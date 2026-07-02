@@ -28,10 +28,14 @@ def test_palm_end_to_end_on_real_hand():
     left = img[:, : w // 2].copy()                 # the two hands in the image are
     right = img[:, w // 2:].copy()                 # different palms -> impostor pair
     td = tempfile.mkdtemp()
-    # Relax capture gates + disable liveness for this flat studio photo (those are
-    # calibration knobs; the recognition logic is what we're proving here).
+    # Relax capture gates (incl. the strict ENROL anchor gates) + disable liveness
+    # for this flat studio photo (those are calibration knobs; the recognition logic
+    # is what we're proving here).
     cfg = dataclasses.replace(cfg0, min_sharpness=0.5, min_roi_px=40,
-                              require_palm_facing=False, liveness_enabled=False, db_path=td)
+                              require_palm_facing=False, liveness_enabled=False,
+                              enroll_min_sharpness=0.5, enroll_min_roi_frac=0.0,
+                              enroll_min_brightness=0.0, enroll_max_brightness=255.0,
+                              db_path=td)
 
     assert palm_api.enroll("alice", left, cfg)["success"] is True
     same = palm_api.verify("alice", left, cfg)

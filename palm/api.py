@@ -26,6 +26,10 @@ _HINTS = {
     "fingers_not_spread": "Spread your fingers and open your palm fully.",
     "palm_not_facing": "Show the palm side of your hand, not the back.",
     "multiple_hands": "More than one hand in view — show one open palm at a time.",
+    "palm_enroll_blurry": "Enrolment needs a crisp shot — brace your arm, add light, let the camera focus.",
+    "palm_enroll_too_far": "Bring your palm closer — fill most of the frame to enrol.",
+    "palm_enroll_too_dark": "Too dark to enrol — face a window or add light.",
+    "palm_enroll_too_bright": "Too bright to enrol — avoid direct glare on your palm.",
     "palm_liveness": "Liveness failed — use a real, live palm (not a photo or screen).",
     "palm_unavailable": "Palm recognition is not available on this server.",
     "not_enrolled": "This user has no palm enrolment yet — enrol them first.",
@@ -105,7 +109,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
         return _fail("Palm recognition is not available on this server.", "palm_unavailable")
     st = _store(cfg, store)
     try:
-        sample = _engine.embed(image, cfg)
+        sample = _engine.embed(image, cfg, for_enroll=True)   # strict anchor-quality gate
     except PalmError as exc:
         return _fail(exc.message, exc.code)
     fail = _guards_ok(sample.embedding, user_id, st, cfg, cfg.match_threshold)

@@ -179,12 +179,13 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         livenessProgress = 0f
     }
 
-    /** Palm enrol — tap Capture with an open palm shown (same 3-capture rhythm). */
+    /** Palm enrol — tap Capture with an open palm shown (same 3-capture rhythm).
+     *  Uses the STRICT anchor-quality gate: weak anchors degrade matching forever. */
     private suspend fun handlePalmEnroll(p: PalmEngine, bitmap: Bitmap) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
         status = "Show your open palm — tap Capture"
         if (!captureRequested.compareAndSet(true, false)) return
-        val s = p.embed(bitmap)
+        val s = p.embed(bitmap, forEnroll = true)
         if (s.embedding == null) { status = s.message; return }
         finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false)
     }
@@ -216,10 +217,11 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 if (bmp == null) { result = ScanResult(false, "Couldn't open photo", "Try another image"); return@launch }
                 val a = engine.assessIdForEnroll(bmp)
                 if (a.faces.isEmpty() || a.primaryFace == null) {
-                    // No face — a gallery photo of a palm should enrol as palm.
+                    // No face — a gallery photo of a palm should enrol as palm
+                    // (strict anchor-quality gate, same as live palm enrolment).
                     val p = palm
                     if (p != null) {
-                        val s = p.embed(bmp)
+                        val s = p.embed(bmp, forEnroll = true)
                         if (s.embedding != null) {
                             finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false); return@launch
                         }

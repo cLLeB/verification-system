@@ -162,10 +162,17 @@ def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmSample:
                       sharpness=det.sharpness)
 
 
-def embed(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmSample:
-    """Single-shot enrol/verify: quality gate + passive anti-spoofing."""
+def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
+          for_enroll: bool = False) -> PalmSample:
+    """Single-shot enrol/verify: quality gate + passive anti-spoofing.
+
+    ``for_enroll=True`` additionally applies the STRICT anchor-quality gate
+    (crisp, well-lit, palm filling the frame) — a weak verify frame costs one
+    retry, but a weak enrolment anchor degrades that person's matching forever."""
     det = _roi.detect(image, cfg)
     fail = _roi.quality_ok(det, cfg)
+    if fail is None and for_enroll:
+        fail = _roi.enroll_quality_ok(det, image, cfg)
     if fail is not None:
         raise PalmError(fail[1], code=fail[0])
     live = 1.0

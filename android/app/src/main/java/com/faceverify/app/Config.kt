@@ -45,6 +45,14 @@ object PalmConfig {
     const val MIN_SHARPNESS = 35.0f            // variance-of-Laplacian floor (reject blur)
     const val MIN_FINGER_SPREAD = 0.55f        // open-palm gate (index↔pinky tip vs knuckle width)
 
+    // STRICTER gates for ENROLMENT only (anchor quality). A weak verify frame costs
+    // one retry; a weak enrolment anchor drags every future verify for that person
+    // toward the impostor zone, permanently. Mirrors palm/config.py — keep in sync.
+    const val ENROLL_MIN_SHARPNESS = 120.0f    // crisp anchors only (good light, held still)
+    const val ENROLL_MIN_ROI_FRAC = 0.30f      // ROI side >= 30% of the frame's short side
+    const val ENROLL_MIN_BRIGHTNESS = 70.0f    // ROI luminance mean floor (too dark)
+    const val ENROLL_MAX_BRIGHTNESS = 235.0f   // ...and ceiling (blown out)
+
     // matching (cosine on L2-normalised embeddings) — palm-tuned.
     // RE-CALIBRATED 2026-07-02 against live production templates + local captures
     // (CCNet ONNX, max-over-anchors — the metric verify actually uses): genuine

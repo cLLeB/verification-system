@@ -237,3 +237,27 @@ def quality_ok(det: PalmDetection, cfg: PalmConfig = CONFIG) -> Optional[Tuple[s
     if cfg.require_palm_facing and not det.palm_facing:
         return ("palm_not_facing", "Show the palm side of your hand, not the back.")
     return None
+
+
+def enroll_quality_ok(det: PalmDetection, image: np.ndarray,
+                      cfg: PalmConfig = CONFIG) -> Optional[Tuple[str, str]]:
+    """STRICTER gate for enrolment anchors (on top of ``quality_ok``). A weak anchor
+    permanently drags every future verify for that person toward the impostor zone,
+    so anchors must be crisp, well-lit, and fill the frame. Every message tells the
+    person exactly what to fix. Returns ``(code, message)`` on failure, else None."""
+    if det.sharpness < cfg.enroll_min_sharpness:
+        return ("palm_enroll_blurry",
+                "Enrolment needs a crisp capture — brace your arm, hold still, add "
+                "light (face a window), let the camera focus, then try again.")
+    frame_short = float(min(image.shape[:2])) if image is not None else 0.0
+    if frame_short > 0 and det.roi_px < cfg.enroll_min_roi_frac * frame_short:
+        return ("palm_enroll_too_far",
+                "Bring your palm closer — it should fill most of the frame to enrol.")
+    gray_mean = float(cv2.cvtColor(det.roi, cv2.COLOR_BGR2GRAY).mean())
+    if gray_mean < cfg.enroll_min_brightness:
+        return ("palm_enroll_too_dark",
+                "Too dark to enrol — move near a window or add light, then try again.")
+    if gray_mean > cfg.enroll_max_brightness:
+        return ("palm_enroll_too_bright",
+                "Too bright / washed out to enrol — avoid direct glare on your palm.")
+    return None
