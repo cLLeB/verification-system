@@ -194,10 +194,12 @@ if r["success"] and fv.verify_signature(r):
 ## 5b. Bulk enrol & lifecycle (admin keys)
 
 ```bash
-# Enrol many people in one call
+# Enrol many people in one call. Add "dedupe":true to reject a person whose
+# biometric already belongs to a DIFFERENT name (skips that modality, reports it
+# under "conflicts"). Default off (bulk import is otherwise guard-free for speed).
 curl -sk https://HOST:5000/v1/enroll/bulk -H "X-API-Key: fk_xxx" \
   -H "Content-Type: application/json" \
-  -d '{"people":[{"user_id":"a","images":["<b64>"]},{"user_id":"b","embeddings":[[...]]}]}'
+  -d '{"dedupe":true,"people":[{"user_id":"a","images":["<b64>"]},{"user_id":"b","embeddings":[[...]]}]}'
 
 curl -sk https://HOST:5000/v1/users          -H "X-API-Key: fk_xxx"   # list
 curl -sk https://HOST:5000/v1/users/delete   -H "X-API-Key: fk_xxx" -d '{"user_ids":["a","b"]}'
@@ -208,6 +210,33 @@ curl -sk https://HOST:5000/v1/usage          -H "X-API-Key: fk_xxx"   # your mon
 
 For very large datasets, ask the operator to run the offline `bulk_enroll.py`
 importer instead (folder of `person/photos`), which is far faster than the API.
+Add `--dedupe` to reject duplicates during import.
+
+## 5c. Offline provisioning bundle (air-gapped devices)
+
+Air-gapped devices never call the API. To bulk-load one, export an encrypted
+**template bundle** (embeddings only — never images), move the file across
+out-of-band (USB / MDM), and import it in the device app with the same passphrase.
+
+```bash
+# Requires an admin key + the tenant's allow_export entitlement.
+curl -sk https://HOST:5000/v1/export/bundle -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"passphrase":"a-strong-shared-secret"}' > roster.bundle.json
+```
+
+The bundle is PBKDF2-HMAC-SHA256 + AES-256-GCM; a wrong passphrase or any tampering
+fails to decrypt. On Android: **Settings → Bulk import (offline)** → unlock (PIN) →
+choose the file → enter the passphrase. No network path to the device is opened.
+
+## 5d. Self-enrolment invites (unsupervised, token-gated)
+
+A pre-named person enrols themselves from a private link (no admin password). Links
+are **modality-scoped**: a link that adds a modality to someone who **already exists**
+is scoped to the missing modality and requires a **step-up** (the enrollee proves an
+existing modality first) — so a leaked "add-a-modality" link can't bind a stranger's
+biometric to a real account. Revoke with `{"purge":true}` to also delete what the
+invite enrolled. Admin: `POST /admin/api/invites {user_id, tenant?, modalities?}`.
 
 ## 6. Notes
 

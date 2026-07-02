@@ -18,6 +18,9 @@
         .chip .tick { opacity: .35; }
         .chip.on { color: #1ec98b; border-color: #1ec98b66; }
         .chip.on .tick { opacity: 1; }
+        .mode-note { margin: 4px 16px 0; padding: 10px 12px; border-radius: 10px;
+                     font-size: .85rem; text-align: center;
+                     border: 1px solid #f4b73955; background: #f4b7391a; color: #f4b739; }
         .gate { text-align: center; padding: 48px 24px; }
         .gate h2 { margin: 0 0 8px; }
         .gate p { color: var(--muted, #8a94ad); }
@@ -60,6 +63,8 @@
                 <div class="sub">Your identity is set by your administrator and can't be changed here.</div>
             </div>
 
+            <div class="mode-note hidden" id="mode-note"></div>
+
             <div class="chips" aria-label="Enrolment progress">
                 <span class="chip" id="chip-face"><span class="tick">✓</span> Face</span>
                 <span class="chip" id="chip-palm"><span class="tick">✓</span> Palm</span>
@@ -85,6 +90,6 @@
     </main>
 
     <canvas id="canvas" hidden></canvas>
-    <script src="/static/enroll.js?v=1"></script>
+    <script src="/static/enroll.js?v=3"></script>
 </body>
 </html>

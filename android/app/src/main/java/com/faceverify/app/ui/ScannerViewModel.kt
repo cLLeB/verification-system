@@ -252,6 +252,41 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // --- offline provisioning bundle (works on ALL builds, incl. air-gapped) --
+    // Bulk-load templates the admin exported on the server, moved here out-of-band
+    // (USB / MDM). No network is used — the file is decrypted locally with the same
+    // passphrase. This is how an air-gapped device gets a roster without enrolling
+    // each person by hand, while staying fully offline.
+    var bundleBusy by mutableStateOf(false); private set
+    var bundleMsg by mutableStateOf(""); private set
+
+    fun importBundle(uri: Uri, passphrase: String) {
+        if (!ready) { bundleMsg = "Engine not ready yet."; return }
+        if (passphrase.trim().length < 8) { bundleMsg = "Enter the bundle passphrase (8+ chars)."; return }
+        if (bundleBusy) return
+        bundleBusy = true; bundleMsg = "Importing…"
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                val bytes = getApplication<Application>().contentResolver
+                    .openInputStream(uri)?.use { it.readBytes() }
+                if (bytes == null) { bundleMsg = "Couldn't open that file."; return@launch }
+                val parsed = com.faceverify.app.data.BundleImporter.parse(bytes, passphrase)
+                val (f, pl) = com.faceverify.app.data.BundleImporter.apply(
+                    parsed, engine.repo, palm?.repo)
+                val skipped = if (palm == null && parsed.palm.isNotEmpty())
+                    " (${parsed.palm.size} palm skipped — face-only build)" else ""
+                bundleMsg = "Imported $f face + $pl palm identities$skipped."
+                refreshPeople()
+            } catch (e: com.faceverify.app.data.BundleImporter.BundleException) {
+                bundleMsg = e.message ?: "Import failed."
+            } catch (e: Exception) {
+                bundleMsg = "Import failed — check the file and passphrase."
+            } finally {
+                bundleBusy = false
+            }
+        }
+    }
+
     // --- hybrid sync (only meaningful when BuildConfig.HYBRID) ----------------
     val isHybrid = BuildConfig.HYBRID
     private val syncPrefs by lazy { SyncPrefs(getApplication()) }

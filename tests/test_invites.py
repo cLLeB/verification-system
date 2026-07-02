@@ -98,3 +98,94 @@ def test_parse_roster_lines_and_commas(fresh_invites):
     names = inv.parse_roster(text)
     # split on newline AND comma, trim ends, drop blanks, dedupe preserving order
     assert names == ["Kofi Mensah", "Ama Owusu", "Yaw Boateng"]
+
+
+# --- modality scoping + step-up (fix A: second-modality invite hijack) --------
+
+def test_default_invite_allows_both_modalities(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi", "first_party")
+    assert info["modalities"] == ["face", "palm"]
+    assert info["requires_step_up"] is False
+    rec = inv.lookup(info["token"])
+    assert inv.allowed_modalities(rec) == ["face", "palm"]
+    assert inv.is_step_up_satisfied(rec) is True     # no step-up needed
+
+
+def test_modality_scoped_invite(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi", "first_party", modalities=["palm"])
+    assert info["modalities"] == ["palm"]
+    rec = inv.lookup(info["token"])
+    assert inv.allowed_modalities(rec) == ["palm"]
+
+
+def test_modalities_normalise_to_ordered_valid_subset(fresh_invites):
+    inv = fresh_invites
+    # unknown entries dropped; order follows MODALITIES; empty -> both
+    assert inv.create_invite("A", "t", modalities=["palm", "bogus"])["modalities"] == ["palm"]
+    assert inv.create_invite("B", "t", modalities=["palm", "face"])["modalities"] == ["face", "palm"]
+    assert inv.create_invite("C", "t", modalities=[])["modalities"] == ["face", "palm"]
+
+
+def test_mark_progress_rejects_off_whitelist_modality(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi", "first_party", modalities=["palm"])
+    assert inv.mark_progress(info["token"], "face") is False   # face not allowed
+    assert inv.mark_progress(info["token"], "palm") is True
+    assert inv.lookup(info["token"])["enrolled"] == ["palm"]
+
+
+def test_step_up_lifecycle(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi", "first_party", modalities=["palm"],
+                             requires_step_up=True, step_up_modality="face")
+    assert info["requires_step_up"] is True
+    assert info["step_up_modality"] == "face"
+    rec = inv.lookup(info["token"])
+    assert inv.is_step_up_satisfied(rec) is False              # not proven yet
+    assert inv.mark_stepped_up(info["token"]) is True
+    assert inv.is_step_up_satisfied(inv.lookup(info["token"])) is True
+
+
+def test_step_up_modality_must_be_valid(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi", "first_party", requires_step_up=True,
+                             step_up_modality="bogus")
+    assert info["step_up_modality"] is None
+
+
+def test_get_by_invite_id_for_purge(fresh_invites):
+    inv = fresh_invites
+    info = inv.create_invite("Kofi Mensah", "acme", modalities=["palm"])
+    inv.mark_progress(info["token"], "palm")
+    rec = inv.get_by_invite_id(info["invite_id"])
+    assert rec is not None
+    assert rec["user_id"] == "Kofi Mensah"
+    assert rec["tenant"] == "acme"
+    assert rec["enrolled"] == ["palm"]                         # what to purge on revoke
+    assert inv.get_by_invite_id("iv_missing") is None
+
+
+def test_list_view_exposes_scope_not_token(fresh_invites):
+    inv = fresh_invites
+    inv.create_invite("Kofi", "acme", modalities=["palm"], requires_step_up=True,
+                      step_up_modality="face")
+    view = inv.list_invites("acme")[0]
+    assert view["modalities"] == ["palm"]
+    assert view["requires_step_up"] is True
+    assert "token" not in view and "stepped_up" not in view
+
+
+def test_legacy_record_without_modalities_defaults_both(fresh_invites):
+    inv = fresh_invites
+    # simulate a record minted before scoping existed (no modalities key)
+    info = inv.create_invite("Kofi", "first_party")
+    data = inv._load()
+    for v in data.values():
+        v.pop("modalities", None)
+        v.pop("requires_step_up", None)
+    inv._save(data)
+    rec = inv.lookup(info["token"])
+    assert inv.allowed_modalities(rec) == ["face", "palm"]
+    assert inv.is_step_up_satisfied(rec) is True

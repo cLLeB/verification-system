@@ -230,6 +230,31 @@ def _maybe_adapt(out: dict, emb, claimed_uid: str, st: FaceStore, cfg: FaceConfi
     return out
 
 
+def enroll_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
+                store: Optional[FaceStore] = None) -> dict:
+    """Liveness-gated enrol: confirm a live head-turn (defeats a printed photo /
+    screen), then enrol the frontal frame's embedding with the SAME duplicate +
+    self-consistency guards as ``enroll``. Used by unsupervised self-enrolment so a
+    leaked invite link can't enrol from a still photo of the pre-assigned person."""
+    user_id = (user_id or "").strip()
+    if not user_id:
+        return _fail("A name or ID is required.", "missing_user_id")
+    st = _store(cfg, store)
+    res = _live.analyze(images, cfg)
+    if not res.passed:
+        return _fail(res.reason, "liveness")
+    emb = res.embedding
+    fail = _guards_ok(emb, user_id, st, cfg, cfg.match_threshold)
+    if fail is not None:
+        return fail
+    tmpl = st.add_embedding(user_id, emb)
+    _index.on_add(cfg.db_path, user_id, emb)
+    return {"success": True, "code": "enrolled", "source": "live", "modality": "face",
+            "message": f"Enrolled '{user_id}' ({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
+            "user_id": user_id, "samples": len(tmpl.embeddings),
+            "samples_target": cfg.samples_per_user}
+
+
 def verify_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
                 store: Optional[FaceStore] = None) -> dict:
     """Active-liveness verify: confirm a live head-turn, then match the frontal

@@ -41,7 +41,24 @@ DEFAULT_EXPIRY_HOURS = 24
 MIN_EXPIRY_HOURS = 1
 MAX_EXPIRY_HOURS = 72
 
+# The biometric modalities an invite may bind. An invite's ``modalities`` is a
+# subset of these — a first-time invite defaults to BOTH; an invite that adds a
+# missing modality to an ALREADY-ENROLLED person is scoped to just that modality
+# (and marked ``requires_step_up`` so the enrollee must first prove an existing
+# modality before the new one is bound — closes the "bind a rogue palm to an
+# existing face account" hijack).
+MODALITIES = ("face", "palm")
+
 _lock = threading.Lock()
+
+
+def _clean_modalities(modalities: Optional[List[str]]) -> List[str]:
+    """Normalise a requested modality whitelist to a valid, ordered subset of
+    ``MODALITIES``. ``None``/empty means both (a first-time, unrestricted invite)."""
+    if not modalities:
+        return list(MODALITIES)
+    picked = [m for m in MODALITIES if m in set(modalities)]
+    return picked or list(MODALITIES)
 
 
 def _hash(token: str) -> str:
@@ -94,9 +111,18 @@ def parse_roster(text: str) -> List[str]:
 
 
 def create_invite(user_id: str, tenant: str,
-                  expires_in_hours: Optional[int] = None) -> dict:
+                  expires_in_hours: Optional[int] = None,
+                  modalities: Optional[List[str]] = None,
+                  requires_step_up: bool = False,
+                  step_up_modality: Optional[str] = None) -> dict:
     """Mint one invite for a pre-assigned ``user_id`` in ``tenant``. Returns the
-    RAW token once (not recoverable) plus the public ``invite_id`` and expiry."""
+    RAW token once (not recoverable) plus the public ``invite_id`` and expiry.
+
+    ``modalities`` scopes which biometrics this link may bind (defaults to both).
+    When the target ``user_id`` already exists, the caller passes the MISSING
+    modality here plus ``requires_step_up=True`` and the existing
+    ``step_up_modality`` — so the enrollee must prove they are the real person
+    (verify against the existing modality) before the new modality is bound."""
     user_id = (user_id or "").strip()
     if not user_id:
         raise ValueError("user_id is required for an invite.")
@@ -104,6 +130,8 @@ def create_invite(user_id: str, tenant: str,
     if not tenant:
         raise ValueError("tenant is required for an invite.")
     hours = _clamp_hours(expires_in_hours)
+    mods = _clean_modalities(modalities)
+    step_up_modality = step_up_modality if step_up_modality in MODALITIES else None
     with _lock:
         data = _load()
         raw = "inv_" + secrets.token_urlsafe(32)
@@ -116,19 +144,30 @@ def create_invite(user_id: str, tenant: str,
             "used": None,            # epoch when Finish consumed it
             "revoked": False,
             "enrolled": [],          # modalities completed so far (resume hint)
+            "modalities": mods,      # whitelist this link may bind
+            "requires_step_up": bool(requires_step_up),
+            "step_up_modality": step_up_modality,
+            "stepped_up": None,      # epoch when the enrollee proved the existing modality
         }
         data[_hash(raw)] = record
         _save(data)
     return {"token": raw, "invite_id": record["invite_id"], "user_id": user_id,
-            "tenant": tenant, "expires": record["expires"], "expires_in_hours": hours}
+            "tenant": tenant, "expires": record["expires"], "expires_in_hours": hours,
+            "modalities": mods, "requires_step_up": bool(requires_step_up),
+            "step_up_modality": step_up_modality}
 
 
 def create_invites(user_ids: List[str], tenant: str,
-                   expires_in_hours: Optional[int] = None) -> List[dict]:
+                   expires_in_hours: Optional[int] = None,
+                   modalities: Optional[List[str]] = None) -> List[dict]:
     """Mint a batch of invites (one per name) for a single tenant. Raw tokens are
-    returned once, ready for the console to show + offer as a CSV download."""
-    return [create_invite(u, tenant, expires_in_hours) for u in user_ids
-            if (u or "").strip()]
+    returned once, ready for the console to show + offer as a CSV download.
+
+    Bulk invites are for a fresh roster, so they are never step-up invites; use
+    the single ``create_invite`` (with ``requires_step_up``) to add a modality to
+    someone who already exists."""
+    return [create_invite(u, tenant, expires_in_hours, modalities=modalities)
+            for u in user_ids if (u or "").strip()]
 
 
 def _record(token: str) -> Optional[dict]:
@@ -170,6 +209,8 @@ def mark_progress(token: str, modality: str) -> bool:
         rec = data.get(_hash(token))
         if rec is None or rec.get("used") or rec.get("revoked"):
             return False
+        if modality not in allowed_modalities(rec):
+            return False                       # defence-in-depth: never record an off-whitelist modality
         done = set(rec.get("enrolled") or [])
         done.add(modality)
         rec["enrolled"] = sorted(done)
@@ -193,6 +234,48 @@ def consume(token: str) -> bool:
     return True
 
 
+def allowed_modalities(rec: Optional[dict]) -> List[str]:
+    """The modality whitelist for a record (defaults to both for legacy invites
+    minted before scoping existed)."""
+    if not rec:
+        return list(MODALITIES)
+    return _clean_modalities(rec.get("modalities"))
+
+
+def is_step_up_satisfied(rec: Optional[dict]) -> bool:
+    """True if this invite either needs no step-up, or the enrollee has already
+    proven the existing modality in this session."""
+    if not rec or not rec.get("requires_step_up"):
+        return True
+    return bool(rec.get("stepped_up"))
+
+
+def mark_stepped_up(token: str) -> bool:
+    """Record that the enrollee proved the existing modality (step-up passed) for a
+    step-up invite. Does NOT consume the token. No-op if the token isn't usable."""
+    with _lock:
+        data = _load()
+        rec = data.get(_hash(token))
+        if rec is None or rec.get("used") or rec.get("revoked"):
+            return False
+        if rec.get("expires") and time.time() > rec["expires"]:
+            return False
+        rec["stepped_up"] = int(time.time())
+        _save(data)
+    return True
+
+
+def get_by_invite_id(invite_id: str) -> Optional[dict]:
+    """Return the full record for a public ``invite_id`` (any status), or None.
+    Used by revoke-with-purge to know which user/tenant/modalities to clean up."""
+    if not invite_id:
+        return None
+    for v in _load().values():
+        if v.get("invite_id") == invite_id:
+            return v
+    return None
+
+
 def _status(rec: dict) -> str:
     if rec.get("revoked"):
         return "revoked"
@@ -213,7 +296,9 @@ def list_invites(tenant: Optional[str] = None) -> List[dict]:
         out.append({"invite_id": v.get("invite_id"), "user_id": v.get("user_id"),
                     "tenant": v.get("tenant"), "created": v.get("created"),
                     "expires": v.get("expires"), "used": v.get("used"),
-                    "enrolled": v.get("enrolled") or [], "status": _status(v)})
+                    "enrolled": v.get("enrolled") or [], "status": _status(v),
+                    "modalities": allowed_modalities(v),
+                    "requires_step_up": bool(v.get("requires_step_up"))})
     return out
 
 

@@ -245,3 +245,88 @@ validated in CI or on the Space. Syntax of `app.py`/`invites.py`/`portal.py` was
 - Zero-access / customer-held encryption keys (#2 full version).
 - On-prem / bring-your-own-storage / process-in-place for large datasets (#3).
 - QR-code-per-name printable onboarding sheet (Q2 option C) — possible later add-on.
+
+---
+
+## 12. Security hardening + follow-ups (2026-07-02)
+
+Implemented in response to a full loophole review of the invite feature and the
+enrolment surface. **Verified locally against the real model pack via the repo
+`venv/` (`.\venv\Scripts\python -m pytest tests/`): 124 passed, 7 skipped, 0
+failed** — including new API tests for step-up (fix A), revoke-with-purge (fix C),
+and the bundle export round-trip, plus pure-Python `test_invites.py` 18/18 and
+`test_bundle.py` 6/6. (The base system Python lacks cv2/flask/numpy; use the venv.)
+**Android** items are syntax-consistent but NOT built — validate on a device.
+
+### A (HIGH) — Second-modality invite hijack → **modality-scoped invites + step-up**
+The hole: self-consistency protects an *already-enrolled* modality but nothing
+floored a modality the user didn't have yet, so a leaked "add Kofi's palm" link let
+an interceptor bind **their** palm to Kofi and then pass under `match_policy:"or"`.
+Fix:
+- Invites now carry a **`modalities` whitelist** (`invites.py`). A first-time invite
+  defaults to both; an invite for an **existing** user is auto-scoped to the
+  **missing** modality (`modality.invite_scope`, used by both `/admin` and
+  `/portal` so they agree).
+- Such invites are flagged **`requires_step_up`** with a `step_up_modality`. New
+  endpoint **`POST /api/invite/stepup`** makes the enrollee prove an existing
+  modality (single image, or a liveness burst for face) **before** the new modality
+  can bind. `/api/invite/enroll` returns **403 `step_up_required`** until then.
+- Single-modality links **pin** the enrol modality so a combined shot can't bind the
+  other; `mark_progress` refuses an off-whitelist modality (defence-in-depth).
+
+### B (MEDIUM) — No liveness on self-enrol → **optional liveness-gated face self-enrol**
+`face.api.enroll_live` (mirrors `verify_live`) confirms a live head-turn then enrols
+the frontal embedding with the normal guards. `/api/invite/enroll` accepts a
+`frames`+`token_challenge` burst; env `FACE_SELF_ENROLL_LIVENESS=1` **forces** it for
+face (refuses a single still). Default off to preserve the current UX.
+
+### C (MEDIUM) — Soft-revoke left biometrics live → **revoke-with-purge**
+`POST /admin/api/invites/revoke` and `/portal/api/invites/revoke` accept
+`{"purge": true}` → after revoking, delete **only** the modalities that invite
+enrolled (`modality.purge_modalities`, per-modality so a pre-existing modality
+survives). `invites.get_by_invite_id` exposes the record for this.
+
+### D (MEDIUM) — Bulk paths bypass dedup → **opt-in dedupe**
+`POST /v1/enroll/bulk` accepts `{"dedupe": true}`: a person whose biometric already
+belongs to a **different** name is rejected per-modality (`_dupe_conflict`,
+reported in `conflicts`). `bulk_enroll.py --dedupe` does the same via a live index
+(also catches duplicates *within* the run). Both default OFF (speed).
+
+### E (LOW–MEDIUM) — "single-use = single Finish"
+Documented + bounded by the whitelist (a face-only link can't later add palm) and
+purge-on-revoke. Capture still commits on first success (resumability, D5) — this is
+intended; the mitigations above cap the blast radius.
+
+### F (LOW) — Open 1:N identify probing → **`FACE_PUBLIC_IDENTIFY` toggle**
+`/api/verify` (no user_id) and `/api/identify` can be disabled with
+`FACE_PUBLIC_IDENTIFY=0` (default on), so a deployment can require a claimed
+`user_id` (1:1 only) and stop anyone probing "is this person enrolled?".
+
+### Offline bulk provisioning bundle (airgap preserved)
+New `face_service/bundle.py`: passphrase-encrypted (PBKDF2-HMAC-SHA256 + AES-256-GCM),
+integrity-protected export of **templates only** (embeddings, never images).
+- Export: `POST /v1/export/bundle` (manage scope + `allow_export` entitlement) and
+  `POST /admin/api/export/bundle` (any tenant). Body `{passphrase, tenant?}`.
+- Import (air-gapped Android): `data/BundleImporter.kt` decrypts with the same
+  passphrase (mirrored PBKDF2 + AES/GCM) and upserts via `FaceRepository`/
+  `PalmRepository.replaceUser`; UI in `SettingsScreen → Bulk import (offline)`
+  (PIN-gated, file-picker + passphrase). **No network path to the device is opened.**
+
+### Files touched
+`face_service/{invites,modality,portal,v1,bundle}.py`, `app.py`, `face/api.py`,
+`bulk_enroll.py`, `static/enroll.js`, `templates/enroll.html`,
+`android/.../data/{BundleImporter,PalmRepository}.kt`, `android/.../ui/{ScannerViewModel,Screens}.kt`,
+`tests/{test_invites,test_bundle}.py`.
+
+### Verification status
+1. ✅ `tests/test_invites_api.py` (incl. new step-up / revoke-purge / bundle-export
+   tests) + `test_invites.py` + `test_bundle.py` — pass in the repo venv with the
+   model pack. Full `tests/` = 124 passed, 7 skipped, 0 failed.
+2. ✅ Liveness-burst self-enrol UX is now WIRED in `static/enroll.js` (v3): a live
+   head-turn burst for face capture + step-up when the server reports
+   `self_enroll_liveness` (env `FACE_SELF_ENROLL_LIVENESS=1`); default stays
+   single-shot. `node --check` clean. Real-camera behaviour still to confirm on a device.
+3. ⏳ Android build of `BundleImporter` + `BundleImportSection` (Compose) on all
+   flavours — not built here.
+4. ⏳ End-to-end on device: step-up self-enrol, revoke-with-purge, bundle
+   export→import, liveness-burst enrol.

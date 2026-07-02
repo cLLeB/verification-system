@@ -50,6 +50,9 @@ def main() -> None:
     p.add_argument("--batch", type=int, default=2000, help="users per DB transaction")
     p.add_argument("--modality", default="face", choices=["face", "palm"],
                    help="which biometric the dataset holds (default: face)")
+    p.add_argument("--dedupe", action="store_true",
+                   help="reject a person whose biometric already belongs to a "
+                        "different name (slower; off by default)")
     args = p.parse_args()
 
     cfg = load_config()
@@ -69,6 +72,7 @@ def main() -> None:
         _palm_engine.warm(pcfg)
         store = PALM_PROFILE.make_store(pcfg.db_path)
         _embed_errors = (PalmError,)
+        threshold = pcfg.match_threshold
         def embed_one(img):
             return _palm_engine.detect(img, pcfg).embedding
         def build_index():
@@ -77,6 +81,7 @@ def main() -> None:
         _engine.warm(cfg)
         store = FaceStore(cfg)
         _embed_errors = (FaceError,)
+        threshold = cfg.match_threshold
         def embed_one(img):
             return _engine.detect(img, cfg).embedding
         def build_index():
@@ -88,7 +93,7 @@ def main() -> None:
     print(f"found {len(people):,} people under {args.folder}\n", flush=True)
 
     t0 = time.perf_counter()
-    enrolled = imgs_ok = imgs_fail = 0
+    enrolled = imgs_ok = imgs_fail = duped = 0
     batch = []
 
     def flush():
@@ -96,6 +101,19 @@ def main() -> None:
         if batch:
             store.add_many(batch)
             batch = []
+
+    # With --dedupe we keep a live index (seeded from any existing store) so a new
+    # person whose biometric already belongs to a DIFFERENT name is rejected. It's
+    # also updated as we go, so duplicates *within* this run are caught too.
+    dedupe_idx = build_index() if args.dedupe else None
+
+    def is_duplicate(embs, person):
+        if dedupe_idx is None:
+            return None
+        for cu, sc in dedupe_idx.search(embs[0], top_k=3):
+            if cu != person and sc >= threshold:
+                return cu
+        return None
 
     for i, person in enumerate(people, 1):
         embs = []
@@ -110,18 +128,27 @@ def main() -> None:
             except _embed_errors:
                 imgs_fail += 1                       # no/again unusable biometric in this image
         if embs:
-            batch.append((person, embs))
-            enrolled += 1
+            conflict = is_duplicate(embs, person)
+            if conflict:
+                duped += 1
+                print(f"  ! skip '{person}': biometric already enrolled as '{conflict}'", flush=True)
+            else:
+                batch.append((person, embs))
+                enrolled += 1
+                if dedupe_idx is not None:
+                    for e in embs[:store.samples_per_user]:
+                        dedupe_idx.add(person, e)    # so later people see this one too
         if len(batch) >= args.batch:
             flush()
         if i % 200 == 0:
-            print(f"  {i:,}/{len(people):,} people  ({imgs_ok:,} imgs ok, {imgs_fail:,} skipped)",
-                  flush=True)
+            print(f"  {i:,}/{len(people):,} people  ({imgs_ok:,} imgs ok, {imgs_fail:,} skipped"
+                  + (f", {duped:,} duplicates" if args.dedupe else "") + ")", flush=True)
     flush()
 
     dt = time.perf_counter() - t0
     print(f"\nstored {enrolled:,} people / {imgs_ok:,} images in {dt:,.1f}s "
-          f"({imgs_fail:,} images skipped)", flush=True)
+          f"({imgs_fail:,} images skipped"
+          + (f", {duped:,} duplicates rejected" if args.dedupe else "") + ")", flush=True)
 
     print("building search index…", flush=True)
     t = time.perf_counter()

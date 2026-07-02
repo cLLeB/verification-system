@@ -36,7 +36,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, invites, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, bundle, invites, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
@@ -225,6 +225,13 @@ app.register_blueprint(portal_bp)
 ENCRYPTED_AT_REST = FaceStore(CONFIG).encrypted
 SIGNING_SECRET = os.environ.get("FACE_SIGNING_SECRET", "")
 DEBUG = os.environ.get("FACE_DEBUG", "0") == "1"
+# Require the head-turn liveness burst for unsupervised FACE self-enrolment (fix B).
+# Off by default (preserves the single-shot self-enrol UX); set to 1 to force it.
+SELF_ENROLL_LIVENESS = os.environ.get("FACE_SELF_ENROLL_LIVENESS", "0") == "1"
+# Public 1:N identify on the open web client (/api/verify with no user_id). On by
+# default; set to 0 to require a claimed user_id (1:1 only) so the open endpoint
+# can't be used to probe "is this person in your DB" (fix F — identify privacy).
+PUBLIC_IDENTIFY = os.environ.get("FACE_PUBLIC_IDENTIFY", "1") == "1"
 
 # Warm the models in the MAIN thread before any request hits a worker thread.
 MODEL_READY = _face_engine.warm(CONFIG)
@@ -556,6 +563,40 @@ def _invite_links(batch: list) -> list:
     return [{**b, "link": f"{base}/enroll?token={b['token']}"} for b in batch]
 
 
+def _req_modalities(data: dict):
+    """Parse a requested modality whitelist (list or comma string) -> list|None."""
+    m = data.get("modalities")
+    if m is None:
+        m = data.get("modality")
+    if isinstance(m, str):
+        m = [x.strip() for x in m.split(",") if x.strip()]
+    return m or None
+
+
+def _invite_scope(user_id: str, tenant: str, requested):
+    """Decide an invite's modality whitelist + step-up from what the target user
+    already holds (fix A — second-modality hijack). Delegates to the canonical
+    ``modality.invite_scope`` so the admin console and tenant portal agree.
+
+      * brand-new identity  -> requested (or both), NO step-up.
+      * already-enrolled     -> scoped to the MISSING modality (intersected with any
+        explicit request) and REQUIRES the enrollee to first prove an existing
+        modality (step-up), so a leaked add-a-modality link can't bind a stranger's
+        biometric to a real account."""
+    face_cfg, palm_enabled = _invite_target(tenant)
+    return _modality.invite_scope(user_id, face_cfg, palm_enabled, requested)
+
+
+def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None) -> dict:
+    """Mint an invite with its modality scope + step-up computed from the current
+    store — used by BOTH single and bulk creation so a roster name that already
+    exists is scoped/step-up'd too (never an open re-bind)."""
+    mods, step_up, step_mod = _invite_scope(name, tenant, requested)
+    return invites.create_invite(name, tenant, expires_in_hours=expires_in_hours,
+                                 modalities=mods, requires_step_up=step_up,
+                                 step_up_modality=step_mod)
+
+
 @app.route("/admin/api/invites", methods=["GET"])
 @admin.require_admin
 def admin_invites_list():
@@ -571,9 +612,12 @@ def admin_invites_create():
     if not name:
         return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
-    info = invites.create_invite(name, tenant, expires_in_hours=data.get("expires_in_hours"))
+    info = _create_scoped_invite(name, tenant, data.get("expires_in_hours"),
+                                 _req_modalities(data))
     audit.log(_FP_TENANT, "invite_create", actor=g.get("admin_user", "admin"),
-              user_id=name, success=True, detail=f"tenant={tenant}")
+              user_id=name, success=True,
+              detail=f"tenant={tenant} modalities={info['modalities']} "
+                     f"step_up={info['requires_step_up']}")
     return jsonify({"success": True, **_invite_links([info])[0]})
 
 
@@ -591,11 +635,24 @@ def admin_invites_bulk():
         names = invites.parse_roster(names if isinstance(names, str) else data.get("roster", ""))
     if not names:
         return jsonify({"success": False, "message": "No names found in the upload."}), 400
-    batch = invites.create_invites(names, tenant, expires_in_hours=data.get("expires_in_hours"))
+    requested = _req_modalities(data)
+    hours = data.get("expires_in_hours")
+    batch = [_create_scoped_invite(n, tenant, hours, requested) for n in names]
+    stepped = sum(1 for b in batch if b["requires_step_up"])
     audit.log(_FP_TENANT, "invite_bulk", actor=g.get("admin_user", "admin"),
-              success=True, detail=f"{len(batch)} invites, tenant={tenant}")
+              success=True,
+              detail=f"{len(batch)} invites, tenant={tenant}, {stepped} step-up")
     return jsonify({"success": True, "tenant": tenant, "count": len(batch),
                     "invites": _invite_links(batch)})
+
+
+def _purge_invite_enrolments(rec: dict) -> list:
+    """Delete exactly the biometrics an invite bound (only the modalities it
+    enrolled, leaving any pre-existing modality intact). Returns modalities purged."""
+    if not rec:
+        return []
+    face_cfg, palm_enabled = _invite_target(rec.get("tenant") or _FP_TENANT)
+    return _modality.purge_modalities(rec["user_id"], face_cfg, rec.get("enrolled") or [], palm_enabled)
 
 
 @app.route("/admin/api/invites/revoke", methods=["POST"])
@@ -603,10 +660,44 @@ def admin_invites_bulk():
 def admin_invites_revoke():
     data = request.get_json(silent=True) or {}
     invite_id = (data.get("invite_id") or "").strip()
+    # Optional: also delete biometrics this invite already bound. Revoke only blocks
+    # further use of the LINK; if you revoke because of suspected compromise, purge
+    # removes what it captured (fix C — soft-revoke otherwise leaves the template live).
+    purge = bool(data.get("purge"))
+    rec = invites.get_by_invite_id(invite_id) if purge else None
     ok = invites.revoke(invite_id)
+    purged = _purge_invite_enrolments(rec) if (ok and purge) else []
     audit.log(_FP_TENANT, "invite_revoke", actor=g.get("admin_user", "admin"),
-              user_id=invite_id, success=ok)
-    return jsonify({"success": ok})
+              user_id=invite_id, success=ok,
+              detail=f"purged={purged}" if purge else "")
+    return jsonify({"success": ok, "purged": purged})
+
+
+@app.route("/admin/api/export/bundle", methods=["POST"])
+@admin.require_admin
+def admin_export_bundle():
+    """Export a tenant's templates (embeddings only — never images) as a passphrase-
+    encrypted, integrity-protected bundle for provisioning an AIR-GAPPED device. The
+    admin moves the file to the device out-of-band and imports it with the same
+    passphrase; no network path to the offline app is opened."""
+    if not bundle.available():
+        return jsonify({"success": False, "code": "unavailable",
+                        "message": "Encryption library not available for bundling."}), 503
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+    face_cfg, palm_enabled = _invite_target(tenant)
+    try:
+        payload = bundle.build_payload(
+            tenant,
+            _modality.export_templates(face_cfg, "face", palm_enabled),
+            _modality.export_templates(face_cfg, "palm", palm_enabled))
+        out = bundle.pack(payload, data.get("passphrase") or "")
+    except bundle.BundleError as exc:
+        return jsonify({"success": False, "code": "bundle_error", "message": str(exc)}), 400
+    counts = {m: len(payload["modalities"][m]) for m in ("face", "palm")}
+    audit.log(_FP_TENANT, "export_bundle", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"tenant={tenant} face={counts['face']} palm={counts['palm']}")
+    return jsonify({"success": True, "tenant": tenant, "counts": counts, "bundle": out})
 
 
 @app.route("/api/health")
@@ -681,12 +772,66 @@ def self_enroll_page():
 
 @app.route("/api/invite", methods=["GET"])
 def api_invite_info():
-    """Page load: resolve the token to its pre-assigned (locked) name + progress."""
+    """Page load: resolve the token to its pre-assigned (locked) name + progress,
+    plus the modality scope + whether a step-up (proving an existing modality) is
+    still required before the new modality can be bound."""
     rec, err = _invite_or_error(request.args.get("token", ""))
     if err:
         return err
     return jsonify({"success": True, "user_id": rec["user_id"], "tenant": rec["tenant"],
-                    "enrolled": rec.get("enrolled", []), "expires": rec.get("expires")})
+                    "enrolled": rec.get("enrolled", []), "expires": rec.get("expires"),
+                    "modalities": invites.allowed_modalities(rec),
+                    "requires_step_up": bool(rec.get("requires_step_up")),
+                    "step_up_modality": rec.get("step_up_modality"),
+                    "step_up_satisfied": invites.is_step_up_satisfied(rec),
+                    "active_liveness": CONFIG.active_liveness,
+                    "self_enroll_liveness": SELF_ENROLL_LIVENESS})
+
+
+@app.route("/api/invite/stepup", methods=["POST"])
+def api_invite_stepup():
+    """Step-up for an add-a-modality invite: the enrollee proves an EXISTING modality
+    (they really are the pre-assigned person) before a new modality may be bound.
+    Accepts a liveness burst (``frames`` + challenge ``token``) for face — preferred —
+    or a single ``image``. On success the session is marked stepped-up."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "")
+    rec, err = _invite_or_error(token)
+    if err:
+        return err
+    if not rec.get("requires_step_up"):
+        return jsonify({"success": True, "code": "no_step_up",
+                        "message": "No step-up needed for this link."})
+    uid, tenant = rec["user_id"], rec["tenant"]
+    step_mod = rec.get("step_up_modality")
+    face_cfg, palm_enabled = _invite_target(tenant)
+
+    frames = data.get("frames")
+    if step_mod == "face" and CONFIG.active_liveness and frames:
+        imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
+        if not imgs:
+            return jsonify({"success": False, "message": "Failed to decode frames."})
+        if not _active.valid_token(data.get("token_challenge", "")):
+            return jsonify({"success": False, "code": "liveness",
+                            "message": "Challenge expired — try again."})
+        res = engine.verify_live(uid, imgs, face_cfg)
+    else:
+        img = decode_image(data.get("image", ""))
+        if img is None:
+            return jsonify({"success": False, "message": "Failed to decode image."})
+        # Pin to the existing modality so the wrong biometric can't accidentally pass.
+        res = _modality.verify(uid, img, face_cfg, palm_enabled=palm_enabled,
+                               modality=step_mod)
+    ok = bool(res.get("success"))
+    if ok:
+        invites.mark_stepped_up(token)
+    audit.log(tenant, "self_enroll_stepup", actor=f"invite:{rec['invite_id']}", user_id=uid,
+              success=ok, detail=f"modality={step_mod} score={res.get('score')}")
+    return jsonify({"success": ok,
+                    "code": "step_up_ok" if ok else "step_up_failed",
+                    "message": ("Identity confirmed — you can now add the new modality."
+                                if ok else "That didn't match your existing record. Try again."),
+                    "step_up_modality": step_mod})
 
 
 @app.route("/api/invite/enroll", methods=["POST"])
@@ -696,29 +841,70 @@ def api_invite_enroll():
     rec, err = _invite_or_error(token)
     if err:
         return err
+    uid = rec["user_id"]                       # FORCED from token — client cannot choose
+    tenant = rec["tenant"]
+    allowed = invites.allowed_modalities(rec)
+    face_cfg, palm_enabled = _invite_target(tenant)
+
+    # Gate: a step-up invite must have the existing modality proven first (fix A).
+    if not invites.is_step_up_satisfied(rec):
+        return jsonify({"success": False, "code": "step_up_required",
+                        "step_up_modality": rec.get("step_up_modality"),
+                        "message": "First confirm your existing biometric, then add the new one."}), 403
+
+    # Optional liveness-gated face self-enrol (fix B): when active liveness is on and
+    # a frame burst is posted, enrol from a confirmed live head-turn, not a still.
+    frames = data.get("frames")
+    if frames and "face" in allowed and CONFIG.active_liveness:
+        imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
+        if not imgs:
+            return jsonify({"success": False, "message": "Failed to decode frames."})
+        if not _active.valid_token(data.get("token_challenge", "")):
+            return jsonify({"success": False, "code": "liveness",
+                            "message": "Challenge expired — try again."})
+        result = engine.enroll_live(uid, imgs, face_cfg)
+        result["modality"] = "face"
+        _record_self_enroll(token, tenant, rec, result, imgs[len(imgs) // 2])
+        return jsonify(result)
+
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    uid = rec["user_id"]                       # FORCED from token — client cannot choose
-    tenant = rec["tenant"]
-    face_cfg, palm_enabled = _invite_target(tenant)
-    out = _modality.enroll(uid, img, face_cfg, palm_enabled=palm_enabled, source="live")
+    # If active liveness is required for self-enrol, refuse a single still for a face.
+    if SELF_ENROLL_LIVENESS and CONFIG.active_liveness and "face" in allowed:
+        routed = _modality.route(img, face_cfg, palm_enabled=palm_enabled, short_circuit=True)
+        if routed.modality in ("face", "both"):
+            return jsonify({"success": False, "code": "liveness_required",
+                            "message": "Do the head-turn liveness check to enrol your face."}), 400
+    # Pin the enrol to the allowed modality when the link is single-modality, so a
+    # combined shot can't bind the other modality.
+    pin = allowed[0] if len(allowed) == 1 else None
+    out = _modality.enroll(uid, img, face_cfg, palm_enabled=palm_enabled,
+                           source="live", modality=pin)
     results = out.get("results", {})
     result = dict(next((r for r in results.values() if r.get("success")), None)
                   or next(iter(results.values()), None)
                   or {"success": out.get("success"), "code": out.get("code"),
                       "message": out.get("message")})
     result["modality"] = out.get("modality")
-    if result.get("success") and out.get("modality"):
-        invites.mark_progress(token, out["modality"])   # progress, does NOT burn the token
-    audit.log(tenant, "self_enroll", actor=f"invite:{rec['invite_id']}", user_id=uid,
+    _record_self_enroll(token, tenant, rec, result, img)
+    return jsonify(result)
+
+
+def _record_self_enroll(token, tenant, rec, result, img):
+    """Shared post-enrol bookkeeping: mark progress (never off-whitelist), audit,
+    attach cumulative progress, save debug frame."""
+    mod = result.get("modality")
+    if result.get("success") and mod in ("face", "palm"):
+        invites.mark_progress(token, mod)          # progress, does NOT burn the token
+    audit.log(tenant, "self_enroll", actor=f"invite:{rec['invite_id']}", user_id=rec["user_id"],
               success=bool(result.get("success")),
-              detail=f"{out.get('modality')}: {result.get('message', '')}")
+              detail=f"{mod}: {result.get('message', '')}")
     fresh = invites.lookup(token)
     result["enrolled"] = fresh.get("enrolled", []) if fresh else []
-    result["user_id"] = uid
-    save_debug(img, "self_enroll", result)
-    return jsonify(result)
+    result["user_id"] = rec["user_id"]
+    if img is not None:
+        save_debug(img, "self_enroll", result)
 
 
 @app.route("/api/invite/finish", methods=["POST"])
@@ -769,6 +955,12 @@ def api_verify():
     data = request.get_json(silent=True) or {}
     user_id = (data.get("user_id") or "").strip()
 
+    # Open 1:N identify can be disabled (fix F): without a claimed user_id this would
+    # let anyone probe whether a face/palm is enrolled. When off, require a user_id.
+    if not user_id and not PUBLIC_IDENTIFY:
+        return jsonify({"success": False, "code": "identify_disabled",
+                        "message": "Enter your name/ID to verify."}), 400
+
     # Burst path: a face does the head-turn challenge; a palm in the same burst is
     # auto-detected and verified on one frame (palm has no head-turn — its own passive
     # liveness applies). So a user can verify by face OR palm from the same UI.
@@ -808,6 +1000,10 @@ def api_verify():
 
 @app.route("/api/identify", methods=["POST"])
 def api_identify():
+    # Open 1:N identify can be disabled to prevent enrolment-probing (fix F).
+    if not PUBLIC_IDENTIFY:
+        return jsonify({"success": False, "code": "identify_disabled",
+                        "message": "Open identify is disabled on this deployment."}), 403
     data = request.get_json(silent=True) or {}
     img = decode_image(data.get("image", ""))
     if img is None:

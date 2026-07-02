@@ -40,7 +40,7 @@ from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
 from .auth import require_key, require_scope
-from . import audit, modality as _modality, tenants, usage, webhooks
+from . import audit, bundle, modality as _modality, tenants, usage, webhooks
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -96,6 +96,15 @@ def _sign(payload: dict) -> dict:
                       sort_keys=True, separators=(",", ":"))
     digest = hmac.new(secret.encode(), f"{ts}.{nonce}.{body}".encode(), hashlib.sha256).hexdigest()
     return {**payload, "signature": {"alg": "HMAC-SHA256", "ts": ts, "nonce": nonce, "hmac": digest}}
+
+
+def _dupe_conflict(index, emb, uid: str, thr: float):
+    """The name of a DIFFERENT user whose enrolled biometric matches ``emb`` at/above
+    ``thr`` (a duplicate), else None. Used by opt-in bulk dedupe."""
+    for cu, sc in index.search(emb, top_k=3):
+        if cu != uid and sc >= thr:
+            return cu
+    return None
 
 
 def _resolve_embedding(item, cfg):
@@ -250,6 +259,10 @@ def enroll_bulk():
     people = data.get("people") or []
     if not isinstance(people, list) or not people:
         return _err("'people' (non-empty list) is required.")
+    # Bulk import skips the per-capture guards by default (speed). Set ``dedupe: true``
+    # to reject a person whose biometric already belongs to a DIFFERENT enrolled name
+    # (fix D — bulk paths otherwise silently create duplicate identities).
+    dedupe = bool(data.get("dedupe"))
     results, ok = [], 0
     for person in people:
         uid = (person.get("user_id") or "").strip() if isinstance(person, dict) else ""
@@ -279,22 +292,40 @@ def enroll_bulk():
             results.append({"user_id": uid, "success": False, "enrolled": 0,
                             "message": "no usable face or palm"})
             continue
+        conflicts = []
         if face_embs:
-            fstore, findex, _ = _modality.store_and_index(cfg, "face")
-            fstore.add_many([(uid, face_embs)])
-            for e in face_embs[:fstore.samples_per_user]:
-                findex.add(uid, e)
-            mods.add("face")
+            fstore, findex, fthr = _modality.store_and_index(cfg, "face")
+            conflict = _dupe_conflict(findex, face_embs[0], uid, fthr) if dedupe else None
+            if conflict:
+                conflicts.append({"modality": "face", "conflict_user_id": conflict})
+            else:
+                fstore.add_many([(uid, face_embs)])
+                for e in face_embs[:fstore.samples_per_user]:
+                    findex.add(uid, e)
+                mods.add("face")
         if palm_embs:
-            pstore, pindex, _ = _modality.store_and_index(cfg, "palm")
-            pstore.add_many([(uid, palm_embs)])
-            for e in palm_embs[:pstore.samples_per_user]:
-                pindex.add(uid, e)
-            mods.add("palm")
+            pstore, pindex, pthr = _modality.store_and_index(cfg, "palm")
+            conflict = _dupe_conflict(pindex, palm_embs[0], uid, pthr) if dedupe else None
+            if conflict:
+                conflicts.append({"modality": "palm", "conflict_user_id": conflict})
+            else:
+                pstore.add_many([(uid, palm_embs)])
+                for e in palm_embs[:pstore.samples_per_user]:
+                    pindex.add(uid, e)
+                mods.add("palm")
+        if not mods:
+            results.append({"user_id": uid, "success": False, "code": "duplicate",
+                            "enrolled": 0, "conflicts": conflicts,
+                            "message": "biometric already enrolled under a different name"})
+            continue
         ok += 1
-        results.append({"user_id": uid, "success": True,
-                        "enrolled": len(face_embs) + len(palm_embs),
-                        "modalities": sorted(mods)})
+        entry = {"user_id": uid, "success": True,
+                 "enrolled": (len(face_embs) if "face" in mods else 0) +
+                             (len(palm_embs) if "palm" in mods else 0),
+                 "modalities": sorted(mods)}
+        if conflicts:
+            entry["conflicts"] = conflicts       # a modality was skipped as a duplicate
+        results.append(entry)
     audit.log(g.tenant, "enroll_bulk", actor=g.key_name, success=ok > 0,
               detail=f"{ok}/{len(people)} people")
     return jsonify({"success": ok > 0, "people": len(people), "enrolled": ok, "results": results})
@@ -460,6 +491,37 @@ def sync_pull():
               detail=f"{modality}: {len(out)} rows since {since}")
     return jsonify({"success": True, "modality": modality, "templates": out,
                     "next_seq": last, "current_seq": cur, "done": last >= cur})
+
+
+@bp.post("/export/bundle")
+@require_scope("manage")
+def export_bundle():
+    """Export this tenant's templates as a passphrase-encrypted, integrity-protected
+    bundle for provisioning an AIR-GAPPED device (embeddings only, never images).
+    Gated by the tenant's ``allow_export`` entitlement on top of the manage scope —
+    same posture as ``/sync/pull``. The offline device imports the file with the same
+    passphrase; no network path to it is opened."""
+    if not tenants.entitlement(g.tenant).get("allow_export"):
+        return jsonify({"success": False, "code": "export_disabled",
+                        "message": "Template export is not enabled for this tenant."}), 403
+    if not bundle.available():
+        return jsonify({"success": False, "code": "unavailable",
+                        "message": "Encryption library not available for bundling."}), 503
+    cfg = _cfg()
+    palm_enabled = tenants.get(g.tenant)["palm_enabled"]
+    data = request.get_json(silent=True) or {}
+    try:
+        payload = bundle.build_payload(
+            g.tenant,
+            _modality.export_templates(cfg, "face", palm_enabled),
+            _modality.export_templates(cfg, "palm", palm_enabled))
+        out = bundle.pack(payload, data.get("passphrase") or "")
+    except bundle.BundleError as exc:
+        return _err(str(exc), code="bundle_error")
+    counts = {m: len(payload["modalities"][m]) for m in ("face", "palm")}
+    audit.log(g.tenant, "export_bundle", actor=g.key_name, success=True,
+              detail=f"face={counts['face']} palm={counts['palm']}")
+    return jsonify({"success": True, "tenant": g.tenant, "counts": counts, "bundle": out})
 
 
 @bp.post("/sync/push")

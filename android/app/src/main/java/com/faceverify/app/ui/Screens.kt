@@ -312,7 +312,74 @@ private fun SettingsScreen(vm: ScannerViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.height(24.dp))
+        BundleImportSection(vm, ctx)
     }
+}
+
+/** Offline provisioning: import a passphrase-encrypted template bundle the admin
+ *  exported on the server and moved here out-of-band (USB / MDM). No network is
+ *  used — the airgap is preserved. PIN-gated like the sync settings. */
+@Composable
+private fun BundleImportSection(vm: ScannerViewModel, ctx: android.content.Context) {
+    val adminGate = remember { AdminGate(ctx) }
+    var unlocked by remember { mutableStateOf(false) }
+    var showPin by remember { mutableStateOf(false) }
+    var passphrase by remember { mutableStateOf("") }
+    var pickedName by remember { mutableStateOf<String?>(null) }
+    var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        pickedUri = uri
+        pickedName = uri?.lastPathSegment
+    }
+
+    Text("Bulk import (offline)", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Load a roster the administrator exported on the server. The file is decrypted " +
+            "here with its passphrase — no network is used, the device stays offline.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(12.dp))
+
+    if (!unlocked) {
+        Button(onClick = { showPin = true }) {
+            Icon(Icons.Filled.Lock, null); Spacer(Modifier.size(8.dp)); Text("Unlock import")
+        }
+    } else {
+        OutlinedButton(onClick = { pickFile.launch("*/*") }) {
+            Text(pickedName?.let { "File: $it" } ?: "Choose bundle file…")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = passphrase, onValueChange = { passphrase = it },
+            label = { Text("Bundle passphrase") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { pickedUri?.let { vm.importBundle(it, passphrase) } },
+            enabled = !vm.bundleBusy && pickedUri != null && passphrase.isNotBlank(),
+        ) {
+            Icon(Icons.Filled.CloudDownload, null); Spacer(Modifier.size(8.dp)); Text("Import")
+        }
+        if (vm.bundleBusy) { Spacer(Modifier.height(6.dp)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        if (vm.bundleMsg.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(vm.bundleMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    if (showPin) PinDialog(
+        creating = !adminGate.isSet(),
+        onDismiss = { showPin = false },
+        onConfirm = { pin ->
+            if (!adminGate.isSet()) { adminGate.setPin(pin); unlocked = true; showPin = false; true }
+            else if (adminGate.check(pin)) { unlocked = true; showPin = false; true }
+            else false
+        },
+    )
 }
 
 @Composable

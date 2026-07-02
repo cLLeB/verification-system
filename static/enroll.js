@@ -2,9 +2,13 @@
 // Self-enrolment — opened from an invite link (/enroll?token=...).
 //   * The person's identity is FIXED by the token (pre-assigned by an admin) and
 //     shown read-only; there is no name field to type.
-//   * Capture face, palm, or both (auto-detected server-side). Progress is saved
-//     per capture, so a refresh or dropped network resumes where it left off.
-//   * Tap Finish to consume the one-time link.
+//   * The link is scoped to one or both modalities (face / palm). Only the allowed
+//     ones are shown, and a combined shot can only ever bind an allowed modality.
+//   * If the link ADDS a modality to someone who already exists, a step-up is
+//     required first: the enrollee proves an EXISTING modality (they really are the
+//     pre-assigned person) before the new one can be bound. This closes the
+//     "bind a stranger's palm to a real face account" hijack.
+//   * Progress is saved per capture (resumable); tap Finish to consume the link.
 // ---------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
@@ -16,13 +20,25 @@ const OUT_W = 720;
 let facing = 'user';                 // 'user' = front (face), 'environment' = rear (palm)
 let busy = false;
 let enrolled = [];                   // modalities completed so far (face / palm)
+let allowed = ['face', 'palm'];      // modalities this link may bind
+let stepUp = { required: false, satisfied: true, modality: null };
+let liveness = false;                // server: self_enroll_liveness && active_liveness
 
 const DEAD_CODES = ['used', 'expired', 'revoked', 'invalid'];
+const BURST_FRAMES = 12, BURST_GAP_MS = 130;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function setHint(text, kind = '') {
     const h = $('hint');
     h.textContent = text;
     h.className = 'hint' + (kind ? ' ' + kind : '');
+}
+
+function setModeNote(text) {
+    const n = $('mode-note');
+    if (!text) { n.classList.add('hidden'); return; }
+    n.textContent = text;
+    n.classList.remove('hidden');
 }
 
 function fatal(message) {
@@ -34,10 +50,38 @@ function fatal(message) {
     $('gate-text').textContent = message || 'This enrolment link is not valid.';
 }
 
+// Only show chips for modalities this link may bind.
+function applyScope() {
+    $('chip-face').classList.toggle('hidden', !allowed.includes('face'));
+    $('chip-palm').classList.toggle('hidden', !allowed.includes('palm'));
+}
+
 function renderChips() {
     $('chip-face').classList.toggle('on', enrolled.includes('face'));
     $('chip-palm').classList.toggle('on', enrolled.includes('palm'));
     finishBtn.disabled = enrolled.length === 0;
+}
+
+function inStepUp() {
+    return stepUp.required && !stepUp.satisfied;
+}
+
+// Reflect the current phase (step-up vs enrol) in the banner + button label + hint.
+function renderPhase() {
+    if (inStepUp()) {
+        const m = stepUp.modality === 'palm' ? 'palm' : 'face';
+        setModeNote(`Security check: this link adds a new biometric to an existing ` +
+            `record. First confirm your ${m} to prove it's you.`);
+        captureBtn.textContent = `Confirm ${m}`;
+        setHint(`Show your ${m} to confirm your identity, then tap Confirm ${m}`);
+    } else {
+        setModeNote('');
+        captureBtn.textContent = 'Capture';
+        const label = allowed.length === 1
+            ? (allowed[0] === 'palm' ? 'your open palm' : 'your face')
+            : 'your face — or your open palm';
+        setHint(`Show ${label}, then tap Capture`);
+    }
 }
 
 async function startCamera() {
@@ -81,33 +125,118 @@ async function loadInvite() {
         if (!data.success) { fatal(data.message); return; }
         $('person-name').textContent = data.user_id;
         enrolled = data.enrolled || [];
+        allowed = (data.modalities && data.modalities.length) ? data.modalities : ['face', 'palm'];
+        stepUp = {
+            required: !!data.requires_step_up,
+            satisfied: !!data.step_up_satisfied,
+            modality: data.step_up_modality || (allowed.includes('face') ? null : 'palm'),
+        };
+        liveness = !!data.self_enroll_liveness && !!data.active_liveness;
+        applyScope();
         renderChips();
+        renderPhase();
         await startCamera();
     } catch (err) {
         fatal('Could not reach the server. Check your connection and reload.');
     }
 }
 
+// We're capturing a face right now when the link allows face and the front camera
+// is selected. Palm (rear camera) and palm-only links never do the head-turn.
+function faceCapture() {
+    return allowed.includes('face') && facing === 'user';
+}
+
+async function getChallengeToken() {
+    try {
+        const ch = await (await fetch('/api/challenge')).json();
+        return (ch && ch.active) ? ch.token : null;
+    } catch (e) { return null; }
+}
+
+// Record a short burst while guiding the user through a live head-turn.
+async function captureBurst() {
+    setHint('Keep your face in view…');
+    await sleep(300);
+    const frames = [];
+    for (let i = 0; i < BURST_FRAMES; i++) {
+        const f = grabFrame();
+        if (f) frames.push(f);
+        const frac = (i + 1) / BURST_FRAMES;
+        setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
+              : frac < 0.85 ? 'Now turn your head RIGHT  ⟶'
+              :               'Look at the camera', 'info');
+        await sleep(BURST_GAP_MS);
+    }
+    return frames;
+}
+
+// Build the POST body for a capture: a liveness burst for a live face (when the
+// server requires it), else a single still.
+async function captureBody() {
+    if (liveness && faceCapture()) {
+        const token_challenge = await getChallengeToken();
+        if (token_challenge) return { frames: await captureBurst(), token_challenge };
+    }
+    const img = grabFrame();
+    return img ? { image: img } : null;
+}
+
+async function doStepUp() {
+    const body = await captureBody();
+    if (!body) { setHint('Camera not ready — try again.'); return; }
+    setHint('Checking…');
+    const res = await fetch('/api/invite/stepup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: TOKEN, ...body }),
+    });
+    const data = await res.json();
+    if (res.status === 410 || DEAD_CODES.includes(data.code)) { fatal(data.message); return; }
+    if (data.success) {
+        stepUp.satisfied = true;
+        renderPhase();
+        setHint('Identity confirmed ✓ — now add your new biometric', 'ok');
+    } else {
+        setHint(data.message || 'That did not match — try again.', 'warn');
+    }
+}
+
+async function doEnroll() {
+    const body = await captureBody();
+    if (!body) { setHint('Camera not ready — try again.'); return; }
+    setHint('Checking…');
+    const res = await fetch('/api/invite/enroll', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: TOKEN, ...body }),
+    });
+    const data = await res.json();
+    if (res.status === 410 || DEAD_CODES.includes(data.code)) { fatal(data.message); return; }
+    if (data.code === 'step_up_required') {          // server insists on step-up first
+        stepUp.required = true; stepUp.satisfied = false;
+        stepUp.modality = data.step_up_modality || stepUp.modality;
+        renderPhase();
+        setHint('Confirm your existing biometric first.', 'warn');
+        return;
+    }
+    if (data.success) {
+        enrolled = data.enrolled || enrolled;
+        renderChips();
+        const what = data.modality === 'palm' ? 'Palm' : 'Face';
+        const more = allowed.filter((m) => !enrolled.includes(m));
+        setHint(more.length
+            ? `${what} captured ✓ — now your ${more[0]}, or tap Finish`
+            : `${what} captured ✓ — tap Finish`, 'ok');
+    } else {
+        setHint(data.message || 'No usable biometric detected — try again.', 'warn');
+    }
+}
+
 async function capture() {
     if (busy) return;
-    const img = grabFrame();
-    if (!img) { setHint('Camera not ready — try again.'); return; }
     busy = true; captureBtn.disabled = true; setHint('Checking…');
     try {
-        const res = await fetch('/api/invite/enroll', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: TOKEN, image: img }),
-        });
-        const data = await res.json();
-        if (res.status === 410 || DEAD_CODES.includes(data.code)) { fatal(data.message); return; }
-        if (data.success) {
-            enrolled = data.enrolled || enrolled;
-            renderChips();
-            const what = data.modality === 'palm' ? 'Palm' : 'Face';
-            setHint(`${what} captured ✓ — capture the other, or tap Finish`, 'ok');
-        } else {
-            setHint(data.message || 'No face or palm detected — try again.', 'warn');
-        }
+        if (inStepUp()) await doStepUp();
+        else await doEnroll();
     } catch (err) {
         setHint('Network error — try again.', 'warn');
     } finally {

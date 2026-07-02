@@ -150,6 +150,11 @@ paths:
               type: object
               required: [people]
               properties:
+                dedupe:
+                  type: boolean
+                  description: >
+                    Reject a person whose biometric already belongs to a different
+                    name (per modality; reported under `conflicts`). Default false.
                 people:
                   type: array
                   items:
@@ -160,6 +165,29 @@ paths:
                       images: { type: array, items: { type: string } }
                       embeddings: { type: array, items: { type: array, items: { type: number } } }
       responses: { "200": { description: Per-user enrolment results } }
+  /v1/export/bundle:
+    post:
+      summary: "Managed: export templates as an encrypted offline provisioning bundle (role: admin, allow_export)"
+      description: >
+        Export this tenant's templates (embeddings only — never images) as a
+        passphrase-encrypted, integrity-protected bundle (PBKDF2-HMAC-SHA256 +
+        AES-256-GCM) for provisioning an AIR-GAPPED device out-of-band. Requires the
+        tenant's `allow_export` entitlement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passphrase]
+              properties:
+                passphrase:
+                  type: string
+                  description: "Min 8 chars; the same secret is entered on the device to import."
+      responses:
+        "200": { description: "{ counts, bundle } — the encrypted bundle object" }
+        "403": { description: Template export not enabled for this tenant }
+        "503": { description: Encryption library unavailable }
   /v1/verify:
     post:
       summary: "Managed: verify a claimed user (1:1) or identify (1:N)"

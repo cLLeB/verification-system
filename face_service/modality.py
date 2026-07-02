@@ -167,6 +167,60 @@ def delete_user(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -
             "message": f"Deleted '{uid}'." if ok else f"User '{uid}' not found."}
 
 
+def user_modalities(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> list:
+    """Which modalities a single user already holds (face and/or palm). Used to
+    scope an enrolment invite to the MISSING modality and to decide whether a
+    second-modality invite must require step-up."""
+    pcfg = _palm_cfg_for(face_cfg)
+    out = []
+    if _user_has_face(user_id, face_cfg):
+        out.append("face")
+    if palm_enabled and _user_has_palm(user_id, pcfg):
+        out.append("palm")
+    return out
+
+
+def invite_scope(user_id: str, face_cfg: FaceConfig, palm_enabled: bool,
+                 requested=None):
+    """Canonical invite modality-scope + step-up decision (shared by the admin
+    console and the tenant portal so they agree). See app._invite_scope docstring:
+    brand-new -> requested/both, no step-up; existing -> missing modality + step-up.
+
+    Returns (modalities, requires_step_up, step_up_modality)."""
+    existing = user_modalities(user_id, face_cfg, palm_enabled)
+    req = set(requested) if requested else None
+    if not existing:
+        mods = [m for m in ("face", "palm") if req is None or m in req] or ["face", "palm"]
+        return mods, False, None
+    missing = [m for m in ("face", "palm") if m not in existing]
+    candidates = missing or existing          # nothing missing -> allow a supervised refresh
+    scoped = [m for m in candidates if req is None or m in req] or candidates
+    return scoped, True, existing[0]
+
+
+def purge_modalities(user_id: str, face_cfg: FaceConfig, mods, palm_enabled: bool = True) -> list:
+    """Delete a specific set of modalities for a user (used by revoke-with-purge to
+    undo exactly what a scoped invite bound). Returns modalities actually removed."""
+    out = []
+    for m in (mods or []):
+        if delete_modality(user_id, face_cfg, m, palm_enabled).get("success"):
+            out.append(m)
+    return out
+
+
+def delete_modality(user_id: str, face_cfg: FaceConfig, modality: str,
+                    palm_enabled: bool = True) -> dict:
+    """Delete ONLY one modality for a user (leaving the other intact). Lets
+    revoke-with-purge undo exactly what a scoped invite bound — e.g. remove a
+    palm an invite added, without wiping the pre-existing face."""
+    uid = (user_id or "").strip()
+    if modality == "palm":
+        r = _palm_api.delete_user(uid, _palm_cfg_for(face_cfg)) if palm_enabled else {"success": False}
+    else:
+        r = _face_api.delete_user(uid, face_cfg)
+    return {"success": bool(r.get("success")), "user_id": uid, "modality": modality}
+
+
 def export_record(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> dict:
     """Per-modality summary of what we hold for a user (for data-subject export),
     covering BOTH face and palm."""
@@ -193,6 +247,22 @@ def store_and_index(face_cfg: FaceConfig, modality: str = "face"):
         return store, PALM_PROFILE.get_index(pcfg.db_path, store), pcfg.match_threshold
     store = _face_api._store(face_cfg, None)
     return store, _face_api._index_for(store, face_cfg), face_cfg.match_threshold
+
+
+def export_templates(face_cfg: FaceConfig, modality: str = "face",
+                     palm_enabled: bool = True) -> list:
+    """All (user_id, [embedding lists]) for one modality, for building an offline
+    provisioning bundle. Embeddings only (KB per person) — never raw images. Palm
+    is skipped when the tenant has palm disabled."""
+    if modality == "palm" and not palm_enabled:
+        return []
+    store, _idx, _thr = store_and_index(face_cfg, modality)
+    out = []
+    for t in store.iter_templates():
+        embs = [[round(float(x), 6) for x in e] for e in (t.embeddings or [])]
+        if embs:
+            out.append({"user_id": t.user_id, "embeddings": embs})
+    return out
 
 
 # --- adaptive threshold ----------------------------------------------------

@@ -9,6 +9,7 @@ is a signed, time-limited cookie (itsdangerous), distinct from the admin cookie.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import secrets
 from functools import wraps
@@ -16,7 +17,9 @@ from functools import wraps
 from flask import Blueprint, g, jsonify, make_response, render_template, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from . import invites, keys, tenants
+from face.config import load_config
+
+from . import invites, keys, modality as _modality, tenants
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -179,6 +182,34 @@ def _invite_links(batch: list) -> list:
     return [{**b, "link": f"{base}/enroll?token={b['token']}"} for b in batch]
 
 
+def _tenant_target(tenant: str):
+    """(face_cfg, palm_enabled) for a tenant's isolated store — mirrors app._invite_target
+    but the portal is ALWAYS scoped to its own session tenant."""
+    base = load_config()
+    cfg = dataclasses.replace(base, db_path=os.path.join(base.db_path, "tenants", tenant))
+    return cfg, bool(tenants.get(tenant).get("palm_enabled", True))
+
+
+def _req_modalities(data: dict):
+    m = data.get("modalities")
+    if m is None:
+        m = data.get("modality")
+    if isinstance(m, str):
+        m = [x.strip() for x in m.split(",") if x.strip()]
+    return m or None
+
+
+def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None) -> dict:
+    """Mint a tenant invite with modality-scope + step-up computed from the tenant's
+    own store (fix A) — so a portal invite for someone who already exists is scoped
+    to the missing modality and requires step-up, never an open re-bind."""
+    face_cfg, palm_enabled = _tenant_target(tenant)
+    mods, step_up, step_mod = _modality.invite_scope(name, face_cfg, palm_enabled, requested)
+    return invites.create_invite(name, tenant, expires_in_hours=expires_in_hours,
+                                 modalities=mods, requires_step_up=step_up,
+                                 step_up_modality=step_mod)
+
+
 def _enabled_or_402():
     if not tenants.is_enabled(g.portal_tenant):
         return jsonify({"success": False, "code": "payment_required",
@@ -202,8 +233,8 @@ def portal_invites_create():
     name = (data.get("user_id") or data.get("name") or "").strip()
     if not name:
         return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
-    info = invites.create_invite(name, g.portal_tenant,          # tenant fixed to session
-                                 expires_in_hours=data.get("expires_in_hours"))
+    info = _create_scoped_invite(name, g.portal_tenant,          # tenant fixed to session
+                                 data.get("expires_in_hours"), _req_modalities(data))
     return jsonify({"success": True, **_invite_links([info])[0]})
 
 
@@ -221,8 +252,9 @@ def portal_invites_bulk():
         names = invites.parse_roster(names if isinstance(names, str) else data.get("roster", ""))
     if not names:
         return jsonify({"success": False, "message": "No names found in the upload."}), 400
-    batch = invites.create_invites(names, g.portal_tenant,
-                                   expires_in_hours=data.get("expires_in_hours"))
+    requested = _req_modalities(data)
+    hours = data.get("expires_in_hours")
+    batch = [_create_scoped_invite(n, g.portal_tenant, hours, requested) for n in names]
     return jsonify({"success": True, "tenant": g.portal_tenant, "count": len(batch),
                     "invites": _invite_links(batch)})
 
@@ -235,4 +267,14 @@ def portal_invites_revoke():
     # ownership: the invite must belong to THIS tenant
     if not any(i["invite_id"] == invite_id for i in invites.list_invites(g.portal_tenant)):
         return jsonify({"success": False, "message": "No such invite for this account."}), 404
-    return jsonify({"success": invites.revoke(invite_id)})
+    # Optional: also delete the biometrics this invite bound (fix C). Scoped to this
+    # tenant's own store, and only the modalities the invite enrolled.
+    purge = bool(data.get("purge"))
+    rec = invites.get_by_invite_id(invite_id) if purge else None
+    ok = invites.revoke(invite_id)
+    purged = []
+    if ok and purge and rec:
+        face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+        purged = _modality.purge_modalities(rec["user_id"], face_cfg,
+                                            rec.get("enrolled") or [], palm_enabled)
+    return jsonify({"success": ok, "purged": purged})

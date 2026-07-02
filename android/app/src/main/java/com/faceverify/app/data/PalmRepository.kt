@@ -101,4 +101,21 @@ class PalmRepository(context: Context) {
         index.remove(id)
         true
     }
+
+    /** Upsert a user's palm embeddings from an offline provisioning bundle (replaces
+     *  any existing set), tagged with provenance. Mirrors FaceRepository.replaceUser.
+     *  The bundle is admin-signed provisioning data, so it bypasses the live guards. */
+    suspend fun replaceUser(userId: String, embs: List<FloatArray>, source: String = "bundle") = mutex.withLock {
+        val id = userId.trim()
+        if (id.isEmpty() || embs.isEmpty()) return@withLock
+        if (index.containsKey(id)) dao.deletePerson(id)
+        dao.insertPerson(Person(id))
+        val list = mutableListOf<FloatArray>()
+        for (e in embs.take(PalmConfig.ADAPTIVE_MAX_SAMPLES)) {
+            dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor",
+                blob = Crypto.encrypt(Crypto.floatsToBytes(e)), source = source))
+            list.add(e)
+        }
+        index[id] = list
+    }
 }
