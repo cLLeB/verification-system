@@ -43,10 +43,15 @@ _IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
 def _collect(root: str) -> List[Tuple[str, str]]:
-    """(identity, path) for every image under root, identity = parent folder name."""
+    """(identity, path) for every image under root. Identity is the image's folder
+    path RELATIVE to root — so a nested layout like ``friend2/left_hand`` and
+    ``friend3/left_hand`` are DISTINCT hands (using only the basename would collapse
+    both to ``left_hand`` and fabricate genuine pairs across different people)."""
     items: List[Tuple[str, str]] = []
+    root = os.path.abspath(root)
     for dirpath, _dirs, files in os.walk(root):
-        ident = os.path.basename(dirpath.rstrip(os.sep))
+        rel = os.path.relpath(dirpath, root)
+        ident = os.path.basename(root) if rel == "." else rel.replace(os.sep, "/")
         for f in files:
             if os.path.splitext(f)[1].lower() in _IMG_EXT:
                 items.append((ident, os.path.join(dirpath, f)))

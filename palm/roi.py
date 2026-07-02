@@ -138,20 +138,25 @@ def _extract_roi(image: np.ndarray, pts: np.ndarray, roi_size: int
     angle = math.degrees(math.atan2(float(u[1]), float(u[0])))
 
     cx, cy = float(center[0]), float(center[1])
-    M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
-    h, w = image.shape[:2]
-    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR,
-                             borderMode=cv2.BORDER_REFLECT_101)
     half = int(round(side / 2.0))
-    x0, y0 = int(round(cx)) - half, int(round(cy)) - half
-    x1, y1 = x0 + 2 * half, y0 + 2 * half
-    x0c, y0c = max(0, x0), max(0, y0)
-    x1c, y1c = min(w, x1), min(h, y1)
-    crop = rotated[y0c:y1c, x0c:x1c]
+    if half <= 0:
+        raise PalmError("Palm is out of frame — center your open hand.", code="palm_too_small")
+    # Warp ONLY the ROI region straight to a (2*half)² crop, instead of rotating the
+    # whole frame (which is huge waste on multi-MP phone photos — a 3840×2160 shot
+    # warped in full just to keep a ~few-hundred-px ROI). The rotation, INTER_LINEAR
+    # interpolation and REFLECT_101 border are unchanged, so the ROI pixels are the
+    # same as the old warp-then-crop for any palm inside the frame — accuracy-neutral,
+    # verified by _bench_speed_accuracy.py (palm EER + per-embedding cosine drift).
+    M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
+    M[0, 2] -= (cx - half)                            # shift ROI top-left -> output (0,0)
+    M[1, 2] -= (cy - half)
+    size = 2 * half
+    crop = cv2.warpAffine(image, M, (size, size), flags=cv2.INTER_LINEAR,
+                          borderMode=cv2.BORDER_REFLECT_101)
     if crop.size == 0:
         raise PalmError("Palm is out of frame — center your open hand.", code="palm_too_small")
     roi = cv2.resize(crop, (roi_size, roi_size), interpolation=cv2.INTER_AREA)
-    return roi, int(2 * half), (int(cx), int(cy))
+    return roi, size, (int(cx), int(cy))
 
 
 def _sharpness(roi: np.ndarray) -> float:
