@@ -12,6 +12,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import secrets
+import threading
 import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -25,33 +27,58 @@ from .errors import FaceError
 _ACTION = "turn"
 _TTL_SECONDS = 120
 
+# Single-use challenge tracking: each challenge carries a random nonce; a valid token
+# is consumed on first successful check, so a captured/shared token can't be replayed
+# within its 120s window (anti-replay hardening on top of the live head-turn check).
+_used_nonces: dict = {}          # nonce -> expiry epoch
+_nlock = threading.Lock()
+
 
 def _secret() -> bytes:
     return (os.environ.get("FACE_SIGNING_SECRET", "") or "face-challenge-secret").encode()
 
 
-def _sign(exp: int) -> str:
-    return hmac.new(_secret(), f"{_ACTION}.{exp}".encode(), hashlib.sha256).hexdigest()[:16]
+def _sign(exp: int, nonce: str) -> str:
+    return hmac.new(_secret(), f"{_ACTION}.{exp}.{nonce}".encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def new_challenge() -> dict:
     exp = int(time.time()) + _TTL_SECONDS
+    nonce = secrets.token_hex(8)              # unique per challenge (no two identical tokens)
     return {
         "action": _ACTION,
-        "token": f"{exp}.{_sign(exp)}",
+        "token": f"{exp}.{nonce}.{_sign(exp, nonce)}",
         "instruction": "Slowly turn your head left and right, then face the camera",
     }
 
 
-def valid_token(token: str) -> bool:
+def _purge(now: float) -> None:
+    for n in [n for n, e in _used_nonces.items() if e < now]:
+        del _used_nonces[n]
+
+
+def valid_token(token: str, consume: bool = True) -> bool:
+    """Verify a challenge token: correct signature, not expired, and (single-use) not
+    already consumed. A valid token is burned on first successful check so a captured
+    token can't be replayed inside its TTL. ``consume=False`` only checks validity."""
     try:
-        exp_s, sig = (token or "").split(".")
+        exp_s, nonce, sig = (token or "").split(".")
         exp = int(exp_s)
     except (ValueError, AttributeError):
         return False
-    if time.time() > exp:
+    now = time.time()
+    if now > exp:
         return False
-    return hmac.compare_digest(sig, _sign(exp))
+    if not hmac.compare_digest(sig, _sign(exp, nonce)):
+        return False
+    if not consume:
+        return True
+    with _nlock:
+        _purge(now)
+        if nonce in _used_nonces:
+            return False                      # already used -> replay rejected
+        _used_nonces[nonce] = exp
+    return True
 
 
 @dataclass(frozen=True)

@@ -176,6 +176,9 @@ POST /v1/verify  {"user_id":"alice","frames":["<b64>",...],"token":"..."}
 ```
 SDK: `fv.challenge()` then `fv.verify_live(frames, token, "alice")`.
 
+Each challenge `token` is **single-use** and expires in ~2 minutes: get a fresh
+`GET /v1/challenge` for every verify attempt (a captured token can't be replayed).
+
 ---
 
 ## 5. Trusting the result (signatures)
