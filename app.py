@@ -232,6 +232,9 @@ SELF_ENROLL_LIVENESS = os.environ.get("FACE_SELF_ENROLL_LIVENESS", "0") == "1"
 # default; set to 0 to require a claimed user_id (1:1 only) so the open endpoint
 # can't be used to probe "is this person in your DB" (fix F — identify privacy).
 PUBLIC_IDENTIFY = os.environ.get("FACE_PUBLIC_IDENTIFY", "1") == "1"
+# TEMPORARY analytics export (accuracy tuning on real data). OFF unless this secret is
+# set; delete the secret to switch it off instantly. See /api/analytics/templates.
+ANALYTICS_TOKEN = os.environ.get("FACE_ANALYTICS_TOKEN", "")
 
 # Warm the models in the MAIN thread before any request hits a worker thread.
 MODEL_READY = _face_engine.warm(CONFIG)
@@ -698,6 +701,29 @@ def admin_export_bundle():
     audit.log(_FP_TENANT, "export_bundle", actor=g.get("admin_user", "admin"), success=True,
               detail=f"tenant={tenant} face={counts['face']} palm={counts['palm']}")
     return jsonify({"success": True, "tenant": tenant, "counts": counts, "bundle": out})
+
+
+@app.route("/api/analytics/templates", methods=["GET"])
+def analytics_templates():
+    """TEMPORARY, secret-gated analytics export of FIRST-PARTY face+palm TEMPLATES
+    (embeddings only — never images, never tenant data) for offline accuracy tuning.
+
+    Disabled (404) unless FACE_ANALYTICS_TOKEN is set on the server; requires that
+    token in the ``X-Analytics-Token`` header. Read-only. Delete the secret to turn
+    it off instantly; remove this route + redeploy for full teardown."""
+    if not ANALYTICS_TOKEN:
+        return jsonify({"success": False, "code": "disabled",
+                        "message": "Analytics export is not enabled."}), 404
+    supplied = request.headers.get("X-Analytics-Token", "")
+    if not (supplied and hmac.compare_digest(supplied, ANALYTICS_TOKEN)):
+        return jsonify({"success": False, "code": "forbidden"}), 403
+    face = _modality.export_templates(CONFIG, "face", True)
+    palm = _modality.export_templates(CONFIG, "palm", True)
+    audit.log(_FP_TENANT, "analytics_export", actor="analytics", success=True,
+              detail=f"face={len(face)} palm={len(palm)}")
+    return jsonify({"success": True, "generated": int(time.time()),
+                    "counts": {"face": len(face), "palm": len(palm)},
+                    "face": face, "palm": palm})
 
 
 @app.route("/api/health")

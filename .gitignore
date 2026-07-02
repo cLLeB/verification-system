@@ -86,3 +86,6 @@ examples/**/*.db
 pad_data/
 _pad_threshold.json
 android/build_fresh.log
+
+# Temporary analytics pulls from the live Space (biometric embeddings — never commit)
+_analytics/
