@@ -43,4 +43,5 @@ class FaceStore(TemplateStore):
             adaptive_novelty=cfg.adaptive_novelty,
             adaptive_max_samples=cfg.adaptive_max_samples,
             db_file=_DB_FILE,
+            modality="face",
         )

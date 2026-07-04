@@ -16,9 +16,11 @@ import cbor2
 MAGIC = b"BE1"
 VERSION = 1
 
-MODALITIES = ("face", "palm")
+MODALITIES = ("face", "palm")   # built-ins; custom profile names are also accepted
 KINDS = ("raw", "protected", "quantized-protected")
 DTYPES = ("f32", "i8")
+
+_MOD_MAX_LEN = 32
 
 _REQUIRED = ("v", "mod", "kind", "dim", "dtype", "data")
 _ALLOWED = set(_REQUIRED) | {"seedref", "meta"}
@@ -66,8 +68,10 @@ def _validate(env) -> None:
         raise EnvelopeError(f"unknown fields: {unknown}")
     if env["v"] != VERSION:
         raise EnvelopeError(f"unsupported envelope version: {env['v']!r}")
-    if env["mod"] not in MODALITIES:
-        raise EnvelopeError(f"unknown modality: {env['mod']!r}")
+    mod = env["mod"]
+    if (not isinstance(mod, str) or not mod or len(mod) > _MOD_MAX_LEN
+            or not mod.replace("_", "").isalnum()):
+        raise EnvelopeError(f"invalid modality tag: {mod!r}")
     if env["kind"] not in KINDS:
         raise EnvelopeError(f"unknown template kind: {env['kind']!r}")
     if env["dtype"] not in DTYPES:

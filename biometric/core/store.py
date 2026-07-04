@@ -28,6 +28,7 @@ from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 
+from . import envelope
 from .crypto import get_cipher
 
 _DEFAULT_DB_FILE = "faces.db"            # face default; palm passes its own
@@ -125,8 +126,9 @@ class TemplateStore:
 
     def __init__(self, db_path: str, samples_per_user: int = 3,
                  adaptive_novelty: float = 0.92, adaptive_max_samples: int = 8,
-                 db_file: str = _DEFAULT_DB_FILE) -> None:
+                 db_file: str = _DEFAULT_DB_FILE, modality: str = "face") -> None:
         self.db_path = db_path
+        self.modality = modality
         self.samples_per_user = samples_per_user
         self.adaptive_novelty = adaptive_novelty
         self.adaptive_max_samples = adaptive_max_samples
@@ -170,7 +172,10 @@ class TemplateStore:
 
     # --- serialisation ------------------------------------------------------
     def _serialize(self, tmpl: BioTemplate) -> bytes:
-        blob = _pack(tmpl)
+        rows = tmpl.embeddings
+        dim = int(rows[0].shape[0]) if rows else 0
+        blob = envelope.encode(mod=self.modality, kind="raw", data=_pack(tmpl),
+                               dim=dim, dtype="f32")
         return self._cipher.encrypt(blob) if self._cipher is not None else blob
 
     def _deserialize(self, raw: bytes) -> Optional[BioTemplate]:
@@ -180,6 +185,11 @@ class TemplateStore:
             try:
                 raw = self._cipher.decrypt(raw)
             except Exception:
+                return None
+        if envelope.is_envelope(raw):
+            try:
+                raw = envelope.decode(raw)["data"]
+            except envelope.EnvelopeError:
                 return None
         if raw[:3] in (_MAGIC, _MAGIC_FT1):
             try:

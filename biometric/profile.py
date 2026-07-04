@@ -49,6 +49,7 @@ class Profile:
             adaptive_novelty=self.adaptive_novelty,
             adaptive_max_samples=self.adaptive_max_samples,
             db_file=self.db_file,
+            modality=self.name,
         )
 
     def get_index(self, tenant_db_path: str, store: TemplateStore):

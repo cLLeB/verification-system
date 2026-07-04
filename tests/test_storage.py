@@ -25,10 +25,12 @@ def test_binary_round_trip_and_format(tmp_path):
     got = st.load("alice")
     assert got is not None and len(got.anchors) == 1
     assert np.allclose(got.anchors[0], e)
-    # raw blob on disk must be the compact binary format (decrypted starts with magic)
+    # raw blob on disk is an envelope (BE1) whose payload is the compact binary format
+    from biometric.core import envelope
     row = st._connect().execute("SELECT data FROM templates WHERE user_id='alice'").fetchone()
     raw = st._cipher.decrypt(row[0]) if st._cipher else row[0]
-    assert raw[:len(_MAGIC)] == _MAGIC
+    assert envelope.is_envelope(raw)
+    assert envelope.decode(raw)["data"][:len(_MAGIC)] == _MAGIC
 
 
 def test_reads_legacy_base64_json(tmp_path):

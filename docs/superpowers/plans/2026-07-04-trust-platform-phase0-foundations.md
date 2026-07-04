@@ -832,7 +832,7 @@ git commit -m "feat(trust): KEK-wrapped store data keys + master rotation + cryp
   all stored blobs are now `BE1(kind="raw", data=<FT2 bytes>)`; reads accept
   envelope, FT2, FT1, and legacy JSON. CLI: `python manage_templates.py wrap|erase-keys`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_store_envelope.py`:
 
@@ -903,12 +903,12 @@ def test_wrap_command_rewrites_legacy_rows(tmp_path):
     assert envelope.is_envelope(_raw_blob(TemplateStore(str(tmp_path)), "legacy"))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_store_envelope.py -v`
 Expected: FAIL — `TemplateStore` has no `modality` kwarg / blobs are bare FT2.
 
-- [ ] **Step 3: Modify the store**
+- [x] **Step 3: Modify the store**
 
 In `biometric/core/store.py`:
 
@@ -957,7 +957,7 @@ e) In `biometric/profile.py`, `make_store` (lines 45-52): add `modality=self.nam
 f) In `face/storage.py`, `FaceStore.__init__` (lines 38-47): add `modality="face",` to the
 `super().__init__(...)` call.
 
-- [ ] **Step 4: Create the maintenance CLI**
+- [x] **Step 4: Create the maintenance CLI**
 
 Create `manage_templates.py` (repo root):
 
@@ -1046,7 +1046,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 5: Run new tests, then regression on storage/sync/index**
+- [x] **Step 5: Run new tests, then regression on storage/sync/index**
 
 Run: `python -m pytest tests/test_store_envelope.py -v`
 Expected: all PASS.
@@ -1054,7 +1054,7 @@ Expected: all PASS.
 Run: `python -m pytest tests/test_storage.py tests/test_index.py tests/test_sync.py tests/test_biometric_core.py tests/test_adaptive_drift.py -q`
 Expected: PASS (envelope wrapping is invisible to existing readers).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add biometric/core/store.py biometric/profile.py face/storage.py manage_templates.py tests/test_store_envelope.py

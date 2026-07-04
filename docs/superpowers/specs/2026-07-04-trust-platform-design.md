@@ -86,7 +86,9 @@ credentials:
 ```
 Envelope (CBOR map):
   v:    format version (int, starts at 1)
-  mod:  modality ("face" | "palm")
+  mod:  modality tag (built-ins "face" | "palm"; custom profile names allowed —
+        the profile registry is extensible, so the container validates the tag
+        as an identifier rather than a closed enum)
   kind: "raw" | "protected" | "quantized-protected"
   dim:  vector length
   dtype:"f32" | "i8"

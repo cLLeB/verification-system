@@ -40,7 +40,7 @@ def test_rejects_garbage_cbor():
 
 def test_rejects_bad_fields():
     good = dict(mod="face", kind="raw", data=b"x", dim=1, dtype="f32")
-    for bad in (dict(good, mod="iris"), dict(good, kind="plain"),
+    for bad in (dict(good, mod=""), dict(good, mod="not a tag!"), dict(good, kind="plain"),
                 dict(good, dtype="f64"), dict(good, dim=-1), dict(good, data=b"")):
         with pytest.raises(EnvelopeError):
             envelope.encode(**bad)
