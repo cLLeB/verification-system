@@ -232,7 +232,7 @@ git commit -m "feat(trust): versioned CBOR template envelope (BE1) with strict v
   `signing.verify(pk: bytes, message: bytes, signature: bytes) -> bool` (never raises).
   Task 3 and Phase 2 consume these exact names.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_signing.py`:
 
@@ -271,12 +271,12 @@ def test_verify_rejects_tamper_and_never_raises():
     assert not signing.verify(pk, b"hello", b"not-a-signature")  # malformed sig
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_signing.py -v`
 Expected: FAIL — ImportError.
 
-- [ ] **Step 3: Implement the module**
+- [x] **Step 3: Implement the module**
 
 Create `biometric/core/signing.py`:
 
@@ -323,12 +323,12 @@ def verify(pk: bytes, message: bytes, signature: bytes) -> bool:
         return False
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_signing.py -v`
 Expected: all PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add biometric/core/signing.py tests/test_signing.py
