@@ -279,3 +279,32 @@ paths:
     get:
       summary: "This tenant's usage this month (counts, quota, remaining)"
       responses: { "200": { description: Usage summary } }
+  /v1/tenant/keys:
+    get:
+      summary: "This tenant's issuer signing keys (role: manage)"
+      description: >
+        Ed25519 keys the platform uses to sign anything issued on this tenant's
+        behalf (credentials, bundles). Active key first; retired keys remain
+        listed so previously issued signatures can still be verified.
+      responses:
+        "200":
+          description: >
+            Key list. Each item has kid, public_key (base64), created (unix),
+            status (active|retired), retired_at (unix, retired only).
+  /v1/tenant/keys/rotate:
+    post:
+      summary: "Rotate the tenant's issuer signing key (role: manage)"
+      description: >
+        Creates a fresh keypair; the old public key is retained for
+        verification only, so previously issued signatures keep verifying.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties: { confirm: { type: boolean, enum: [true] } }
+      responses:
+        "200": { description: "The new active key (kid, public_key, created, status)" }
+        "400": { description: Missing confirm flag }

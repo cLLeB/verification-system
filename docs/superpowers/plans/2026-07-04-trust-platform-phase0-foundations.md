@@ -1077,7 +1077,7 @@ git commit -m "feat(trust): envelope-wrap stored templates (back-compat reads) +
   `POST /v1/tenant/keys/rotate` (manage scope, body `{"confirm": true}`) → `{success, active}`.
   Tasks 7–8 (UI, SDK) consume these routes.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_issuer_keys_api.py`:
 
@@ -1123,12 +1123,12 @@ def test_rotate_requires_confirm_and_retires_old(client, make_key):
     assert any(k["kid"] == kid0 and k["status"] == "retired" for k in keys)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_issuer_keys_api.py -v`
 Expected: FAIL — 404 on the new routes.
 
-- [ ] **Step 3: Add the endpoints**
+- [x] **Step 3: Add the endpoints**
 
 In `face_service/v1.py`, extend the package import line that already pulls in `audit`
 (near the other `from . import ...` lines) to also import `issuer_keys`, then add
@@ -1159,7 +1159,7 @@ def tenant_keys_rotate():
     return jsonify({"success": True, "active": rec})
 ```
 
-- [ ] **Step 4: Drop issuer keys on offboarding**
+- [x] **Step 4: Drop issuer keys on offboarding**
 
 In `app.py`, inside `admin_tenant_offboard` (line 443ff), after the
 `tenants.remove(tenant)` line add:
@@ -1172,7 +1172,7 @@ and extend the audit detail f-string to include `; issuer key removed={issuer_re
 Add `issuer_keys` to the existing `from face_service import ...` import block at the
 top of `app.py`.
 
-- [ ] **Step 5: Document in OpenAPI**
+- [x] **Step 5: Document in OpenAPI**
 
 In `openapi.yaml`, add under `paths:` (match the file's existing indentation and
 security-scheme names — copy the style of the `/v1/users` entries):
@@ -1204,12 +1204,12 @@ security-scheme names — copy the style of the `/v1/users` entries):
           description: Missing confirm flag.
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_issuer_keys_api.py tests/test_v1_api.py -q`
 Expected: PASS (new tests green, existing v1 suite untouched).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add face_service/v1.py app.py openapi.yaml tests/test_issuer_keys_api.py

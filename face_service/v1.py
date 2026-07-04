@@ -40,7 +40,7 @@ from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
 from .auth import require_key, require_scope
-from . import audit, bundle, modality as _modality, tenants, usage, webhooks
+from . import audit, bundle, issuer_keys, modality as _modality, tenants, usage, webhooks
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -593,6 +593,30 @@ def sync_push():
               detail=f"pushed={pushed} merged={merged} skipped={skipped}")
     return jsonify({"success": True, "pushed": pushed, "merged": merged,
                     "skipped": skipped, "conflicts": conflicts})
+
+
+@bp.get("/tenant/keys")
+@require_scope("manage")
+def tenant_keys():
+    """This tenant's issuer signing keys — the keys the platform signs
+    credentials/bundles with on the tenant's behalf. Active key first."""
+    return jsonify({"success": True, "tenant": g.tenant or "default",
+                    "keys": issuer_keys.public_keys(g.tenant)})
+
+
+@bp.post("/tenant/keys/rotate")
+@require_scope("manage")
+def tenant_keys_rotate():
+    """Rotate the issuer key. The old public key is retained so previously
+    issued signatures keep verifying; only NEW items use the new key."""
+    data = request.get_json(silent=True) or {}
+    if data.get("confirm") is not True:
+        return _err("Set 'confirm': true to rotate the issuer key. Existing "
+                    "signatures keep verifying via the retired key.")
+    rec = issuer_keys.rotate(g.tenant)
+    audit.log(g.tenant, "issuer_key_rotate", actor=g.key_name, success=True,
+              detail=f"new kid {rec['kid']}")
+    return jsonify({"success": True, "active": rec})
 
 
 @bp.post("/users/purge")
