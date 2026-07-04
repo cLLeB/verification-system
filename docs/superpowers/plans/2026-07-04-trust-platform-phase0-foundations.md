@@ -618,7 +618,7 @@ no data re-encryption. Back-compat: existing passphrase-derived stores keep deri
 the same key; existing plaintext `.key` files are wrapped on first open when a
 passphrase is present.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_crypto_kek.py`:
 
@@ -700,12 +700,12 @@ def test_erase_keys_makes_data_unrecoverable(tmp_path):
     assert not any(f in _files(d) for f in (".salt", ".key", ".key.wrapped"))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_crypto_kek.py -v`
 Expected: FAIL — `.key.wrapped` never created, `rotate_master`/`erase_keys` missing.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `biometric/core/crypto.py`:
 
@@ -800,7 +800,7 @@ def erase_keys(db_path: str) -> int:
     return removed
 ```
 
-- [ ] **Step 4: Run new tests, then the full suite (regression)**
+- [x] **Step 4: Run new tests, then the full suite (regression)**
 
 Run: `python -m pytest tests/test_crypto_kek.py -v`
 Expected: all PASS.
@@ -808,7 +808,7 @@ Expected: all PASS.
 Run: `python -m pytest tests/test_storage.py tests/test_biometric_core.py -q`
 Expected: PASS (stores still open and read).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add biometric/core/crypto.py tests/test_crypto_kek.py
