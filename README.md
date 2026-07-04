@@ -104,6 +104,7 @@ person as they change over months/years.
 Full docs in **[`docs/`](docs/README.md)**:
 [Architecture](docs/ARCHITECTURE.md) ·
 [Security & Privacy](docs/SECURITY.md) ·
+[Signing keys & encryption](docs/security-keys.md) ·
 [Integration](docs/INTEGRATION.md) ·
 [API errors/codes](docs/ERRORS.md) ·
 [Operations](docs/OPERATIONS.md) ·

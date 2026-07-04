@@ -4,6 +4,16 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Trust Platform Phase 0 — crypto & identity foundations** — per-tenant Ed25519 issuer
+  signing keys with rotation history (Security tab in `/admin`, signing-key card in
+  `/portal`, `GET/POST /v1/tenant/keys[/rotate]`, SDK `tenant_keys()`/`rotate_tenant_keys()`);
+  versioned CBOR template envelopes (`BE1`) wrapping every stored template with strict
+  fail-closed validation (all legacy formats still read); KEK-wrapped per-store data keys
+  (master passphrase rotation without re-encryption, `crypto.rotate_master`) and
+  crypto-erase (`manage_templates.py erase-keys`); offboarding now also removes the
+  tenant's signing identity. Groundwork for protected templates (Phase 1) and portable
+  offline credentials (Phase 2). (`biometric/core/{envelope,signing,crypto}.py`,
+  `face_service/issuer_keys.py`, `docs/security-keys.md`)
 - **Hybrid Android build (offline↔server sync)** — new `connectivity` flavor dimension
   (offline/hybrid) × model (fp32/fp16) = 4 signed APKs. **Offline stays provably airgapped**
   (an `offline` flavor manifest strips the INTERNET permission that ML Kit/play-services

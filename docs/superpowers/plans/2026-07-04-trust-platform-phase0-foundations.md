@@ -1438,7 +1438,7 @@ git commit -m "feat(trust): Security panels (issuer keys) in admin console and t
 - Produces: Python `client.tenant_keys() -> dict`, `client.rotate_tenant_keys() -> dict`;
   JS `fv.tenantKeys()`, `fv.rotateTenantKeys()`.
 
-- [ ] **Step 1: Write the failing SDK test**
+- [x] **Step 1: Write the failing SDK test**
 
 Create `tests/test_sdk_issuer_keys.py`:
 
@@ -1470,12 +1470,12 @@ Note: check the actual client class name at the top of `sdk/python/faceverify.py
 (`FaceVerify` per its README usage) and the `_call` signature at line 62 — adjust the
 test import/signature to match exactly what the file defines.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_sdk_issuer_keys.py -v`
 Expected: FAIL — `AttributeError: tenant_keys`.
 
-- [ ] **Step 3: Add the SDK methods**
+- [x] **Step 3: Add the SDK methods**
 
 In `sdk/python/faceverify.py`, after `purge_tenant` (line ~168):
 
@@ -1503,12 +1503,12 @@ In `sdk/js/faceverify.js`, inside `FaceVerifyClient`:
   }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_sdk_issuer_keys.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Write the docs page**
+- [x] **Step 5: Write the docs page**
 
 Create `docs/security-keys.md`:
 
@@ -1576,7 +1576,7 @@ page arrive in Phases 1, 2, and 4 of the trust platform
 (`docs/superpowers/specs/2026-07-04-trust-platform-design.md`).
 ```
 
-- [ ] **Step 6: Link it**
+- [x] **Step 6: Link it**
 
 In `README.md`, where other docs are linked, add a line:
 
@@ -1592,7 +1592,7 @@ In `CHANGELOG.md`, add under a new unreleased/dated heading (match the file's st
   data keys with master rotation and crypto-erase, `manage_templates.py` CLI.
 ```
 
-- [ ] **Step 7: Full suite + final verification**
+- [x] **Step 7: Full suite + final verification**
 
 Run: `python -m pytest tests/ -q`
 Expected: everything passes (model-dependent tests may skip).
@@ -1602,7 +1602,7 @@ M0 demo check (from spec §13): admin rotates a tenant issuer key in the console
 `.key.wrapped`; `manage_templates.py wrap --dry-run` reports zero unwrapped rows on a
 new store.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add sdk/python/faceverify.py sdk/js/faceverify.js docs/security-keys.md README.md CHANGELOG.md tests/test_sdk_issuer_keys.py

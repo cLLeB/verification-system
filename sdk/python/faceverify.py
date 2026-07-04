@@ -169,6 +169,14 @@ class FaceVerifyClient:
         """Erase ALL users in this tenant (right-to-erasure). Irreversible."""
         return self._call("POST", "/v1/users/purge", {"confirm": True})
 
+    def tenant_keys(self) -> dict:
+        """List this tenant's issuer signing keys (active first). Admin key required."""
+        return self._call("GET", "/v1/tenant/keys")
+
+    def rotate_tenant_keys(self) -> dict:
+        """Rotate the issuer signing key. Previously signed items stay verifiable."""
+        return self._call("POST", "/v1/tenant/keys/rotate", {"confirm": True})
+
     def usage(self) -> dict:
         return self._call("GET", "/v1/usage")
 
