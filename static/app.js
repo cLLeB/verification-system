@@ -30,8 +30,22 @@ applyTheme((() => { try { return localStorage.getItem('theme'); } catch (e) { re
 
 const ICON_OK = '<path d="M20 6 9 17l-5-5"/>';
 const ICON_BAD = '<path d="M18 6 6 18M6 6l12 12"/>';
+const ICON_CAM = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+const ICON_RETRY = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
 
 const ENROLL_TARGET = 3;
+const statusPill = $('status-pill');
+let sampleCount = 0;                       // enrolled samples this session (drives labels)
+const shots = [];                          // captured sample images -> progress thumbnails
+
+function setCaptureLabel(t) { captureBtn.innerHTML = ICON_CAM + '<span>' + t + '</span>'; }
+function refreshCaptureLabel() {
+    setCaptureLabel(mode === 'enroll'
+        ? `Capture sample ${Math.min(sampleCount, ENROLL_TARGET - 1) + 1}`
+        : 'Capture & verify');
+}
+// white flash over the oval at the moment of capture
+function flashOval() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 const OUT_W = 720;
 const BURST_FRAMES = 7, BURST_GAP_MS = 280;    // ~2s head-turn recording
 let mode = 'verify', busy = false;
@@ -48,11 +62,15 @@ async function startCamera() {
         video.srcObject = stream;
         video.classList.toggle('mirror', facing === 'user');   // mirror front only
         statusText.textContent = 'Ready';
+        statusPill.classList.remove('bad');
+        $('cam-denied').classList.add('hidden');
         captureBtn.disabled = false;
         showDeviceTip();                                        // palm camera guidance
     } catch (err) {
-        statusText.textContent = 'No camera';
-        setHint('Camera unavailable — allow camera access and reload.', 'warn');
+        statusText.textContent = 'Blocked';
+        statusPill.classList.add('bad');
+        $('cam-denied').classList.remove('hidden');
+        setHint('Camera access denied. Enable it in your browser to continue.', 'warn');
         captureBtn.disabled = true;
     }
 }
@@ -116,6 +134,8 @@ function grabFrame() {
 
 function startBusy(status) {
     busy = true; captureBtn.disabled = true; scanner.classList.add('busy');
+    statusPill.classList.remove('ok');
+    setCaptureLabel('Capturing…');
     statusText.textContent = status; progressWrap.classList.remove('hidden');
 }
 
@@ -144,6 +164,7 @@ async function enrollCapture() {
     if (!(await ensureAdmin())) return;
     const img = grabFrame();
     if (!img) { setHint('Camera not ready — try again.'); return; }
+    flashOval();
     startBusy('Checking');
     let p = 25; bar.style.width = '25%'; setHint('Checking…');
     const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
@@ -151,6 +172,7 @@ async function enrollCapture() {
         const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ image: img, user_id: userId.value.trim() }) });
         const data = await res.json();
+        if (data.success) shots.push(img);            // sample thumbnail for the dots row
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
     } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
@@ -183,7 +205,7 @@ async function enrollFromFiles() {
             const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId.value.trim(), image: img }) });
             last = await res.json();
-            if (last.success) ok++;
+            if (last.success) { ok++; shots.push(img); }   // thumbnail for the dots row
         } catch (e) { /* keep going through the rest */ }
     }
     $('enroll-files').value = '';
@@ -195,6 +217,7 @@ async function enrollFromFiles() {
 async function verify() {
     const img0 = grabFrame();
     if (!img0) { setHint('Camera not ready — try again.'); return; }
+    flashOval();
     startBusy('Detecting');
     // Quick modality check so a palm skips the face head-turn challenge.
     let modality = 'face';
@@ -307,6 +330,10 @@ function handle(data) {
 
 function show(kind, icon, title, sub) {
     busy = false; captureBtn.disabled = false;
+    refreshCaptureLabel();
+    if (kind === 'ok') { statusText.textContent = 'Complete'; statusPill.classList.add('ok'); }
+    // done-state action: "Verify again" / "Start over" with a restart icon (per design)
+    againBtn.innerHTML = ICON_RETRY + '<span>' + (mode === 'verify' ? 'Verify again' : 'Start over') + '</span>';
     setHint('');                                  // clear "Checking…" under the oval
     result.className = 'result ' + kind;
     resultSvg.innerHTML = icon; resultTitle.textContent = title; resultSub.textContent = sub || '';
@@ -314,6 +341,8 @@ function show(kind, icon, title, sub) {
 }
 function reset(msg, kind = '') {
     busy = false; captureBtn.disabled = false; scanner.classList.remove('busy');
+    statusPill.classList.remove('ok');
+    refreshCaptureLabel();
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
     setHint(msg || defaultHint(), kind);
 }
@@ -325,11 +354,34 @@ function defaultHint() {
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
 captureBtn.addEventListener('click', onCapture);
 $('upload-enroll').addEventListener('click', enrollFromFiles);
+// selecting a reference photo submits it directly (no separate button, per design)
+$('enroll-files').addEventListener('change', () => { if ($('enroll-files').files.length) enrollFromFiles(); });
 
+// "n of 3 samples captured" bold line under the instruction (enroll only, per design)
+function updateHintSub(n) {
+    const el = $('hint-sub');
+    if (mode !== 'enroll') { el.classList.add('hidden'); return; }
+    el.textContent = `${Math.min(n, ENROLL_TARGET)} of ${ENROLL_TARGET} samples captured`;
+    el.classList.remove('hidden');
+}
 function renderDots(n) {
+    sampleCount = n;
+    if (n === 0) shots.length = 0;             // fresh enrolment -> drop old thumbnails
+    updateHintSub(n);
+    refreshCaptureLabel();
     dots.innerHTML = '';
     if (mode !== 'enroll') return;
-    for (let i = 0; i < ENROLL_TARGET; i++) { const d = document.createElement('i'); if (i < n) d.className = 'on'; dots.appendChild(d); }
+    for (let i = 0; i < ENROLL_TARGET; i++) {
+        if (i < n && shots[i]) {               // captured -> glowing photo thumbnail
+            const im = document.createElement('img');
+            im.src = shots[i]; im.className = 'thumb'; im.alt = `Sample ${i + 1}`;
+            dots.appendChild(im); continue;
+        }
+        const d = document.createElement('i');
+        if (i < n) d.className = 'on';         // captured but no local image (e.g. resumed)
+        else if (i === n) d.className = 'next'; // the slot being captured pulses
+        dots.appendChild(d);
+    }
 }
 function setMode(m) {
     mode = m;
@@ -339,7 +391,6 @@ function setMode(m) {
     segThumb.classList.toggle('right', enr);
     enrollRow.classList.toggle('hidden', !enr);
     result.classList.add('hidden'); renderDots(0);
-    captureBtn.textContent = enr ? 'Capture' : 'Verify';
     reset();
 }
 modeEnroll.addEventListener('click', () => setMode('enroll'));

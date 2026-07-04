@@ -1,165 +1,322 @@
-/* Face Verify — mobile-first dark biometric UI ("Verified" design system)
-   Palette: deep ink base, iris-violet accent, emerald/rose semantics. */
+/* Face Verify — mobile-first biometric UI ("Verified" design system, refreshed)
+   Palette: deep indigo-ink base, bright iris-blue accent, emerald/rose semantics.
+   Dark-first with a light theme (html[data-theme="light"]). oklch tokens mirror
+   frontend/src/styles.css so the whole platform reads as one system. */
 :root {
-    --bg-0: #0B1020;          /* app background (deep ink navy) */
-    --bg-1: #141B2D;          /* surface: cards, pills, inputs */
-    --bg-2: #1C2538;          /* elevated: dots, chips */
-    --line: rgba(148,163,184,.14);    /* subtle border / divider */
-    --line-strong: rgba(148,163,184,.30); /* hover/active/focus border */
-    --txt: #EAF0F8;           /* primary text */
-    --txt-2: #9AA8BD;         /* secondary text */
-    --txt-muted: #67768D;     /* placeholders, captions */
-    --brand: #8B7CF6;         /* iris violet — primary / scanner ring */
-    --brand-2: #A78BFA;       /* light violet — gradient pair / active glow */
-    --brand-strong: #6D4DE6;  /* pressed / deep fill */
-    --ok: #34D399;            /* success / granted */
-    --bad: #FB7185;           /* danger / denied */
-    --warn: #FBBF24;          /* warning */
-    --info: #38BDF8;          /* info */
-    --ring: rgba(139,124,246,.45);    /* focus ring / capture pulse */
-    --on-brand: #FFFFFF;      /* text on violet fills */
+    --bg-0: oklch(0.14 0.02 260);          /* app background (deep ink) */
+    --bg-1: oklch(0.19 0.02 260);          /* surface: cards, pills, inputs */
+    --bg-2: oklch(0.24 0.02 260);          /* elevated / muted track */
+    --inset: oklch(0.17 0.02 260);         /* sunken inputs / rows */
+    --line: oklch(1 0 0 / 0.08);           /* subtle border / divider */
+    --line-strong: oklch(1 0 0 / 0.16);    /* hover / active / focus border */
+    --txt: oklch(0.98 0.003 250);          /* primary text */
+    --txt-2: oklch(0.7 0.02 258);          /* secondary text */
+    --txt-muted: oklch(0.56 0.02 258);     /* placeholders, captions */
+    --brand: oklch(0.7 0.2 262);           /* iris blue — primary / scanner ring */
+    --brand-2: oklch(0.78 0.15 262);       /* light — gradient pair / active glow */
+    --brand-strong: oklch(0.62 0.2 262);   /* pressed / deep fill */
+    --ok: oklch(0.72 0.17 155);            /* success / granted */
+    --bad: oklch(0.65 0.2 22);             /* danger / denied */
+    --warn: oklch(0.8 0.16 85);            /* warning */
+    --info: oklch(0.7 0.15 230);           /* info */
+    --ring: oklch(0.7 0.2 262 / 0.5);      /* focus ring / capture pulse */
+    --on-brand: oklch(0.14 0.02 260);      /* text on the bright primary fill */
     --grad: linear-gradient(135deg, var(--brand-2), var(--brand));
-    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --radius: 12px; --radius-sm: 8px; --radius-lg: 16px; --radius-2xl: 20px;
+    --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Light theme overrides (set data-theme="light" on <html>) */
 html[data-theme="light"] {
-    --bg-0: #F5F8FC; --bg-1: #FFFFFF; --bg-2: #EEF3F9;
-    --line: rgba(15,23,42,.10); --line-strong: rgba(15,23,42,.20);
-    --txt: #0F1B2D; --txt-2: #51607A; --txt-muted: #7C8AA0;
-    --brand: #6D4DE6; --brand-2: #7C5CF5; --brand-strong: #5B3FD6;
-    --ok: #059669; --bad: #E11D48; --warn: #D97706; --info: #2563EB;
-    --ring: rgba(109,77,230,.30); --on-brand: #FFFFFF;
+    --bg-0: oklch(0.985 0.003 250);
+    --bg-1: oklch(1 0 0);
+    --bg-2: oklch(0.95 0.008 250);
+    --inset: oklch(0.96 0.008 250);
+    --line: oklch(0.15 0.02 260 / 0.08);
+    --line-strong: oklch(0.15 0.02 260 / 0.16);
+    --txt: oklch(0.15 0.02 260);
+    --txt-2: oklch(0.5 0.02 258);
+    --txt-muted: oklch(0.55 0.02 258);
+    --brand: oklch(0.55 0.22 262);
+    --brand-2: oklch(0.62 0.19 262);
+    --brand-strong: oklch(0.48 0.22 262);
+    --ok: oklch(0.68 0.17 155); --bad: oklch(0.58 0.24 27);
+    --warn: oklch(0.72 0.16 70); --info: oklch(0.58 0.18 250);
+    --ring: oklch(0.55 0.22 262 / 0.3); --on-brand: oklch(1 0 0);
     --grad: linear-gradient(135deg, var(--brand-2), var(--brand));
 }
-html[data-theme="light"] body { background: radial-gradient(120% 80% at 50% -10%, #ffffff 0%, #e6edf6 60%); }
+html[data-theme="light"] body {
+    background: radial-gradient(120% 80% at 50% -10%, #ffffff 0%, #eaf0f8 60%);
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
-    background: radial-gradient(120% 80% at 50% -10%, #0e1726 0%, var(--bg-0) 60%);
+    background: radial-gradient(120% 80% at 50% -10%,
+        color-mix(in oklab, var(--brand) 8%, var(--bg-0)) 0%, var(--bg-0) 62%);
     color: var(--txt);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
 }
 .app {
-    max-width: 440px; min-height: 100dvh; margin: 0 auto;
-    padding: max(14px, env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
-    display: flex; flex-direction: column; gap: 16px;
+    width: 100%; max-width: 440px; min-height: 100dvh; margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 18px calc(20px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 22px;
+    animation: fade-up .5s var(--ease) both;
 }
 
 /* Top bar */
-.topbar { display: flex; align-items: center; justify-content: space-between; }
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 1.05rem; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 11px; font-weight: 650; font-size: 1.02rem; letter-spacing: -0.01em; min-width: 0; }
+.top-right { flex: none; }
+/* brand mark becomes a rounded badge tile */
 .brand svg { color: var(--brand); }
+.brand-badge {
+    width: 40px; height: 40px; border-radius: var(--radius); display: grid; place-items: center;
+    color: var(--brand); background: color-mix(in oklab, var(--brand) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 24%, transparent);
+    flex: none;
+}
+.brand-badge svg { color: var(--brand); }
 .status {
     display: inline-flex; align-items: center; gap: 7px;
     background: var(--bg-1); border: 1px solid var(--line); color: var(--txt-2);
-    font-size: 0.78rem; font-weight: 500; padding: 6px 11px; border-radius: 999px;
+    font-family: var(--mono); font-size: 0.62rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+    padding: 7px 11px; border-radius: 999px;
 }
-.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px rgba(139,124,246,.20); }
-.top-right { display: flex; align-items: center; gap: 10px; }
+.status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: soft-blink 2s var(--ease) infinite; }
+.status.busy .dot { background: var(--brand); }
+.status.ok .dot { background: var(--ok); animation: none; }
+.status.bad .dot { background: var(--bad); animation: none; }
+.top-right { display: flex; align-items: center; gap: 9px; }
 .icon-btn { width: 38px; height: 38px; border-radius: 999px; background: var(--bg-1); border: 1px solid var(--line);
-    color: var(--txt-2); display: grid; place-items: center; cursor: pointer; transition: color .2s var(--ease), border-color .2s var(--ease); }
+    color: var(--txt-2); display: grid; place-items: center; cursor: pointer;
+    transition: color .2s var(--ease), border-color .2s var(--ease), transform .12s var(--ease); }
 .icon-btn:active { transform: scale(.94); }
-.icon-btn:hover { border-color: var(--line-strong); color: var(--txt); }
+.icon-btn:hover { border-color: color-mix(in oklab, var(--brand) 40%, transparent); color: var(--brand); }
 /* keyboard focus rings (token-driven) */
 .btn:focus-visible, .seg-btn:focus-visible, .icon-btn:focus-visible, .field:focus-visible {
     outline: 2px solid var(--brand); outline-offset: 2px;
 }
 
-/* Segmented control */
+/* Segmented control — muted track, raised surface tab (matches reference) */
 .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr;
-    background: var(--bg-1); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px; }
 .seg-btn { position: relative; z-index: 1; border: 0; background: transparent; cursor: pointer;
-    color: var(--txt-2); font-size: 0.95rem; font-weight: 600; padding: 11px 0; border-radius: 999px;
-    min-height: 44px; transition: color .2s var(--ease); }
-.seg-btn.is-active { color: var(--on-brand); }
+    color: var(--txt-2); font-size: 0.92rem; font-weight: 600; padding: 10px 0; border-radius: var(--radius);
+    min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: color .2s var(--ease); }
+.seg-btn svg { width: 17px; height: 17px; }
+.seg-btn.is-active { color: var(--txt); }
 .seg-thumb { position: absolute; z-index: 0; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px);
-    background: var(--grad); border-radius: 999px; transition: transform .28s var(--ease);
-    box-shadow: 0 4px 14px rgba(167,139,250,.28); }
+    background: var(--bg-1); border-radius: var(--radius); transition: transform .28s var(--ease);
+    box-shadow: 0 1px 2px rgba(0,0,0,.28), inset 0 0 0 1px var(--line); }
 .seg-thumb.right { transform: translateX(100%); }
 
 /* Enroll input */
 .enroll-row { display: flex; flex-direction: column; gap: 12px; }
-.field { width: 100%; min-height: 50px; padding: 0 16px; border-radius: 14px;
-    background: var(--bg-1); border: 1px solid var(--line); color: var(--txt); font-size: 16px;
+.field-group { display: flex; flex-direction: column; gap: 7px; }
+.micro-label { font-family: var(--mono); font-size: 0.6rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--txt-muted); margin-left: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* styled dashed upload card — the native file input is hidden inside it */
+.upload-card { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 14px;
+    background: var(--bg-1); border: 1px dashed var(--line-strong); border-radius: var(--radius);
+    transition: border-color .2s var(--ease); }
+.upload-card:hover { border-color: color-mix(in oklab, var(--brand) 45%, transparent); }
+.upload-ico { width: 36px; height: 36px; flex: none; border-radius: var(--radius-sm); display: grid;
+    place-items: center; background: var(--bg-2); border: 1px solid var(--line); color: var(--txt-2); }
+.upload-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.upload-title { font-size: 0.9rem; font-weight: 500; color: var(--txt); }
+.upload-sub { font-size: 0.78rem; color: var(--txt-2); }
+.field { width: 100%; min-height: 50px; padding: 0 16px; border-radius: var(--radius); border: 1px solid var(--line);
+    background: var(--bg-1); color: var(--txt); font-size: 16px; font-family: var(--font);
     transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
 .field::placeholder { color: var(--txt-muted); }
 .field:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--ring); }
-.dots { display: flex; gap: 8px; justify-content: center; }
-.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--bg-2); border: 1px solid var(--line); transition: .25s var(--ease); }
-.dots i.on { background: var(--grad); border-color: transparent; transform: scale(1.15); }
+/* enrolment progress: captured samples become glowing photo thumbnails,
+   the NEXT slot pulses, untaken slots are muted dots (per design) */
+.dots { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.dots:empty { display: none; }   /* verify mode: no empty row in the layout flow */
+.dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--bg-2); border: 1px solid var(--line); transition: .25s var(--ease); }
+.dots i.on { background: var(--brand); border-color: transparent;
+    box-shadow: 0 0 12px color-mix(in oklab, var(--brand) 55%, transparent); }
+.dots i.next { background: color-mix(in oklab, var(--brand) 40%, transparent); border-color: transparent;
+    animation: soft-blink 1.6s var(--ease) infinite; }
+.dots img.thumb { width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--brand);
+    box-shadow: 0 0 16px color-mix(in oklab, var(--brand) 50%, transparent);
+    animation: soft-snap .4s var(--ease) both; }
 
+/* ─── Scanner stage: oval camera + decorative halo / outline / ticks ─── */
+.scanner-stage {
+    position: relative; width: 300px; max-width: 84%; aspect-ratio: 7 / 9;
+    margin: 6px auto 2px; display: grid; place-items: center;
+}
+/* rotating conic glow behind the oval */
+.scan-halo {
+    position: absolute; width: 118%; aspect-ratio: 1; border-radius: 50%;
+    opacity: .7; filter: blur(34px); pointer-events: none; z-index: 0;
+    background: conic-gradient(from 0deg,
+        color-mix(in oklab, var(--brand) 55%, transparent),
+        transparent 40%,
+        color-mix(in oklab, var(--brand) 28%, transparent) 70%,
+        transparent);
+    animation: shimmer-rotate 8s linear infinite;
+}
 /* Scanner: the whole camera area IS the oval (front-camera selfie). */
 .scanner {
-    position: relative; width: 74%; max-width: 300px; aspect-ratio: 4 / 5;
-    margin: 10px auto 2px; background: #05080d;
-    border-radius: 50%;                       /* full ellipse — sleek face oval */
-    overflow: hidden;
-    border: 3px solid var(--brand);
-    box-shadow: 0 0 0 6px rgba(139,124,246,.10), 0 14px 40px rgba(0,0,0,.55), 0 0 26px rgba(139,124,246,.24) inset;
+    position: relative; z-index: 1; width: 100%; height: 100%;
+    background: #05080d; border-radius: 50%; overflow: hidden;
+    border: 4px solid var(--bg-1);
+    box-shadow: 0 30px 80px -30px color-mix(in oklab, var(--brand) 50%, transparent),
+                0 0 0 1px var(--line);
     display: flex; align-items: center; justify-content: center;
-    transition: box-shadow .3s var(--ease), border-color .3s var(--ease);
+    animation: pulse-ring 2.8s var(--ease) infinite;
+    transition: box-shadow .3s var(--ease);
 }
 /* border-radius on the video itself clips it to the ellipse — without this,
    iOS Safari lets the transformed <video> corners escape the parent's round
    mask (the "faded square" around the oval). */
 #video { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
-/* mirror ONLY the front camera for a natural selfie view (capture stays
-   un-mirrored); the rear camera must not be mirrored. */
 #video.mirror { transform: scaleX(-1); }
 
-/* during a check the ring glows/pulses */
-.scanner.busy { border-color: var(--brand-2); box-shadow: 0 0 0 6px rgba(167,139,250,.14), 0 14px 40px rgba(0,0,0,.55), 0 0 36px rgba(167,139,250,.5) inset; animation: pulse 1.4s var(--ease) infinite; }
-@keyframes pulse { 0%,100% { box-shadow: 0 0 0 6px rgba(167,139,250,.10), 0 14px 40px rgba(0,0,0,.55), 0 0 30px rgba(167,139,250,.35) inset; } 50% { box-shadow: 0 0 0 10px rgba(167,139,250,.20), 0 14px 40px rgba(0,0,0,.55), 0 0 48px rgba(167,139,250,.6) inset; } }
+/* travelling scan light inside the oval */
+.scan-bar {
+    position: absolute; inset-inline: 0; height: 26%; z-index: 2; pointer-events: none;
+    filter: blur(3px);
+    background: linear-gradient(to bottom, transparent,
+        color-mix(in oklab, var(--brand) 42%, transparent), transparent);
+    animation: scanline 3.2s linear infinite;
+}
+/* white flash over the oval at the moment of capture (per design) */
+.flash { position: absolute; inset: 0; z-index: 4; background: #fff; opacity: 0;
+    border-radius: 50%; pointer-events: none; }
+.flash.go { animation: flash-fade .35s var(--ease) both; }
 
-.hint { text-align: center; font-size: 0.9rem; font-weight: 500; color: var(--txt-2); margin-top: 4px; min-height: 1.2em; transition: color .2s var(--ease); }
+/* camera blocked/unavailable state shown inside the oval (per design) */
+.cam-denied { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+    background: var(--bg-2); color: var(--txt-2); font-size: 0.78rem; text-align: center; padding: 0 36px; }
+.cam-denied-inner { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cam-denied svg { color: var(--bad); }
+
+.scanner.busy { animation: pulse-ring 1.3s var(--ease) infinite; }
+.scanner.busy + .scan-outline ellipse,
+.scanner.busy ~ .scan-outline ellipse { stroke: var(--brand-2); }
+
+/* dashed ellipse outline drawn over the oval */
+.scan-outline { position: absolute; z-index: 3; width: 100%; height: 100%; pointer-events: none; inset: 0; }
+.scan-outline ellipse { stroke: color-mix(in oklab, var(--brand) 60%, transparent); }
+
+/* camera-swap control sits on the oval's lower-right (matches design) */
+.oval-swap {
+    position: absolute; z-index: 4; bottom: 10%; right: 8%;
+    width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center;
+    background: color-mix(in oklab, var(--bg-1) 88%, transparent);
+    border: 1px solid var(--line); color: var(--txt-2); cursor: pointer;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+    transition: color .2s var(--ease), border-color .2s var(--ease), transform .12s var(--ease);
+}
+.oval-swap:hover { color: var(--brand); border-color: color-mix(in oklab, var(--brand) 40%, transparent); }
+.oval-swap:active { transform: scale(.94); }
+.oval-swap:disabled { opacity: .4; }
+
+/* corner ticks around the oval */
+.scan-ticks { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.scan-ticks i {
+    position: absolute; width: 24px; height: 2px; border-radius: 999px; background: var(--brand);
+    box-shadow: 0 0 8px var(--brand);
+}
+.scan-ticks i:nth-child(1) { top: 8px; left: 50%; transform: translateX(-50%); }
+.scan-ticks i:nth-child(2) { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.scan-ticks i:nth-child(3) { top: 50%; left: 4px; transform: translateY(-50%) rotate(90deg); }
+.scan-ticks i:nth-child(4) { top: 50%; right: 4px; transform: translateY(-50%) rotate(90deg); }
+
+.hint { text-align: center; font-size: 0.9rem; font-weight: 500; color: var(--txt-2); margin-top: 2px; min-height: 1.2em; text-wrap: pretty; transition: color .2s var(--ease); }
 .hint.warn { color: var(--warn); }            /* recoverable problems: retry, low light */
 .hint.info { color: var(--info); font-weight: 600; }  /* live guidance: turn left/right */
+/* bold "n of 3 samples captured" line directly under the instruction (per design) */
+.hint-sub { text-align: center; font-size: 0.84rem; font-weight: 650; color: var(--txt); margin-top: -18px; }
 
 /* Result overlay */
 .result { position: absolute; inset: 0; z-index: 5;
-    background: rgba(8,12,19,.86); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    background: color-mix(in oklab, var(--bg-0) 86%, transparent);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px;
     animation: fade .2s var(--ease); }
-.result-badge { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; border: 2px solid currentColor; }
+.result-badge { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; border: 2px solid currentColor; animation: soft-snap .4s var(--ease) both; }
 .result.ok { color: var(--ok); } .result.bad { color: var(--bad); } .result.warn { color: var(--brand); }
+/* success overlay gets the green-tinted blur (per design: bg-success/25 + blur) */
+.result.ok { background: color-mix(in oklab, var(--ok) 28%, oklch(0.14 0.02 260 / 0.72)); }
+html[data-theme="light"] .result.ok { background: color-mix(in oklab, var(--ok) 28%, oklch(0.985 0.003 250 / 0.72)); }
 .result h2 { font-size: 1.3rem; color: var(--txt); }
 .result-sub { font-size: 0.88rem; color: var(--txt-2); text-align: center; max-width: 18rem; line-height: 1.45; }
 
-.btn { min-height: 48px; padding: 0 26px; border: 0; border-radius: 999px; font-size: 1rem; font-weight: 700;
+.btn { min-height: 52px; padding: 0 26px; border: 0; border-radius: var(--radius-2xl); font-size: 1rem; font-weight: 650;
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
     cursor: pointer; transition: transform .12s var(--ease), filter .2s var(--ease); }
-.btn:active { transform: scale(.97); }
-.btn-primary { background: var(--grad); color: var(--on-brand); box-shadow: 0 6px 18px rgba(167,139,250,.22); }
-.btn-ghost { background: var(--inset); color: var(--txt); border: 1px solid var(--line); }
-.install-btn { width: auto; gap: 6px; padding: 0 12px; border-radius: 999px; }
+.btn svg { width: 19px; height: 19px; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--brand); color: var(--on-brand); animation: glow-pulse 2.4s var(--ease) infinite; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: var(--bg-1); color: var(--txt); border: 1px solid var(--line); }
+/* inverted "done" action — bg-foreground / text-background (per design) */
+.btn-contrast { background: var(--txt); color: var(--bg-0); }
+.btn-contrast:hover { opacity: .9; }
+.install-btn { width: auto; gap: 6px; padding: 0 12px; border-radius: 999px; min-height: 38px; }
 .install-btn[hidden] { display: none !important; }
 .install-label { font-size: .85rem; font-weight: 600; }
-.btn:disabled { opacity: .55; }
+.btn:disabled { opacity: .5; animation: none; cursor: not-allowed; }
 .upload-row { display: flex; flex-direction: column; gap: 8px; }
 .upload-row .btn { min-height: 44px; }
-.actions { display: flex; gap: 12px; }
-.actions .btn { flex: 1; }
+.actions { display: flex; gap: 12px; padding-top: 2px; }
+.actions .btn { flex: 1; min-height: 56px; border-radius: 16px; }  /* h-14 rounded-2xl per design */
 
 /* Progress */
 .progress { height: 6px; border-radius: 999px; background: var(--bg-1); overflow: hidden; border: 1px solid var(--line); }
 .progress-bar { display: block; height: 100%; width: 0; background: var(--grad); border-radius: 999px; transition: width .12s linear; }
 
 .hidden { display: none !important; }
+
+/* ─── keyframes (mirror frontend/src/styles.css) ─── */
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .seg-thumb, .progress-bar, .dots i, .btn { transition: none; } .result { animation: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scanline { 0% { transform: translateY(-150%); } 100% { transform: translateY(150%); } }
+@keyframes pulse-ring {
+    0%, 100% { transform: scale(1); opacity: 0.55; }
+    50% { transform: scale(1.03); opacity: 0.9; }
+}
+@keyframes shimmer-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--brand) 40%, transparent), 0 18px 50px -20px color-mix(in oklab, var(--brand) 45%, transparent); }
+    50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--brand) 0%, transparent), 0 18px 50px -18px color-mix(in oklab, var(--brand) 65%, transparent); }
+}
+@keyframes soft-snap { 0% { transform: scale(0.6); opacity: 0.4; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes soft-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes flash-fade { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .seg-thumb, .progress-bar, .dots i, .btn { transition: none; }
+    .result, .app { animation: none; }
+    .scan-halo, .scan-bar, .scanner, .btn-primary, .status .dot { animation: none; }
+    .flash.go, .dots i.next, .dots img.thumb { animation: none; }
+}
 
 /* --- device/camera guidance tip (palm capture) --- */
 .device-tip {
     display: flex; align-items: center; gap: 10px;
-    margin: 8px auto 0; max-width: 520px; padding: 9px 12px;
-    background: rgba(99, 102, 241, 0.12);
-    border: 1px solid rgba(99, 102, 241, 0.35);
-    border-radius: 12px; font-size: 0.86rem; line-height: 1.3;
+    margin: 6px auto 0; max-width: 520px; padding: 9px 12px;
+    background: color-mix(in oklab, var(--brand) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--brand) 35%, transparent);
+    border-radius: var(--radius); font-size: 0.86rem; line-height: 1.3;
 }
 .device-tip #device-tip-text { flex: 1; }
-.device-tip .btn-sm { padding: 5px 10px; font-size: 0.8rem; white-space: nowrap; }
+.device-tip .btn-sm { padding: 5px 10px; font-size: 0.8rem; white-space: nowrap; min-height: 34px; }
 .device-tip-x {
     background: none; border: none; color: inherit; opacity: 0.6;
     font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px;

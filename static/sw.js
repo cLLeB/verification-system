@@ -1,7 +1,7 @@
 /* Minimal service worker: cache the app shell for instant loads / offline UI.
    API calls (/api, /v1, /admin) are always network — never cache identity ops. */
-const CACHE = 'faceverify-v8';
-const SHELL = ['/', '/static/app.css?v=13', '/static/device.js?v=1', '/static/app.js?v=15',
+const CACHE = 'faceverify-v15';
+const SHELL = ['/', '/static/app.css?v=21', '/static/device.js?v=1', '/static/app.js?v=18',
                '/static/offline.html', '/static/icon-192.png', '/static/icon-512.png'];
 
 self.addEventListener('install', (e) => {

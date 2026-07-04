@@ -3,23 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0B1020">
+    <meta name="theme-color" content="#0d0f16">
     <title>Biometric Verify</title>
     <link rel="manifest" href="/static/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=13">
+    <link rel="stylesheet" href="/static/app.css?v=21">
 </head>
 <body>
     <main class="app">
         <header class="topbar">
             <div class="brand">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/>
-                </svg>
-                <span>Biometric Verify</span>
+                <span class="brand-badge">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/>
+                        <path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/>
+                        <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                        <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+                        <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                        <path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+                        <path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>
+                    </svg>
+                </span>
             </div>
             <div class="top-right">
                 <button class="icon-btn install-btn" id="install-btn" hidden
@@ -27,13 +35,6 @@
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
-                    </svg>
-                </button>
-                <button class="icon-btn" id="swap-btn" aria-label="Switch front/back camera" title="Switch front/back camera">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M15 4h3a2 2 0 0 1 2 2v9"/><path d="M9 20H6a2 2 0 0 1-2-2V9"/>
-                        <path d="m18 12 2 3 2-3"/><path d="M6 12 4 9 2 12"/><circle cx="12" cy="11" r="3"/>
                     </svg>
                 </button>
                 <button class="icon-btn" id="theme-btn" aria-label="Switch light/dark theme" title="Switch theme">
@@ -45,35 +46,89 @@
         </header>
 
         <div class="seg" role="tablist" aria-label="Mode">
-            <button class="seg-btn is-active" id="mode-verify" role="tab" aria-selected="true">Verify</button>
-            <button class="seg-btn" id="mode-enroll" role="tab" aria-selected="false">Enroll</button>
+            <button class="seg-btn is-active" id="mode-verify" role="tab" aria-selected="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
+                Verify
+            </button>
+            <button class="seg-btn" id="mode-enroll" role="tab" aria-selected="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                    <path d="M19 8v6"/><path d="M22 11h-6"/>
+                </svg>
+                Enroll
+            </button>
             <span class="seg-thumb" id="seg-thumb" aria-hidden="true"></span>
         </div>
 
         <div class="enroll-row hidden" id="enroll-row">
-            <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
-                   autocapitalize="words" placeholder="Name or ID to enroll">
-            <div class="dots" id="dots" aria-label="Enrollment progress"></div>
-            <div class="upload-row">
-                <input id="enroll-files" class="field" type="file" accept="image/*" multiple
-                       aria-label="Choose photos to enroll from">
-                <button class="btn btn-ghost" id="upload-enroll">Enroll from photo</button>
+            <div class="field-group">
+                <label class="micro-label" for="user-id">New identity</label>
+                <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
+                       autocapitalize="words" placeholder="Name or ID to enroll">
             </div>
+            <label class="upload-card">
+                <span class="upload-ico">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+                    </svg>
+                </span>
+                <span class="upload-text">
+                    <span class="upload-title">Reference photo</span>
+                    <span class="upload-sub">Optional — enroll from an image</span>
+                </span>
+                <input id="enroll-files" type="file" accept="image/*" multiple class="sr-only"
+                       aria-label="Choose photos to enroll from">
+            </label>
+            <button class="btn btn-ghost" id="upload-enroll" hidden>Enroll from photo</button>
         </div>
 
-        <section class="scanner" aria-label="Face scanner">
-            <video id="video" autoplay playsinline muted></video>
+        <section class="scanner-stage" aria-label="Face scanner">
+            <div class="scan-halo" aria-hidden="true"></div>
+            <div class="scanner">
+                <video id="video" autoplay playsinline muted></video>
+                <div class="scan-bar" aria-hidden="true"></div>
+                <div class="flash" id="flash" aria-hidden="true"></div>
 
-            <div class="result hidden" id="result" role="status" aria-live="polite">
-                <div class="result-badge" id="result-badge">
-                    <svg id="result-svg" viewBox="0 0 24 24" width="34" height="34" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+                <div class="cam-denied hidden" id="cam-denied" role="alert">
+                    <div class="cam-denied-inner">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M18 6 6 18M6 6l12 12"/>
+                        </svg>
+                        <span>Camera unavailable</span>
+                    </div>
                 </div>
-                <h2 id="result-title">—</h2>
-                <p id="result-sub" class="result-sub"></p>
-                <button class="btn btn-primary" id="again">Scan again</button>
+
+                <div class="result hidden" id="result" role="status" aria-live="polite">
+                    <div class="result-badge" id="result-badge">
+                        <svg id="result-svg" viewBox="0 0 24 24" width="34" height="34" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+                    </div>
+                    <h2 id="result-title">—</h2>
+                    <p id="result-sub" class="result-sub"></p>
+                    <button class="btn btn-contrast" id="again">Scan again</button>
+                </div>
             </div>
+            <button class="oval-swap" id="swap-btn" aria-label="Switch front/back camera" title="Switch front/back camera">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 4h3a2 2 0 0 1 2 2v9"/><path d="M9 20H6a2 2 0 0 1-2-2V9"/>
+                    <path d="m18 12 2 3 2-3"/><path d="M6 12 4 9 2 12"/><circle cx="12" cy="11" r="3"/>
+                </svg>
+            </button>
+            <svg class="scan-outline" viewBox="0 0 280 360" fill="none" aria-hidden="true">
+                <ellipse cx="140" cy="180" rx="130" ry="170" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 6"/>
+            </svg>
+            <div class="scan-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </section>
+
+        <div class="dots" id="dots" aria-label="Enrollment progress"></div>
 
         <div class="device-tip hidden" id="device-tip" role="note">
             <span id="device-tip-text"></span>
@@ -81,6 +136,7 @@
             <button class="device-tip-x" id="device-tip-dismiss" aria-label="Dismiss tip">×</button>
         </div>
         <p class="hint" id="hint">Show your face — or your open palm — then tap Verify</p>
+        <p class="hint-sub hidden" id="hint-sub"></p>
         <div class="actions" id="actions">
             <button class="btn btn-primary" id="capture-btn">Verify</button>
         </div>
@@ -89,6 +145,6 @@
 
     <canvas id="canvas" hidden></canvas>
     <script src="/static/device.js?v=1"></script>
-    <script src="/static/app.js?v=16"></script>
+    <script src="/static/app.js?v=18"></script>
 </body>
 </html>
