@@ -36,7 +36,7 @@
   `envelope.EnvelopeError(ValueError)`.
   Tasks 5+ and all later phases consume these exact names.
 
-- [ ] **Step 1: Add the dependency**
+- [x] **Step 1: Add the dependency**
 
 In `requirements.txt`, under the `# --- Shared ---` section, after the `cryptography>=42.0` line, add:
 
@@ -47,7 +47,7 @@ cbor2>=5.6               # CBOR template envelopes + signed credentials (trust p
 Run: `pip install cbor2`
 Expected: installs cleanly.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `tests/test_envelope.py`:
 
@@ -111,12 +111,12 @@ def test_rejects_unknown_field_and_wrong_version():
         envelope.decode(envelope.MAGIC + cbor2.dumps(env))
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_envelope.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'biometric.core.envelope'` (or ImportError).
 
-- [ ] **Step 4: Implement the module**
+- [x] **Step 4: Implement the module**
 
 Create `biometric/core/envelope.py`:
 
@@ -205,12 +205,12 @@ def _validate(env) -> None:
         raise EnvelopeError("meta must be a map")
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_envelope.py -v`
 Expected: all PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add requirements.txt biometric/core/envelope.py tests/test_envelope.py
