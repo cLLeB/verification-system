@@ -352,7 +352,7 @@ git commit -m "feat(trust): Ed25519 signing helpers with fail-closed verify"
   `issuer_keys.remove(tenant) -> bool`, `issuer_keys.key_dir() -> str`.
   Tenant `None`/`""` normalizes to `"default"`. Tasks 6–8 and Phase 2 consume these.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_issuer_keys.py`:
 
@@ -424,12 +424,12 @@ def test_remove_for_offboarding():
     assert issuer_keys.remove("gone") is False
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_issuer_keys.py -v`
 Expected: FAIL — ImportError.
 
-- [ ] **Step 3: Implement the module**
+- [x] **Step 3: Implement the module**
 
 Create `face_service/issuer_keys.py`:
 
@@ -580,7 +580,7 @@ def remove(tenant: Optional[str]) -> bool:
         return True
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_issuer_keys.py -v`
 Expected: all PASS.
@@ -589,7 +589,7 @@ Note: `test_private_key_encrypted_and_dropped_on_retire` relies on `get_cipher` 
 `.key` file in the issuer dir (encryption on by default) — that is existing behavior of
 `biometric/core/crypto.py`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add face_service/issuer_keys.py tests/test_issuer_keys.py
