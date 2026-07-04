@@ -31,6 +31,7 @@
                 <button class="tab" data-tab="invites">Invites</button>
                 <button class="tab" data-tab="people">People</button>
                 <button class="tab" data-tab="keys">API Keys</button>
+                <button class="tab" data-tab="security">Security</button>
                 <button class="tab" data-tab="usage">Usage</button>
                 <button class="tab" data-tab="ops">Operators</button>
                 <button class="tab" data-tab="audit">Audit</button>
@@ -174,6 +175,24 @@
             </div>
         </div>
 
+        <!-- Security -->
+        <div class="panel hidden" id="tab-security">
+            <div class="card">
+                <h2>Signing keys <span class="muted">(per tenant)</span></h2>
+                <p class="muted">Each tenant has a signing key. Anything the platform issues for
+                    that tenant (credentials, export bundles) is signed with it, so any device can
+                    prove it's genuine and untampered. Rotating creates a fresh key; things signed
+                    with the old key <b>stay valid</b> — only new items use the new key.</p>
+                <div class="row">
+                    <input id="sec-tenant" class="field" type="text" placeholder="Tenant id (blank = default)">
+                    <button id="sec-load" class="btn primary">Load keys</button>
+                    <button id="sec-rotate" class="btn danger">Rotate key&hellip;</button>
+                </div>
+                <div id="sec-keys" class="list" style="margin-top:12px"></div>
+                <p id="sec-msg" class="muted"></p>
+            </div>
+        </div>
+
         <!-- Usage -->
         <div class="panel hidden" id="tab-usage">
             <div class="card">
@@ -214,6 +233,6 @@
     </section>
 </main>
 <canvas id="canvas" hidden></canvas>
-<script src="/static/admin.js?v=2"></script>
+<script src="/static/admin.js?v=3"></script>
 </body>
 </html>

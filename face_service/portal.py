@@ -19,7 +19,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from face.config import load_config
 
-from . import invites, keys, modality as _modality, tenants
+from . import audit, invites, issuer_keys, keys, modality as _modality, tenants
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -278,3 +278,23 @@ def portal_invites_revoke():
         purged = _modality.purge_modalities(rec["user_id"], face_cfg,
                                             rec.get("enrolled") or [], palm_enabled)
     return jsonify({"success": ok, "purged": purged})
+
+
+# --- issuer signing keys (this tenant's signing identity) --------------------
+@portal_bp.get("/portal/api/issuer-keys")
+@require_tenant
+def portal_issuer_keys():
+    return jsonify({"success": True,
+                    "keys": issuer_keys.public_keys(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/issuer-keys/rotate")
+@require_tenant
+def portal_issuer_keys_rotate():
+    gate = _enabled_or_402()
+    if gate:
+        return gate
+    rec = issuer_keys.rotate(g.portal_tenant)
+    audit.log(g.portal_tenant, "issuer_key_rotate", actor="portal", success=True,
+              detail=f"new kid {rec['kid']}")
+    return jsonify({"success": True, "active": rec})

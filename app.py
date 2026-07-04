@@ -466,6 +466,25 @@ def admin_tenant_offboard():
                     "invites_revoked": invites_revoked, "store_erased": erased})
 
 
+@app.route("/admin/api/issuer-keys", methods=["GET"])
+@admin.require_admin
+def admin_issuer_keys():
+    tenant = (request.args.get("tenant") or "default").strip() or "default"
+    return jsonify({"success": True, "tenant": tenant,
+                    "keys": issuer_keys.public_keys(tenant)})
+
+
+@app.route("/admin/api/issuer-keys/rotate", methods=["POST"])
+@admin.require_admin
+def admin_issuer_keys_rotate():
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "default").strip() or "default"
+    rec = issuer_keys.rotate(tenant)
+    audit.log(tenant, "issuer_key_rotate", actor=g.get("admin_user", "admin"),
+              success=True, detail=f"new kid {rec['kid']}")
+    return jsonify({"success": True, "tenant": tenant, "active": rec})
+
+
 @app.route("/admin/api/overview")
 @admin.require_admin
 def admin_overview():

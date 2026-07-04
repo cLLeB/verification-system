@@ -1232,7 +1232,7 @@ git commit -m "feat(trust): /v1/tenant/keys list+rotate endpoints, offboard drop
   (sets `g.portal_tenant`), portal JS `api(path, opts)` helper, `_enabled_or_402()` in portal.py.
 - Produces: `GET/POST /admin/api/issuer-keys[/rotate]`, `GET/POST /portal/api/issuer-keys[/rotate]`.
 
-- [ ] **Step 1: Admin endpoints**
+- [x] **Step 1: Admin endpoints**
 
 In `app.py`, near the other `/admin/api/tenants/*` routes, add:
 
@@ -1256,7 +1256,7 @@ def admin_issuer_keys_rotate():
     return jsonify({"success": True, "tenant": tenant, "active": rec})
 ```
 
-- [ ] **Step 2: Portal endpoints**
+- [x] **Step 2: Portal endpoints**
 
 In `face_service/portal.py`, after the keys section (`portal_keys_revoke`, line ~168),
 add (also add `issuer_keys` and `audit` to the module's `from . import ...` imports if
@@ -1287,7 +1287,7 @@ Note: `_enabled_or_402` is defined at `face_service/portal.py:213` but the issue
 section sits earlier in the file — either place the new routes after it or reference it
 lazily; simplest is to add the new section after the invites section at the end.
 
-- [ ] **Step 3: Admin UI**
+- [x] **Step 3: Admin UI**
 
 In `templates/admin.html`:
 
@@ -1357,7 +1357,7 @@ document.getElementById('sec-rotate')?.addEventListener('click', async () => {
 If admin.js loads panel data on tab switch, also call `secLoadKeys()` when the
 security tab activates (follow how the keys tab does it).
 
-- [ ] **Step 4: Portal UI**
+- [x] **Step 4: Portal UI**
 
 `templates/portal.html` is a single-column card layout inside `<section id="console">`
 (no tabs). After the card that lists API keys, add a new card, **copying the adjacent
@@ -1403,7 +1403,7 @@ document.getElementById('psec-rotate')?.addEventListener('click', async () => {
 });
 ```
 
-- [ ] **Step 5: Verify by launching the server**
+- [x] **Step 5: Verify by launching the server**
 
 Run: `python serve.py` (or the project's usual launch command), open
 `http://localhost:5000/admin` → Security tab: load keys for `default`, rotate, see the
@@ -1414,7 +1414,7 @@ UI checks — no headless screenshot loops.)
 Also run: `python -m pytest tests/test_portal.py tests/test_admin_gate.py -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py face_service/portal.py templates/admin.html templates/portal.html static/admin.js static/portal.js

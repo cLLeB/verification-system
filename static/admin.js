@@ -13,7 +13,7 @@ function showLogin() { $('login').classList.remove('hidden'); $('console').class
 function showConsole() {
     $('login').classList.add('hidden'); $('console').classList.remove('hidden');
     startCamera(); loadOverview(); loadPeople(); loadKeys(); loadTenants(); loadUsage(); loadOps();
-    populateAuditTenants(); loadAudit();
+    populateAuditTenants(); loadAudit(); secLoadKeys();
 }
 async function checkSession() {
     const d = await (await fetch('/admin/session')).json();
@@ -143,6 +143,29 @@ $('people-csv').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'people.csv'; a.click(); URL.revokeObjectURL(a.href);
+};
+
+// --- security: per-tenant issuer signing keys --------------------------------
+async function secLoadKeys() {
+    const tenant = ($('sec-tenant').value || '').trim() || 'default';
+    const d = await api(`/admin/api/issuer-keys?tenant=${encodeURIComponent(tenant)}`);
+    const list = $('sec-keys'); list.innerHTML = '';
+    (d.keys || []).forEach(k => {
+        const row = document.createElement('div'); row.className = 'item';
+        const retired = k.retired_at ? ` · retired ${new Date(k.retired_at * 1000).toLocaleDateString()}` : '';
+        row.innerHTML = `<div class="grow"><div><code>${k.kid}</code> <span class="pill">${k.status}</span></div>
+            <div class="sub">public key: <code>${k.public_key}</code></div>
+            <div class="sub">created ${new Date(k.created * 1000).toLocaleString()}${retired}</div></div>`;
+        list.appendChild(row);
+    });
+    $('sec-msg').textContent = `Tenant "${tenant}" — ${(d.keys || []).length} key(s).`;
+}
+$('sec-load').onclick = secLoadKeys;
+$('sec-rotate').onclick = async () => {
+    const tenant = ($('sec-tenant').value || '').trim() || 'default';
+    if (!confirm(`Rotate the signing key for "${tenant}"?\n\nExisting signed items stay valid; new items are signed with the new key.`)) return;
+    await api('/admin/api/issuer-keys/rotate', { method: 'POST', body: JSON.stringify({ tenant }) });
+    secLoadKeys();
 };
 
 // --- keys ------------------------------------------------------------------

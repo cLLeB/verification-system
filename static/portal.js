@@ -18,6 +18,7 @@ async function refreshSession() {
         show('console');
         renderEntitlement(d.entitlement);
         loadKeys();
+        loadIssuerKeys();
     } else {
         show('login');
     }
@@ -121,5 +122,28 @@ async function loadKeys() {
         row.appendChild(b); list.appendChild(row);
     });
 }
+
+// --- issuer signing key (your organisation's signing identity) ---------------
+async function loadIssuerKeys() {
+    const d = await api('/portal/api/issuer-keys');
+    const list = $('psec-keys');
+    if (!list) return;
+    list.innerHTML = '';
+    (d.keys || []).forEach(k => {
+        const row = document.createElement('div'); row.className = 'item';
+        const retired = k.retired_at ? ` · retired ${new Date(k.retired_at * 1000).toLocaleDateString()}` : '';
+        row.innerHTML = `<div class="grow"><div><code>${k.kid}</code> <span class="pill">${k.status}</span></div>
+            <div class="sub">created ${new Date(k.created * 1000).toLocaleDateString()}${retired}</div></div>`;
+        list.appendChild(row);
+    });
+}
+
+const psecRotate = $('psec-rotate');
+if (psecRotate) psecRotate.onclick = async () => {
+    if (!confirm('Rotate your signing key?\n\nEverything already issued stays valid; new items are signed with the new key.')) return;
+    const d = await api('/portal/api/issuer-keys/rotate', { method: 'POST', body: '{}' });
+    if (d && !d.success) alert(d.message || 'Rotation failed.');
+    loadIssuerKeys();
+};
 
 refreshSession();

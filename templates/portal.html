@@ -63,9 +63,19 @@
                 <h2>Your keys</h2>
                 <div id="keys-list" class="list"></div>
             </div>
+
+            <div class="card" id="portal-security">
+                <h2>Security &mdash; your signing key</h2>
+                <p class="muted">This key signs everything issued for your organisation
+                    (credentials, export bundles) so anyone can check it's genuine. Rotate it if
+                    you believe it may have been exposed &mdash; anything already issued stays
+                    valid; only new items use the new key.</p>
+                <div id="psec-keys" class="list"></div>
+                <button id="psec-rotate" class="btn danger">Rotate signing key&hellip;</button>
+            </div>
         </div>
     </section>
 </main>
-<script src="/static/portal.js?v=1"></script>
+<script src="/static/portal.js?v=2"></script>
 </body>
 </html>
