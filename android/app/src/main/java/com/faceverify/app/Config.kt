@@ -7,6 +7,12 @@ object Config {
     const val FACE_SIZE = 112                 // ArcFace input is 112x112
     const val MIN_FACE_PX = 90                // smallest acceptable face (shorter side)
 
+    // Template protection (cancelable biometrics). Synced/bundled templates arrive
+    // projected into a revocable domain; live probes are projected with the shipped
+    // domain seed before matching. Mirrors biometric/core/protect.py — the scheme id
+    // must match the server's or pulled datasets are rejected as unmatchable.
+    const val PROTECT_SCHEME = "hd3-v1"
+
     // matching (cosine on L2-normalised embeddings)
     const val MATCH_THRESHOLD = 0.40f         // accept if best similarity >= this
     const val IDENTIFY_MARGIN = 0.06f         // 1:N: top must beat 2nd identity by this

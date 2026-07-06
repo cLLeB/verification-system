@@ -19,6 +19,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 data class Person(
     @PrimaryKey val userId: String,
     val createdAt: Long = System.currentTimeMillis(),
+    // Protection-domain seed for synced/bundled PROTECTED templates (encrypted with
+    // the keystore master key; null = locally enrolled raw templates). Live probes
+    // for this person are projected with it before matching (see Protect.kt).
+    @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val seedBlob: ByteArray? = null,
 )
 
 @Entity(
@@ -56,7 +60,7 @@ interface FaceDao {
     @Query("SELECT COUNT(*) FROM person") suspend fun personCount(): Int
 }
 
-@Database(entities = [Person::class, Embedding::class], version = 2, exportSchema = false)
+@Database(entities = [Person::class, Embedding::class], version = 3, exportSchema = false)
 abstract class FaceDb : RoomDatabase() {
     abstract fun dao(): FaceDao
 
@@ -70,10 +74,17 @@ abstract class FaceDb : RoomDatabase() {
             }
         }
 
+        // v2 -> v3: per-person protection-domain seed (null = raw local enrolment).
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE person ADD COLUMN seedBlob BLOB")
+            }
+        }
+
         fun get(context: Context): FaceDb = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext, FaceDb::class.java, "faceverify.db"
-            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
         }
     }
 }

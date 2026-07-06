@@ -27,7 +27,11 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
         }
     }
 
-    /** Pull the tenant's templates into the local mirror, incrementally. */
+    /** Pull the tenant's templates into the local mirror, incrementally. Templates
+     *  arrive PROTECTED (projected into a revocable domain); the response's
+     *  `protection` block carries the domain seed used to project live probes. If
+     *  the domain changed since the last pull (a reissue), the whole mirror is
+     *  stale — wipe the synced rows and re-pull from scratch. */
     suspend fun pull(): Result = withContext(Dispatchers.IO) {
         try {
             var since = prefs.lastSeq
@@ -35,6 +39,20 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
             var deleted = 0
             while (true) {
                 val resp = client().get("/v1/sync/pull?since=$since&limit=500")
+                val prot = resp.optJSONObject("protection")
+                val seedref = prot?.optString("seedref") ?: ""
+                if (seedref != prefs.protSeedref) {
+                    prefs.protSeedref = seedref
+                    if (since != 0L) {                       // domain rotated: full re-pull
+                        repo.deleteSynced()
+                        since = 0L
+                        prefs.lastSeq = 0L
+                        continue
+                    }
+                }
+                val domainSeed = prot?.optString("seed")
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }
                 val arr = resp.getJSONArray("templates")
                 for (i in 0 until arr.length()) {
                     val t = arr.getJSONObject(i)
@@ -46,7 +64,11 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
                         val embs = (0 until embsJson.length()).map {
                             SyncClient.jsonToFloats(embsJson.getJSONArray(it))
                         }
-                        repo.replaceUser(uid, embs, source = "synced"); applied++
+                        // individually reissued users carry their OWN domain seed
+                        val rowSeed = t.optString("seed").takeIf { it.isNotEmpty() }
+                            ?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }
+                            ?: domainSeed
+                        repo.replaceUser(uid, embs, source = "synced", seed = rowSeed); applied++
                     }
                 }
                 since = resp.getLong("next_seq")
