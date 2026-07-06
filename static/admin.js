@@ -13,7 +13,7 @@ function showLogin() { $('login').classList.remove('hidden'); $('console').class
 function showConsole() {
     $('login').classList.add('hidden'); $('console').classList.remove('hidden');
     startCamera(); loadOverview(); loadPeople(); loadKeys(); loadTenants(); loadUsage(); loadOps();
-    populateAuditTenants(); loadAudit(); secLoadKeys();
+    populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad();
 }
 async function checkSession() {
     const d = await (await fetch('/admin/session')).json();
@@ -166,6 +166,46 @@ $('sec-rotate').onclick = async () => {
     if (!confirm(`Rotate the signing key for "${tenant}"?\n\nExisting signed items stay valid; new items are signed with the new key.`)) return;
     await api('/admin/api/issuer-keys/rotate', { method: 'POST', body: JSON.stringify({ tenant }) });
     secLoadKeys();
+};
+
+// --- security: template protection (revocable biometrics) -------------------
+function protRow(mod, s) {
+    const row = document.createElement('div'); row.className = 'item';
+    if (s.user_id !== undefined) {
+        const detail = s.enrolled
+            ? `protected: ${s.protected ? 'yes' : 'no'} · domain: <code>${s.seedref || '-'}</code>`
+            : 'not enrolled';
+        row.innerHTML = `<div class="grow"><div><b>${mod}</b> — ${s.user_id}</div>
+            <div class="sub">${detail}</div></div>`;
+    } else {
+        const last = s.last_reissue ? new Date(s.last_reissue * 1000).toLocaleString() : 'never';
+        row.innerHTML = `<div class="grow"><div><b>${mod}</b>
+            <span class="pill">${s.enabled ? 'protected · epoch ' + s.epoch : 'not protected'}</span></div>
+            <div class="sub">${s.users} enrolled · ${s.reissued_users} individually reissued · last reissue: ${last}</div></div>`;
+    }
+    return row;
+}
+async function protLoad() {
+    const tenant = ($('prot-tenant').value || '').trim() || 'default';
+    const user = ($('prot-user').value || '').trim();
+    const q = `tenant=${encodeURIComponent(tenant)}` + (user ? `&user_id=${encodeURIComponent(user)}` : '');
+    const d = await api(`/admin/api/protection?${q}`);
+    const list = $('prot-status'); list.innerHTML = '';
+    Object.entries(d.modalities || {}).forEach(([mod, s]) => list.appendChild(protRow(mod, s)));
+    $('prot-msg').textContent = `Tenant "${tenant}"${user ? ` — user "${user}"` : ''}.`;
+}
+$('prot-load').onclick = protLoad;
+$('prot-reissue').onclick = async () => {
+    const tenant = ($('prot-tenant').value || '').trim() || 'default';
+    const user = ($('prot-user').value || '').trim();
+    const scope = user ? `user "${user}"` : `EVERY template in "${tenant}"`;
+    if (!confirm(`Reissue ${scope}?\n\nOld exported/stored copies stop matching immediately. Enrolled people keep verifying — no recapture needed.`)) return;
+    const d = await api('/admin/api/protection/reissue', { method: 'POST',
+        body: JSON.stringify(user ? { tenant, user_id: user } : { tenant }) });
+    $('prot-msg').textContent = d.success
+        ? `Reissued: ${Object.entries(d.reissued).map(([m, n]) => `${m} ${n}`).join(', ')}.`
+        : (d.message || 'Reissue failed.');
+    if (d.success) protLoad();
 };
 
 // --- keys ------------------------------------------------------------------
