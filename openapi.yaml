@@ -308,3 +308,37 @@ paths:
       responses:
         "200": { description: "The new active key (kid, public_key, created, status)" }
         "400": { description: Missing confirm flag }
+  /v1/templates/status:
+    get:
+      summary: "Template-protection status (role: manage)"
+      description: >
+        Stored templates are kept in a scrambled, revocable form (cancelable
+        biometrics). Returns per-modality status — enabled, scheme, protection
+        epoch, last reissue, user counts — or one user's detail via ?user_id=.
+      parameters:
+        - { name: user_id, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: "Per-modality protection status" }
+  /v1/templates/reissue:
+    post:
+      summary: "Reissue (re-protect) stored templates (role: manage)"
+      description: >
+        Moves templates to a NEW protection domain — like resetting a password:
+        every previously stored or exported protected copy stops matching, while
+        enrolled people keep verifying with no recapture. Omit user_id to
+        reissue the whole tenant; include it to reissue one person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: { type: boolean, enum: [true] }
+                user_id: { type: string }
+      responses:
+        "200": { description: "Reissued row counts per modality" }
+        "400": { description: Missing confirm flag }
+        "404": { description: user_id not enrolled }
+        "409": { description: Protection not enabled on this server }

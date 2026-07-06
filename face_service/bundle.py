@@ -80,11 +80,17 @@ def _check_passphrase(passphrase: Optional[str]) -> str:
     return passphrase
 
 
-def build_payload(tenant: str, face: list, palm: list) -> dict:
-    """The plaintext template payload (pre-encryption)."""
-    return {"format": PAYLOAD_FORMAT, "version": VERSION, "tenant": tenant,
-            "created": int(time.time()),
-            "modalities": {"face": face or [], "palm": palm or []}}
+def build_payload(tenant: str, face: list, palm: list,
+                  protection: Optional[dict] = None) -> dict:
+    """The plaintext template payload (pre-encryption). ``protection`` (per-
+    modality domain seeds, from the protected-template layer) rides along so an
+    offline device can project live captures into the same matching domain."""
+    out = {"format": PAYLOAD_FORMAT, "version": VERSION, "tenant": tenant,
+           "created": int(time.time()),
+           "modalities": {"face": face or [], "palm": palm or []}}
+    if protection:
+        out["protection"] = protection
+    return out
 
 
 def pack(payload: dict, passphrase: str) -> dict:

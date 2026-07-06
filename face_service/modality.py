@@ -20,6 +20,7 @@ falls through to the other.
 
 from __future__ import annotations
 
+import base64
 import dataclasses
 import json
 import os
@@ -261,11 +262,17 @@ def export_templates(face_cfg: FaceConfig, modality: str = "face",
     if modality == "palm" and not palm_enabled:
         return []
     store, _idx, _thr = store_and_index(face_cfg, modality)
+    off = dict(store.off_domain_users()) if store.protection_enabled else {}
     out = []
     for t in store.iter_templates():
         embs = [[round(float(x), 6) for x in e] for e in (t.embeddings or [])]
-        if embs:
-            out.append({"user_id": t.user_id, "embeddings": embs})
+        if not embs:
+            continue
+        row = {"user_id": t.user_id, "embeddings": embs}
+        if t.user_id in off:                      # individually reissued: own domain seed
+            ref, seed = store.domain_seed(user_id=t.user_id)
+            row["seedref"], row["seed"] = ref, base64.b64encode(seed).decode("ascii")
+        out.append(row)
     return out
 
 
