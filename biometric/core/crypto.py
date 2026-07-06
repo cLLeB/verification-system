@@ -124,7 +124,9 @@ def erase_keys(db_path: str) -> int:
     behind (including SQLite pages and backups) become permanently unreadable.
     Returns the number of key files removed."""
     removed = 0
-    for name in (_SALT_FILE, _KEY_FILE, _WRAPPED_KEY_FILE):
+    # .protect.secret: the template-protection secret (biometric.core.protect) —
+    # erasing it kills every protection domain along with the data key.
+    for name in (_SALT_FILE, _KEY_FILE, _WRAPPED_KEY_FILE, ".protect.secret"):
         path = os.path.join(db_path, name)
         if os.path.exists(path):
             os.remove(path)
