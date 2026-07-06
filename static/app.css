@@ -323,3 +323,24 @@ html[data-theme="light"] .result.ok { background: color-mix(in oklab, var(--ok) 
 }
 .device-tip-x:hover { opacity: 1; }
 .device-tip.hidden { display: none; }
+
+/* --- "How your biometrics are protected" explainer (enrol screen) ---------- */
+.protect-note {
+    grid-column: 1 / -1;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--bg-1);
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--txt-2);
+}
+.protect-note summary {
+    cursor: pointer;
+    color: var(--txt);
+    font-weight: 600;
+    font-size: 0.8rem;
+    list-style-position: inside;
+}
+.protect-note[open] summary { margin-bottom: 6px; }
+.protect-note p { margin: 6px 0; line-height: 1.5; }
+.protect-note b { color: var(--txt); }

@@ -29,6 +29,7 @@ import hmac
 import json
 import os
 import ssl
+import urllib.parse
 import urllib.request
 from typing import List, Optional, Union
 
@@ -168,6 +169,25 @@ class FaceVerifyClient:
     def purge_tenant(self) -> dict:
         """Erase ALL users in this tenant (right-to-erasure). Irreversible."""
         return self._call("POST", "/v1/users/purge", {"confirm": True})
+
+    def template_status(self, user_id: Optional[str] = None) -> dict:
+        """Template-protection status per modality, or one user's detail.
+        Stored templates live in a scrambled, revocable domain; this reports
+        the scheme, protection epoch, and last reissue. Admin key required."""
+        path = "/v1/templates/status"
+        if user_id:
+            path += "?user_id=" + urllib.parse.quote(user_id)
+        return self._call("GET", path)
+
+    def reissue_templates(self, user_id: Optional[str] = None) -> dict:
+        """Re-protect stored templates in a NEW domain (cancelable biometrics):
+        previously exported or stolen copies stop matching, enrolled people keep
+        verifying with no recapture. Omit user_id to reissue the whole tenant.
+        Admin key required."""
+        body = {"confirm": True}
+        if user_id:
+            body["user_id"] = user_id
+        return self._call("POST", "/v1/templates/reissue", body)
 
     def tenant_keys(self) -> dict:
         """List this tenant's issuer signing keys (active first). Admin key required."""

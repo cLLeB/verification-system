@@ -83,6 +83,19 @@ export class FaceVerifyClient {
       : this._call("POST", "/v1/users/delete", { user_id: userId });
   }
   exportUser(userId) { return this._call("POST", "/v1/users/export", { user_id: userId }); }
+  /** Template-protection status per modality (or one user via userId). Admin key required. */
+  templateStatus(userId) {
+    const q = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
+    return this._call("GET", `/v1/templates/status${q}`);
+  }
+  /** Re-protect stored templates in a new domain (cancelable biometrics): old
+   *  exported/stolen copies stop matching; nobody re-enrols. Omit userId for the
+   *  whole tenant. Admin key required. */
+  reissueTemplates(userId) {
+    const body = { confirm: true };
+    if (userId) body.user_id = userId;
+    return this._call("POST", "/v1/templates/reissue", body);
+  }
   /** List this tenant's issuer signing keys (active first). Admin key required. */
   tenantKeys() { return this._call("GET", "/v1/tenant/keys"); }
   /** Rotate the issuer signing key. Previously signed items stay verifiable. */
