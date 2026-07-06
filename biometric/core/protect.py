@@ -37,8 +37,10 @@ _ENV_FLAG = "BIO_PROTECT_TEMPLATES"
 
 def enabled() -> bool:
     """Global default for new store instances (a store can override via its
-    ``protect_templates`` kwarg)."""
-    return os.environ.get(_ENV_FLAG, "0") == "1"
+    ``protect_templates`` kwarg). Default ON — the accuracy gate
+    (``python -m bench.protected``) passed with a 0.0 TAR delta; set
+    BIO_PROTECT_TEMPLATES=0 to opt out."""
+    return os.environ.get(_ENV_FLAG, "1") == "1"
 
 
 # --- seedref contexts --------------------------------------------------------

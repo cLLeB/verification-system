@@ -89,6 +89,6 @@ def test_protector_plaintext_fallback_without_cipher(tmp_path):
 
 def test_enabled_env_flag(monkeypatch):
     monkeypatch.delenv("BIO_PROTECT_TEMPLATES", raising=False)
+    assert protect.enabled() is True                  # default ON (gate passed)
+    monkeypatch.setenv("BIO_PROTECT_TEMPLATES", "0")
     assert protect.enabled() is False
-    monkeypatch.setenv("BIO_PROTECT_TEMPLATES", "1")
-    assert protect.enabled() is True

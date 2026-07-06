@@ -37,7 +37,7 @@ def test_profile_store_and_index_round_trip(tmp_path):
     users, vectors = idx.count()
     assert users == 30 and vectors == 30
     probe = _unit(7) + 0.05 * _unit(1000)
-    hits = idx.search(probe / np.linalg.norm(probe), top_k=3)
+    hits = idx.search(st.protect_probe(probe / np.linalg.norm(probe)), top_k=3)
     assert hits[0][0] == "u7"
 
 

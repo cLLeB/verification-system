@@ -28,7 +28,7 @@ def test_exact_search_finds_right_person(tmp_path):
     users, vectors = idx.count()
     assert users == 100 and vectors == 100
     probe = _unit(7) + 0.05 * _unit(1000)
-    hits = idx.search(probe / np.linalg.norm(probe), top_k=3)
+    hits = idx.search(st.protect_probe(probe / np.linalg.norm(probe)), top_k=3)
     assert hits[0][0] == "u7"
 
 
@@ -51,7 +51,7 @@ def test_persisted_index_is_encrypted_and_reloads(tmp_path):
     faceindex.invalidate(str(tmp_path))
     idx2 = faceindex.get_index(str(tmp_path), st)        # must LOAD, not rebuild
     assert idx2.count()[0] == 20
-    assert idx2.search(_unit(5), top_k=1)[0][0] == "u5"
+    assert idx2.search(st.protect_probe(_unit(5)), top_k=1)[0][0] == "u5"
 
 
 def test_replay_picks_up_changes(tmp_path):
@@ -64,5 +64,5 @@ def test_replay_picks_up_changes(tmp_path):
     st.delete("u0")
     faceindex.invalidate(str(tmp_path))
     idx = faceindex.get_index(str(tmp_path), st)
-    assert idx.search(_unit(999), top_k=1)[0][0] == "late"
-    assert all(u != "u0" for u, _ in idx.search(_unit(0), top_k=5))
+    assert idx.search(st.protect_probe(_unit(999)), top_k=1)[0][0] == "late"
+    assert all(u != "u0" for u, _ in idx.search(st.protect_probe(_unit(0)), top_k=5))
