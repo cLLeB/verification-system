@@ -8,6 +8,8 @@ import numpy as np
 
 from typing import List
 
+from biometric.core import matcher as _core_matcher
+
 from . import engine as _engine
 from . import id_document as _id
 from . import index as _index
@@ -54,8 +56,11 @@ def _quality(sample) -> dict:
 
 
 def _identify_via_index(emb, st: FaceStore, cfg: FaceConfig) -> dict:
-    """Vectorized 1:N over the cached tenant index (built once, not per request)."""
-    hits = _index_for(st, cfg).search(emb, top_k=5)
+    """Vectorized 1:N over the cached tenant index (built once, not per request).
+    The probe is projected into the store's protection domain; individually
+    reissued users are rescored in their own domain."""
+    hits = _index_for(st, cfg).search(st.protect_probe(emb), top_k=5)
+    hits = _core_matcher.merge_off_domain(hits, emb, st, top_k=5)
     if not hits:
         return {"success": False, "code": "no_match", "message": "Face not recognised.",
                 "user_id": None, "score": -1.0, "margin": 0.0,
@@ -77,13 +82,16 @@ def _guards_ok(emb, user_id: str, st: FaceStore, cfg: FaceConfig,
     """Shared enrol guards: face must not belong to another user (duplicate), and
     must match this user's earlier captures (self-consistency). Returns a failure
     dict, or None when both pass."""
-    for uid, score in _index_for(st, cfg).search(emb, top_k=3):
+    dupe_hits = _core_matcher.merge_off_domain(
+        _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
+    for uid, score in dupe_hits:
         if uid != user_id and score >= cfg.match_threshold:
             return _fail(f"This face is already enrolled as '{uid}'.", "duplicate",
                          conflict_user_id=uid, score=round(score, 4))
     existing = st.load(user_id)
     if existing is not None and existing.embeddings:
-        score = _matcher.best_score(emb, existing.embeddings)
+        score = _matcher.best_score(st.protect_probe(emb, user_id=user_id),
+                                    existing.embeddings)
         if score < consistency_threshold:
             return _fail("This doesn't match the earlier capture. Use the SAME person.",
                          "inconsistent", score=round(float(score), 4))
@@ -112,7 +120,7 @@ def _enroll_from_id(user_id: str, image: np.ndarray, cfg: FaceConfig,
     if fail is not None:
         return fail
     tmpl = st.add_embedding(user_id, emb, source="id")
-    _index.on_add(cfg.db_path, user_id, emb)
+    _index.on_add(cfg.db_path, user_id, st.protect_probe(emb, user_id=user_id))
     return {"success": True, "code": "enrolled", "source": "id_document",
             "message": f"Enrolled '{user_id}' from an ID document "
                        f"({len(tmpl.embeddings)} of {cfg.samples_per_user}). "
@@ -160,7 +168,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: FaceConfig = CONFIG,
         return fail
 
     tmpl = st.add_embedding(user_id, sample.embedding)
-    _index.on_add(cfg.db_path, user_id, sample.embedding)
+    _index.on_add(cfg.db_path, user_id, st.protect_probe(sample.embedding, user_id=user_id))
     return {"success": True, "code": "enrolled", "source": "live",
             "message": f"Enrolled '{user_id}' ({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
             "user_id": user_id, "samples": len(tmpl.embeddings),
@@ -179,7 +187,8 @@ def verify(user_id: str, image: np.ndarray, cfg: FaceConfig = CONFIG,
         sample = _engine.embed(image, cfg)
     except FaceError as exc:
         return _fail(exc.message, exc.code)
-    dec = _matcher.verify(sample.embedding, tmpl.embeddings, cfg)
+    dec = _matcher.verify(st.protect_probe(sample.embedding, user_id=user_id),
+                          tmpl.embeddings, cfg)
     return {"success": dec.granted, "code": "match" if dec.granted else "no_match",
             "message": "Identity confirmed." if dec.granted else "Does not match.",
             "user_id": user_id, "score": round(dec.score, 4),
@@ -203,7 +212,8 @@ def _match_embedding(emb, user_id: str, st: FaceStore, cfg: FaceConfig) -> dict:
         tmpl = st.load(user_id)
         if tmpl is None:
             return _fail(f"User '{user_id}' is not enrolled.", "not_enrolled", user_id=user_id)
-        dec = _matcher.verify(emb, tmpl.embeddings, cfg)
+        dec = _matcher.verify(st.protect_probe(emb, user_id=user_id),
+                              tmpl.embeddings, cfg)
         return {"success": dec.granted, "code": "match" if dec.granted else "no_match",
                 "message": "Identity confirmed." if dec.granted else "Does not match.",
                 "user_id": user_id, "score": round(dec.score, 4),
@@ -225,7 +235,7 @@ def _maybe_adapt(out: dict, emb, claimed_uid: str, st: FaceStore, cfg: FaceConfi
         return out                               # ambiguous 1:N — don't adapt
     added = st.add_adaptive(uid, emb)
     if added:
-        _index.on_add(cfg.db_path, uid, emb)     # keep the index in sync
+        _index.on_add(cfg.db_path, uid, st.protect_probe(emb, user_id=uid))  # keep the index in sync
     out["adapted"] = added
     return out
 
@@ -248,7 +258,7 @@ def enroll_live(user_id: str, images: List, cfg: FaceConfig = CONFIG,
     if fail is not None:
         return fail
     tmpl = st.add_embedding(user_id, emb)
-    _index.on_add(cfg.db_path, user_id, emb)
+    _index.on_add(cfg.db_path, user_id, st.protect_probe(emb, user_id=user_id))
     return {"success": True, "code": "enrolled", "source": "live", "modality": "face",
             "message": f"Enrolled '{user_id}' ({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
             "user_id": user_id, "samples": len(tmpl.embeddings),

@@ -229,12 +229,12 @@ def export_record(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True)
     """Per-modality summary of what we hold for a user (for data-subject export),
     covering BOTH face and palm."""
     out = {}
-    ft = _face_api._store(face_cfg, None).load(user_id)
+    ft = _face_api._store(face_cfg, None).load_raw(user_id)
     if ft is not None:
         out["face"] = {"anchors": len(ft.anchors), "adaptive": len(ft.adaptive),
                        "embedding_dim": int(ft.embeddings[0].shape[0]) if ft.embeddings else 0}
     if palm_enabled:
-        pt = _palm_api._store(_palm_cfg_for(face_cfg), None).load(user_id)
+        pt = _palm_api._store(_palm_cfg_for(face_cfg), None).load_raw(user_id)
         if pt is not None:
             out["palm"] = {"anchors": len(pt.anchors), "adaptive": len(pt.adaptive),
                            "embedding_dim": int(pt.embeddings[0].shape[0]) if pt.embeddings else 0}
