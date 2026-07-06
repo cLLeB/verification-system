@@ -23,12 +23,13 @@ import os
 import sqlite3
 import struct
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 
-from . import envelope
+from . import envelope, protect
 from .crypto import get_cipher
 
 _DEFAULT_DB_FILE = "faces.db"            # face default; palm passes its own
@@ -126,7 +127,8 @@ class TemplateStore:
 
     def __init__(self, db_path: str, samples_per_user: int = 3,
                  adaptive_novelty: float = 0.92, adaptive_max_samples: int = 8,
-                 db_file: str = _DEFAULT_DB_FILE, modality: str = "face") -> None:
+                 db_file: str = _DEFAULT_DB_FILE, modality: str = "face",
+                 protect_templates: Optional[bool] = None) -> None:
         self.db_path = db_path
         self.modality = modality
         self.samples_per_user = samples_per_user
@@ -134,6 +136,8 @@ class TemplateStore:
         self.adaptive_max_samples = adaptive_max_samples
         os.makedirs(self.db_path, exist_ok=True)
         self._cipher = get_cipher(self.db_path)
+        use_protect = protect.enabled() if protect_templates is None else bool(protect_templates)
+        self._protect = protect.Protector(self.db_path, cipher=self._cipher) if use_protect else None
         self._db = os.path.join(self.db_path, db_file)
         self._write_lock = threading.Lock()      # serialise writers (SQLite allows one)
         self._local = threading.local()          # one reused connection per thread
@@ -167,8 +171,88 @@ class TemplateStore:
                 CREATE INDEX IF NOT EXISTS idx_templates_seq ON templates(seq);
                 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value INTEGER);
                 INSERT OR IGNORE INTO meta(key, value) VALUES ('seq', 0);
+                INSERT OR IGNORE INTO meta(key, value) VALUES ('protect_epoch', 0);
+                INSERT OR IGNORE INTO meta(key, value) VALUES ('protect_ts', 0);
                 """
             )
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(templates)").fetchall()}
+            if "protected" not in cols:
+                conn.execute("ALTER TABLE templates ADD COLUMN protected BLOB")
+            if "user_epoch" not in cols:
+                conn.execute("ALTER TABLE templates ADD COLUMN user_epoch INTEGER NOT NULL DEFAULT 0")
+
+    # --- protection domains --------------------------------------------------
+    @property
+    def protection_enabled(self) -> bool:
+        return self._protect is not None
+
+    def store_epoch(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT value FROM meta WHERE key='protect_epoch'").fetchone()
+        return int(row[0]) if row else 0
+
+    def protection_tag(self) -> str:
+        """Identifies the current matching domain (index persistence keys off it:
+        a domain change invalidates saved vectors)."""
+        return f"{protect.SCHEME}:e{self.store_epoch()}" if self._protect is not None else "off"
+
+    def _user_epoch_of(self, conn: sqlite3.Connection, user_id: str) -> int:
+        row = conn.execute("SELECT user_epoch FROM templates WHERE user_id=?",
+                           (user_id,)).fetchone()
+        return int(row[0]) if row and row[0] else 0
+
+    def _seedref(self, user_id: str, user_epoch: int) -> str:
+        ep = self.store_epoch()
+        return protect.user_ref(ep, user_id, user_epoch) if user_epoch else protect.store_ref(ep)
+
+    def protect_probe(self, emb: np.ndarray, user_id: Optional[str] = None) -> np.ndarray:
+        """Project a live/raw embedding into the domain templates are matched in
+        (the store domain, or the user's private domain after an individual
+        reissue). Identity when protection is off."""
+        emb = np.asarray(emb, dtype=np.float32)
+        if self._protect is None:
+            return emb
+        ue = 0
+        if user_id:
+            with self._connect() as conn:
+                ue = self._user_epoch_of(conn, user_id)
+        return self._protect.project(emb, self._seedref(user_id or "", ue))
+
+    def domain_seed(self, user_id: Optional[str] = None) -> Tuple[Optional[str], Optional[bytes]]:
+        """(seedref, seed) for the current domain — export to TRUSTED verifier
+        devices only (sync/bundle, both entitlement-gated). Never the secret."""
+        if self._protect is None:
+            return None, None
+        ue = 0
+        if user_id:
+            with self._connect() as conn:
+                ue = self._user_epoch_of(conn, user_id)
+        ref = self._seedref(user_id or "", ue)
+        return ref, self._protect.seed_for(ref)
+
+    def _project_tmpl(self, tmpl: BioTemplate, user_epoch: int) -> BioTemplate:
+        ref = self._seedref(tmpl.user_id, user_epoch)
+
+        def proj(rows: List[np.ndarray]) -> List[np.ndarray]:
+            if not rows:
+                return []
+            out = self._protect.project(np.stack(rows).astype(np.float32), ref)
+            return [out[i] for i in range(out.shape[0])]
+
+        return BioTemplate(user_id=tmpl.user_id, anchors=proj(tmpl.anchors),
+                           adaptive=proj(tmpl.adaptive),
+                           anchor_sources=list(tmpl.anchor_sources),
+                           adaptive_sources=list(tmpl.adaptive_sources))
+
+    def _protected_blob(self, tmpl: BioTemplate, user_epoch: int) -> Optional[bytes]:
+        if self._protect is None or not tmpl.embeddings:
+            return None
+        ptmpl = self._project_tmpl(tmpl, user_epoch)
+        dim = int(ptmpl.embeddings[0].shape[0])
+        blob = envelope.encode(mod=self.modality, kind="protected", data=_pack(ptmpl),
+                               dim=dim, dtype="f32",
+                               seedref=self._seedref(tmpl.user_id, user_epoch))
+        return self._cipher.encrypt(blob) if self._cipher is not None else blob
 
     # --- serialisation ------------------------------------------------------
     def _serialize(self, tmpl: BioTemplate) -> bytes:
@@ -219,29 +303,51 @@ class TemplateStore:
     def _write(self, tmpl: BioTemplate) -> None:
         blob = self._serialize(tmpl)
         with self._write_lock, self._connect() as conn:
+            ue = self._user_epoch_of(conn, tmpl.user_id)
+            pblob = self._protected_blob(tmpl, ue)
             seq = self._next_seq(conn)
             conn.execute(
-                "INSERT INTO templates(user_id, data, seq, deleted) VALUES (?,?,?,0) "
-                "ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, seq=excluded.seq, deleted=0",
-                (tmpl.user_id, blob, seq),
+                "INSERT INTO templates(user_id, data, protected, seq, deleted) VALUES (?,?,?,?,0) "
+                "ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, "
+                "protected=excluded.protected, seq=excluded.seq, deleted=0",
+                (tmpl.user_id, blob, pblob, seq),
             )
 
     # --- reads --------------------------------------------------------------
-    def load(self, user_id: str) -> Optional[BioTemplate]:
+    # ``load``/``iter_templates``/``iter_since`` return MATCHING-domain rows
+    # (protected when protection is on) — everything downstream (matcher, index,
+    # sync, bundles) only ever sees protected vectors. Mutations must go through
+    # ``load_raw`` (the encrypted raw copy kept solely for reissue).
+    def load_raw(self, user_id: str) -> Optional[BioTemplate]:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT data FROM templates WHERE user_id=? AND deleted=0", (user_id,)
             ).fetchone()
         return self._deserialize(row[0]) if row else None
 
+    def _matching_tmpl(self, data, protected, user_epoch) -> Optional[BioTemplate]:
+        if self._protect is None:
+            return self._deserialize(data)
+        if protected is not None:
+            return self._deserialize(protected)
+        tmpl = self._deserialize(data)          # pre-protection row: project on the fly
+        return self._project_tmpl(tmpl, int(user_epoch or 0)) if tmpl is not None else None
+
+    def load(self, user_id: str) -> Optional[BioTemplate]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT data, protected, user_epoch FROM templates WHERE user_id=? AND deleted=0",
+                (user_id,)).fetchone()
+        return self._matching_tmpl(*row) if row else None
+
     def load_all(self) -> List[BioTemplate]:
         return list(self.iter_templates())
 
     def iter_templates(self) -> Iterator[BioTemplate]:
         with self._connect() as conn:
-            cur = conn.execute("SELECT data FROM templates WHERE deleted=0")
-            for (blob,) in cur:
-                t = self._deserialize(blob)
+            cur = conn.execute("SELECT data, protected, user_epoch FROM templates WHERE deleted=0")
+            for data, protected, ue in cur:
+                t = self._matching_tmpl(data, protected, ue)
                 if t is not None:
                     yield t
 
@@ -253,20 +359,21 @@ class TemplateStore:
     def iter_since(self, seq: int) -> Iterator[Tuple[str, Optional[List[np.ndarray]], int]]:
         with self._connect() as conn:
             cur = conn.execute(
-                "SELECT user_id, data, seq, deleted FROM templates WHERE seq>? ORDER BY seq",
+                "SELECT user_id, data, protected, user_epoch, seq, deleted "
+                "FROM templates WHERE seq>? ORDER BY seq",
                 (seq,),
             )
-            for user_id, blob, row_seq, deleted in cur:
+            for user_id, blob, protected, ue, row_seq, deleted in cur:
                 if deleted:
                     yield user_id, None, int(row_seq)
                 else:
-                    t = self._deserialize(blob)
+                    t = self._matching_tmpl(blob, protected, ue)
                     yield user_id, (t.embeddings if t else []), int(row_seq)
 
     # --- mutations ----------------------------------------------------------
     def add_embedding(self, user_id: str, emb: np.ndarray,
                       source: str = _SRC_LIVE) -> BioTemplate:
-        tmpl = self.load(user_id) or BioTemplate(user_id=user_id)
+        tmpl = self.load_raw(user_id) or BioTemplate(user_id=user_id)
         tmpl.anchors.append(np.asarray(emb, dtype=np.float32))
         tmpl.anchor_sources.append(_SRC_ID if source == _SRC_ID else _SRC_LIVE)
         if len(tmpl.anchors) > self.samples_per_user:
@@ -276,7 +383,7 @@ class TemplateStore:
         return tmpl
 
     def add_adaptive(self, user_id: str, emb: np.ndarray) -> bool:
-        tmpl = self.load(user_id)
+        tmpl = self.load_raw(user_id)
         if tmpl is None:
             return False
         emb = np.asarray(emb, dtype=np.float32)
@@ -300,12 +407,15 @@ class TemplateStore:
                            for e in list(embs)[:self.samples_per_user]]
                 if not anchors:
                     continue
-                blob = self._serialize(BioTemplate(user_id=user_id, anchors=anchors))
+                tmpl = BioTemplate(user_id=user_id, anchors=anchors)
+                blob = self._serialize(tmpl)
+                pblob = self._protected_blob(tmpl, self._user_epoch_of(conn, user_id))
                 seq = self._next_seq(conn)
                 conn.execute(
-                    "INSERT INTO templates(user_id, data, seq, deleted) VALUES (?,?,?,0) "
-                    "ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, seq=excluded.seq, deleted=0",
-                    (user_id, blob, seq),
+                    "INSERT INTO templates(user_id, data, protected, seq, deleted) VALUES (?,?,?,?,0) "
+                    "ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, "
+                    "protected=excluded.protected, seq=excluded.seq, deleted=0",
+                    (user_id, blob, pblob, seq),
                 )
                 n += 1
         return n
@@ -329,10 +439,106 @@ class TemplateStore:
                 return False
             seq = self._next_seq(conn)
             conn.execute(
-                "UPDATE templates SET data=NULL, deleted=1, seq=? WHERE user_id=?",
+                "UPDATE templates SET data=NULL, protected=NULL, deleted=1, seq=? WHERE user_id=?",
                 (seq, user_id),
             )
         return True
+
+    # --- revocation / reissue (cancelable biometrics) ------------------------
+    def reissue(self, user_id: Optional[str] = None) -> int:
+        """Move templates to a NEW protection domain, so every previously stored
+        or exported protected copy stops matching (like resetting a password).
+        Tenant-wide: bump the store epoch and re-project everyone (per-user
+        epochs fold back to 0 — the new store domain covers them). Single user:
+        bump only their epoch suffix. Returns rows re-protected."""
+        if self._protect is None:
+            return 0
+        count = 0
+        with self._write_lock, self._connect() as conn:
+            if user_id is None:
+                conn.execute("UPDATE meta SET value = value + 1 WHERE key='protect_epoch'")
+                conn.execute("UPDATE meta SET value = ? WHERE key='protect_ts'",
+                             (int(time.time()),))
+                conn.execute("UPDATE templates SET user_epoch = 0")
+                rows = conn.execute(
+                    "SELECT user_id, data FROM templates WHERE deleted=0").fetchall()
+            else:
+                row = conn.execute(
+                    "SELECT user_id, data FROM templates WHERE user_id=? AND deleted=0",
+                    (user_id,)).fetchone()
+                if row is None:
+                    return 0
+                conn.execute("UPDATE templates SET user_epoch = user_epoch + 1 WHERE user_id=?",
+                             (user_id,))
+                rows = [row]
+            for uid, blob in rows:
+                tmpl = self._deserialize(blob)
+                if tmpl is None:
+                    continue
+                pblob = self._protected_blob(tmpl, self._user_epoch_of(conn, uid))
+                seq = self._next_seq(conn)      # bump seq so index/sync replay picks it up
+                conn.execute("UPDATE templates SET protected=?, seq=? WHERE user_id=?",
+                             (pblob, seq, uid))
+                count += 1
+        return count
+
+    def off_domain_users(self) -> List[Tuple[str, int]]:
+        """Users living in their own domain after an individual reissue (the
+        store-domain 1:N probe cannot score them — rescore separately)."""
+        if self._protect is None:
+            return []
+        with self._connect() as conn:
+            return [(r[0], int(r[1])) for r in conn.execute(
+                "SELECT user_id, user_epoch FROM templates WHERE deleted=0 AND user_epoch>0")]
+
+    def protect_fill(self, dry_run: bool = False) -> int:
+        """Materialise the protected column for rows that predate protection
+        (reads already project on the fly; this persists it). Returns rows filled."""
+        if self._protect is None:
+            return 0
+        filled = 0
+        with self._write_lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT user_id, data, user_epoch FROM templates "
+                "WHERE deleted=0 AND protected IS NULL").fetchall()
+            for uid, blob, ue in rows:
+                tmpl = self._deserialize(blob)
+                if tmpl is None:
+                    continue
+                if not dry_run:
+                    conn.execute("UPDATE templates SET protected=? WHERE user_id=?",
+                                 (self._protected_blob(tmpl, int(ue or 0)), uid))
+                filled += 1
+        return filled
+
+    def protection_status(self, user_id: Optional[str] = None) -> dict:
+        """Plain status for UIs/API: tenant-wide summary, or one user's detail."""
+        enabled = self._protect is not None
+        if user_id:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT protected, user_epoch FROM templates WHERE user_id=? AND deleted=0",
+                    (user_id,)).fetchone()
+            out = {"enabled": enabled, "user_id": user_id, "enrolled": row is not None}
+            if row is not None:
+                ue = int(row[1] or 0)
+                out.update(protected=enabled, user_epoch=ue,
+                           seedref=self._seedref(user_id, ue) if enabled else None)
+            return out
+        with self._connect() as conn:
+            total = int(conn.execute(
+                "SELECT COUNT(*) FROM templates WHERE deleted=0").fetchone()[0])
+            materialised = int(conn.execute(
+                "SELECT COUNT(*) FROM templates WHERE deleted=0 AND protected IS NOT NULL"
+            ).fetchone()[0])
+            reissued = int(conn.execute(
+                "SELECT COUNT(*) FROM templates WHERE deleted=0 AND user_epoch>0"
+            ).fetchone()[0])
+            ts_row = conn.execute("SELECT value FROM meta WHERE key='protect_ts'").fetchone()
+        ts = int(ts_row[0]) if ts_row and ts_row[0] else 0
+        return {"enabled": enabled, "scheme": protect.SCHEME if enabled else None,
+                "epoch": self.store_epoch(), "last_reissue": ts or None,
+                "users": total, "protected_rows": materialised, "reissued_users": reissued}
 
     # --- one-time migration from legacy per-user JSON files ------------------
     def _migrate_legacy_json(self) -> None:
