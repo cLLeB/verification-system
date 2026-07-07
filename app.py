@@ -36,7 +36,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, bundle, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, bundle, credentials, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
@@ -459,10 +459,12 @@ def admin_tenant_offboard():
         shutil.rmtree(store_dir, ignore_errors=True)
     tenants.remove(tenant)
     issuer_removed = issuer_keys.remove(tenant)
+    creds_removed = credentials.remove_tenant(tenant)
     audit.log(_FP_TENANT, "tenant_offboard", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True,
               detail=f"revoked {revoked} keys, {invites_revoked} invites; "
-                     f"store erased={erased}; issuer key removed={issuer_removed}")
+                     f"store erased={erased}; issuer key removed={issuer_removed}; "
+                     f"credentials dropped={creds_removed}")
     return jsonify({"success": True, "tenant": tenant, "keys_revoked": revoked,
                     "invites_revoked": invites_revoked, "store_erased": erased})
 
