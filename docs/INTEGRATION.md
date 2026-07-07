@@ -287,7 +287,32 @@ it → turn on airplane mode on the verifier phone → scan the paper at
 `/verify-credential` → live capture → green verdict in seconds. Revoke it in the
 portal and scan again: red, "revoked by issuer".
 
-## 5f. Self-enrolment invites (unsupervised, token-gated)
+## 5f. Glance — on-device 1:N identification
+
+Ship a phone one compact **glance index** (an int8 vector per enrolled person —
+~50 MB per 100k identities, in the revocable protection domain) and it identifies
+people continuously, offline, in under a second (Android "Glance" mode):
+
+```bash
+# hybrid devices pull it directly (admin key + allow_export)
+curl -sk "https://HOST:5000/v1/sync/index?modality=face" -H "X-API-Key: fk_xxx"
+
+# air-gapped devices get it as an encrypted file, imported in Settings
+curl -sk https://HOST:5000/v1/export/glance-index -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"passphrase":"a-strong-shared-secret"}' > glance.index.json
+```
+
+The payload carries a **1:N threshold calibrated separately from 1:1** (target-FAR
+over the impostor distribution, clamped to a safe band server-side AND on-device)
+plus a top-vs-runner-up margin gate. SDK: `glance_index()` / `export_glance_index()`
+(`glanceIndex` / `exportGlanceIndex` in JS). From a laptop, the web client's Verify
+already runs the same continuous 1:N loop against the server (exact search — proven
+at 100k identities, so the server needs no quantized index; re-run `_scale_test.py`
+to see the numbers). After a **reissue**, refresh/re-export the index like any other
+protected artifact.
+
+## 5g. Self-enrolment invites (unsupervised, token-gated)
 
 A pre-named person enrols themselves from a private link (no admin password). Links
 are **modality-scoped**: a link that adds a modality to someone who **already exists**

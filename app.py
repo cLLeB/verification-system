@@ -908,11 +908,23 @@ def admin_export_bundle():
     data = request.get_json(silent=True) or {}
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
     face_cfg, palm_enabled = _invite_target(tenant)
+    # protected templates travel with their domain seeds (same as /v1/export/bundle) —
+    # without them an air-gapped device could never match its live captures
+    protection = {}
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        st, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        if st.protection_enabled:
+            from biometric.core import protect as _protect
+            ref, seed = st.domain_seed()
+            protection[m] = {"scheme": _protect.SCHEME, "seedref": ref,
+                             "seed": base64.b64encode(seed).decode("ascii"),
+                             "epoch": st.store_epoch()}
     try:
         payload = bundle.build_payload(
             tenant,
             _modality.export_templates(face_cfg, "face", palm_enabled),
-            _modality.export_templates(face_cfg, "palm", palm_enabled))
+            _modality.export_templates(face_cfg, "palm", palm_enabled),
+            protection=protection or None)
         out = bundle.pack(payload, data.get("passphrase") or "")
     except bundle.BundleError as exc:
         return jsonify({"success": False, "code": "bundle_error", "message": str(exc)}), 400
@@ -920,6 +932,33 @@ def admin_export_bundle():
     audit.log(_FP_TENANT, "export_bundle", actor=g.get("admin_user", "admin"), success=True,
               detail=f"tenant={tenant} face={counts['face']} palm={counts['palm']}")
     return jsonify({"success": True, "tenant": tenant, "counts": counts, "bundle": out})
+
+
+@app.route("/admin/api/export/glance-index", methods=["POST"])
+@admin.require_admin
+def admin_export_glance_index():
+    """The on-device 1:N glance index as a passphrase-encrypted file for an
+    AIR-GAPPED device (admin-side twin of /v1/export/glance-index)."""
+    from face_service import glance as _glance
+    if not bundle.available():
+        return jsonify({"success": False, "code": "unavailable",
+                        "message": "Encryption library not available for bundling."}), 503
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+    modality = (data.get("modality") or "face").strip().lower()
+    if modality not in ("face", "palm"):
+        modality = "face"
+    face_cfg, _palm_enabled = _invite_target(tenant)
+    store, _idx, _thr = _modality.store_and_index(face_cfg, modality)
+    payload = _glance.build_payload(tenant, store, modality)
+    try:
+        out = bundle.pack(payload, data.get("passphrase") or "")
+    except bundle.BundleError as exc:
+        return jsonify({"success": False, "code": "bundle_error", "message": str(exc)}), 400
+    audit.log(_FP_TENANT, "export_glance_index", actor=g.get("admin_user", "admin"),
+              success=True, detail=f"tenant={tenant} {modality}: {payload['count']} users")
+    return jsonify({"success": True, "tenant": tenant, "modality": modality,
+                    "count": payload["count"], "bundle": out})
 
 
 @app.route("/api/analytics/templates", methods=["GET"])

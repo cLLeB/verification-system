@@ -30,7 +30,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
-enum class Mode { VERIFY, ENROLL, CREDENTIAL }
+enum class Mode { VERIFY, ENROLL, CREDENTIAL, GLANCE }
 
 data class ScanResult(val ok: Boolean, val title: String, val sub: String)
 
@@ -73,6 +73,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                     if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
                 } catch (_: Exception) { null }
                 trustData = TrustStoreManager.load(getApplication())
+                glanceIndex = com.faceverify.app.glance.GlanceIndexStore.load(getApplication())
                 refreshPeople()
                 ready = true
                 status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your palm" else "Enter a name, then show face or palm"
@@ -86,10 +87,16 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         mode = m; result = null; status = ""; captured = 0; livenessProgress = 0f
         liveness.reset(); captureRequested.set(false)
         credPayload = null
+        glanceHit = null
         if (m == Mode.CREDENTIAL) {
             status = if (trustData == null)
                 "No trust list on this device yet — add one in Settings"
             else "Point the BACK camera at the QR on the card"
+        }
+        if (m == Mode.GLANCE) {
+            status = if (glanceIndex == null && people.isEmpty())
+                "No glance index yet — update it in Settings"
+            else "Glance: point at people — names appear as they're recognised"
         }
     }
 
@@ -129,6 +136,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 if (mode == Mode.CREDENTIAL) {
                     handleCredentialFrame(bitmap)
+                    return@launch
+                }
+                if (mode == Mode.GLANCE) {
+                    handleGlanceFrame(bitmap)
                     return@launch
                 }
                 val face = engine.detect(bitmap)
@@ -385,6 +396,93 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 "The live $modality does not match this card.")
         }
         liveness.reset(); livenessProgress = 0f
+    }
+
+    // --- glance: continuous on-device 1:N (trust platform phase 3) -------------
+    // Point the camera at people; each detected face is embedded, projected into
+    // the index's protection domain, and brute-force matched against EVERY
+    // enrolled identity — name chip in well under a second, fully offline.
+    // Identification aid only (no liveness) — access decisions stay in Verify.
+    var glanceHit by mutableStateOf<String?>(null); private set
+    var glanceIndex by mutableStateOf<com.faceverify.app.glance.GlanceIndex?>(null); private set
+    var glanceMsg by mutableStateOf(""); private set
+    var glanceBusy by mutableStateOf(false); private set
+
+    private suspend fun handleGlanceFrame(bitmap: Bitmap) {
+        val face = engine.detect(bitmap)
+        if (face == null || face.facepx < Config.MIN_FACE_PX) {
+            glanceHit = null
+            status = "Glance: point at people — names appear as they're recognised"
+            return
+        }
+        val emb = engine.embed(bitmap, face) ?: return
+        val idx = glanceIndex
+        if (idx != null && idx.count > 0) {
+            val hit = idx.decide(idx.search(idx.probeFor(emb)))
+            glanceHit = hit?.let { "${it.userId}  (${"%.2f".format(it.score)})" }
+            status = if (hit != null) "Identified" else "Face seen — no confident match"
+            return
+        }
+        // no synced index: fall back to the local store (small datasets), with the
+        // SAME stricter 1:N operating point
+        val dec = engine.repo.identify(emb)
+        glanceHit = if (dec.granted && dec.score >= Config.GLANCE_MIN_THRESHOLD
+            && dec.margin >= Config.GLANCE_MARGIN)
+            "${dec.userId}  (${"%.2f".format(dec.score)})" else null
+        status = if (glanceHit != null) "Identified" else "Face seen — no confident match"
+    }
+
+    fun glanceSummary(): String {
+        val i = glanceIndex ?: return "not loaded (falls back to locally enrolled people)"
+        return "${i.count} identities · threshold ${"%.2f".format(i.threshold)} · updated " +
+            java.text.DateFormat.getDateTimeInstance().format(java.util.Date(i.generated * 1000))
+    }
+
+    /** Hybrid: fetch the tenant's glance index from the configured server. */
+    fun refreshGlanceIndex() {
+        if (!syncPrefs.configured) { glanceMsg = "Set the server URL and API key first."; return }
+        if (glanceBusy) return
+        glanceBusy = true; glanceMsg = "Fetching…"
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = mgr()?.pullIndex()
+                if (resp == null) { glanceMsg = "Sync unavailable."; return@launch }
+                glanceIndex = com.faceverify.app.glance.GlanceIndexStore.save(getApplication(), resp)
+                glanceMsg = "Glance index updated: ${glanceSummary()}."
+            } catch (e: IllegalArgumentException) {
+                glanceMsg = e.message ?: "Index rejected."
+            } catch (e: Exception) {
+                glanceMsg = "Fetch failed: ${e.message ?: "network error"}"
+            } finally {
+                glanceBusy = false
+            }
+        }
+    }
+
+    /** All builds (incl. air-gapped): import the encrypted glance-index file the
+     *  admin exported (`POST /v1/export/glance-index`) and moved out-of-band. */
+    fun importGlanceIndex(uri: Uri, passphrase: String) {
+        if (passphrase.trim().length < 8) { glanceMsg = "Enter the file's passphrase (8+ chars)."; return }
+        if (glanceBusy) return
+        glanceBusy = true; glanceMsg = "Importing…"
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val bytes = getApplication<Application>().contentResolver
+                    .openInputStream(uri)?.use { it.readBytes() }
+                if (bytes == null) { glanceMsg = "Couldn't open that file."; return@launch }
+                val payload = com.faceverify.app.data.BundleImporter.decryptToJson(bytes, passphrase)
+                glanceIndex = com.faceverify.app.glance.GlanceIndexStore.save(getApplication(), payload)
+                glanceMsg = "Glance index imported: ${glanceSummary()}."
+            } catch (e: com.faceverify.app.data.BundleImporter.BundleException) {
+                glanceMsg = e.message ?: "Import failed."
+            } catch (e: IllegalArgumentException) {
+                glanceMsg = e.message ?: "Not a glance-index file."
+            } catch (e: Exception) {
+                glanceMsg = "Import failed — check the file and passphrase."
+            } finally {
+                glanceBusy = false
+            }
+        }
     }
 
     // --- trust list management (Settings) --------------------------------------

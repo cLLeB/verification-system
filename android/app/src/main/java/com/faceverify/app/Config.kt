@@ -23,6 +23,15 @@ object Config {
     const val IDENTIFY_MARGIN = 0.06f         // 1:N: top must beat 2nd identity by this
     const val SAMPLES_PER_USER = 3            // permanent anchor captures per person
 
+    // Glance (continuous on-device 1:N over the synced index) — calibrated
+    // SEPARATELY from 1:1: at scale the impostor MAX creeps up and glance has no
+    // liveness. The server ships a calibrated threshold; the device CLAMPS it to
+    // [GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND] so a bad calibration can never
+    // loosen below the floor. Mirrors face_service/glance.py — keep in sync.
+    const val GLANCE_MIN_THRESHOLD = 0.45f
+    const val GLANCE_CLAMP_BAND = 0.12f
+    const val GLANCE_MARGIN = 0.08f
+
     // adaptive enrolment (track a person as they change; anti-drift)
     const val ADAPTIVE_UPDATE_THRESHOLD = 0.55f
     const val ADAPTIVE_MARGIN = 0.10f

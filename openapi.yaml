@@ -212,6 +212,40 @@ paths:
                       embeddings: { type: array, items: { type: array, items: { type: number } } }
       responses:
         "200": { description: "{ pushed, merged, skipped, conflicts[] }" }
+  /v1/sync/index:
+    get:
+      summary: "Glance index: on-device 1:N dataset (role: admin, allow_export)"
+      description: >
+        One int8, protection-domain vector per enrolled person (~50 MB per 100k
+        identities) plus a calibrated 1:N operating point (threshold at target
+        FAR over the impostor distribution, clamped to [floor, floor+0.12];
+        devices clamp again) and the domain seed. Powers the Android "Glance"
+        mode: continuous offline identification in under a second.
+      parameters:
+        - { name: modality, in: query, required: false, schema: { type: string, enum: [face, palm], default: face } }
+      responses:
+        "200": { description: "{ users[], dim, count, scales, data, threshold, margin, protection?, seq }" }
+        "403": { description: Template export not enabled for this tenant }
+  /v1/export/glance-index:
+    post:
+      summary: "Glance index as an encrypted file for AIR-GAPPED devices (role: admin, allow_export)"
+      description: >
+        The same payload as /v1/sync/index, passphrase-encrypted with the bundle
+        crypto (PBKDF2 + AES-256-GCM). Move it to the device out-of-band and
+        import it in Settings -> Glance index.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passphrase]
+              properties:
+                passphrase: { type: string }
+                modality: { type: string, enum: [face, palm], default: face }
+      responses:
+        "200": { description: "{ count, bundle }" }
+        "403": { description: Template export not enabled for this tenant }
   /v1/export/bundle:
     post:
       summary: "Managed: export templates as an encrypted offline provisioning bundle (role: admin, allow_export)"

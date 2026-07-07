@@ -225,6 +225,17 @@ class FaceVerifyClient:
             body["embedding"] = list(embedding)
         return self._call("POST", "/v1/credentials/verify", body)
 
+    def glance_index(self, modality: str = "face") -> dict:
+        """The on-device 1:N glance index (int8 protection-domain vectors +
+        calibrated threshold). Admin key + allow_export entitlement required."""
+        return self._call("GET", f"/v1/sync/index?modality={modality}")
+
+    def export_glance_index(self, passphrase: str, modality: str = "face") -> dict:
+        """The glance index as a passphrase-encrypted file payload for
+        air-gapped devices."""
+        return self._call("POST", "/v1/export/glance-index",
+                          {"passphrase": passphrase, "modality": modality})
+
     def trust_store(self) -> dict:
         """The public signed bundle of issuer keys + revocation lists."""
         return self._call("GET", "/v1/trust-store")

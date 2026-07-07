@@ -526,6 +526,54 @@ def sync_pull():
     return jsonify(payload)
 
 
+@bp.get("/sync/index")
+@require_scope("manage")
+def sync_index():
+    """On-device 1:N glance index (trust platform Phase 3): one int8
+    protection-domain vector per person + the calibrated 1:N operating point.
+    ~50 MB per 100k identities. Gated like /sync/pull (allow_export)."""
+    from . import glance as _glance
+    if not tenants.entitlement(g.tenant).get("allow_export"):
+        return jsonify({"success": False, "code": "export_disabled",
+                        "message": "Template export is not enabled for this tenant."}), 403
+    modality = (request.args.get("modality") or "face").strip().lower()
+    if modality not in ("face", "palm"):
+        modality = "face"
+    store, _idx, _thr = _modality.store_and_index(_cfg(), modality)
+    payload = _glance.build_payload(g.tenant or "default", store, modality)
+    audit.log(g.tenant, "sync_index", actor=g.key_name, success=True,
+              detail=f"{modality}: {payload['count']} users, thr={payload['threshold']}")
+    return jsonify({"success": True, **payload})
+
+
+@bp.post("/export/glance-index")
+@require_scope("manage")
+def export_glance_index():
+    """The glance index as a passphrase-encrypted file for AIR-GAPPED devices
+    (same crypto + posture as /export/bundle)."""
+    from . import glance as _glance
+    if not tenants.entitlement(g.tenant).get("allow_export"):
+        return jsonify({"success": False, "code": "export_disabled",
+                        "message": "Template export is not enabled for this tenant."}), 403
+    if not bundle.available():
+        return jsonify({"success": False, "code": "unavailable",
+                        "message": "Encryption library not available."}), 503
+    data = request.get_json(silent=True) or {}
+    modality = (data.get("modality") or "face").strip().lower()
+    if modality not in ("face", "palm"):
+        modality = "face"
+    store, _idx, _thr = _modality.store_and_index(_cfg(), modality)
+    payload = _glance.build_payload(g.tenant or "default", store, modality)
+    try:
+        out = bundle.pack(payload, data.get("passphrase") or "")
+    except bundle.BundleError as exc:
+        return _err(str(exc), code="bundle_error")
+    audit.log(g.tenant, "export_glance_index", actor=g.key_name, success=True,
+              detail=f"{modality}: {payload['count']} users")
+    return jsonify({"success": True, "tenant": g.tenant, "modality": modality,
+                    "count": payload["count"], "bundle": out})
+
+
 @bp.post("/export/bundle")
 @require_scope("manage")
 def export_bundle():

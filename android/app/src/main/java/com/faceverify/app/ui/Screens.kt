@@ -109,6 +109,11 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                 // cards are scanned with the BACK camera; flip automatically
                 lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
             }, { Text("Check card") })
+            FilterChip(vm.mode == Mode.GLANCE, {
+                vm.selectMode(Mode.GLANCE)
+                // glance points at OTHER people — back camera
+                lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+            }, { Text("Glance") })
         }
         Spacer(Modifier.height(12.dp))
         if (vm.mode == Mode.CREDENTIAL && vm.credPayload != null && vm.result == null) {
@@ -156,6 +161,20 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                 }
             }
             vm.result?.let { ResultOverlay(it) { vm.scanAgain() } }
+            // Glance: a live name chip instead of a frozen verdict — batch friendly
+            if (vm.mode == Mode.GLANCE && vm.glanceHit != null) {
+                Surface(
+                    color = Ok, shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+                ) {
+                    Text(
+                        vm.glanceHit ?: "",
+                        color = Color.Black,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(14.dp))
@@ -170,7 +189,7 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                     progress = { vm.livenessProgress },
                     modifier = Modifier.fillMaxWidth(0.6f),
                 )
-            } else {
+            } else if (vm.mode == Mode.ENROLL) {
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
@@ -327,6 +346,50 @@ private fun SettingsScreen(vm: ScannerViewModel) {
         BundleImportSection(vm, ctx)
         Spacer(Modifier.height(24.dp))
         TrustStoreSection(vm)
+        Spacer(Modifier.height(24.dp))
+        GlanceIndexSection(vm)
+    }
+}
+
+/** The Glance mode's 1:N index: one compact vector per enrolled person (~50 MB
+ *  per 100k). Hybrid refreshes from the server; any build imports the encrypted
+ *  export file. Without it, Glance falls back to locally enrolled people. */
+@Composable
+private fun GlanceIndexSection(vm: ScannerViewModel) {
+    var passphrase by remember { mutableStateOf("") }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) vm.importGlanceIndex(uri, passphrase)
+    }
+    Text("Glance index", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "\"Glance\" identifies people continuously against this index — every enrolled " +
+            "identity, matched on this phone in under a second, fully offline.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(10.dp))
+    InfoRow("Index", vm.glanceSummary())
+    Spacer(Modifier.height(8.dp))
+    if (vm.isHybrid) {
+        Button(onClick = { vm.refreshGlanceIndex() }, enabled = !vm.glanceBusy) {
+            Icon(Icons.Filled.CloudDownload, null); Spacer(Modifier.size(8.dp)); Text("Update from server")
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+    OutlinedTextField(
+        value = passphrase, onValueChange = { passphrase = it },
+        label = { Text("Export file passphrase (for file import)") }, singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(
+        onClick = { pickFile.launch("*/*") },
+        enabled = !vm.glanceBusy && passphrase.isNotBlank(),
+    ) { Text("Import index file…") }
+    if (vm.glanceBusy) { Spacer(Modifier.height(6.dp)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+    if (vm.glanceMsg.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text(vm.glanceMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

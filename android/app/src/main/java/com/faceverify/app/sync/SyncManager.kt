@@ -87,6 +87,12 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
         }
     }
 
+    /** Fetch the on-device 1:N glance index payload (`GET /v1/sync/index`).
+     *  The caller validates + persists it (GlanceIndexStore). */
+    suspend fun pullIndex(): org.json.JSONObject = withContext(Dispatchers.IO) {
+        client().get("/v1/sync/index")
+    }
+
     /** Push device templates up. [selected] = null pushes everyone. [onConflict] = how the
      *  server resolves a face that matches an existing, differently-named person. */
     suspend fun push(selected: Set<String>? = null, onConflict: String = "skip"): Result =
