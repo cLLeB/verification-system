@@ -166,8 +166,13 @@ async function loadProtection() {
 const pprotReissue = $('pprot-reissue');
 if (pprotReissue) pprotReissue.onclick = async () => {
     const user = ($('pprot-user').value || '').trim();
-    const scope = user ? `"${user}"` : 'ALL your templates';
-    if (!confirm(`Reissue ${scope}?\n\nAny previously exported or stolen copy stops matching immediately. Your people keep verifying — nobody re-enrols.`)) return;
+    if (user) {
+        if (!confirm(`Reissue "${user}"?\n\nAny previously exported or stolen copy of their template stops matching immediately. They keep verifying — no re-enrolment.`)) return;
+    } else {
+        // organisation-wide is the big red button: require typing REISSUE
+        const typed = prompt('Reissue ALL your templates?\n\nAny previously exported or stolen copy stops matching immediately. Your people keep verifying — nobody re-enrols.\n\nType REISSUE to confirm:');
+        if (typed !== 'REISSUE') return;
+    }
     const d = await api('/portal/api/protection/reissue', { method: 'POST',
         body: JSON.stringify(user ? { user_id: user } : {}) });
     $('pprot-msg').textContent = d.success

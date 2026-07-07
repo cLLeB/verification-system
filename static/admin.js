@@ -198,8 +198,13 @@ $('prot-load').onclick = protLoad;
 $('prot-reissue').onclick = async () => {
     const tenant = ($('prot-tenant').value || '').trim() || 'default';
     const user = ($('prot-user').value || '').trim();
-    const scope = user ? `user "${user}"` : `EVERY template in "${tenant}"`;
-    if (!confirm(`Reissue ${scope}?\n\nOld exported/stored copies stop matching immediately. Enrolled people keep verifying — no recapture needed.`)) return;
+    if (user) {
+        if (!confirm(`Reissue user "${user}"?\n\nOld exported/stored copies of their template stop matching immediately. They keep verifying — no recapture needed.`)) return;
+    } else {
+        // tenant-wide is the big red button: require typing REISSUE
+        const typed = prompt(`Reissue EVERY template in "${tenant}"?\n\nOld exported/stored copies stop matching immediately. Enrolled people keep verifying — no recapture needed.\n\nType REISSUE to confirm:`);
+        if (typed !== 'REISSUE') return;
+    }
     const d = await api('/admin/api/protection/reissue', { method: 'POST',
         body: JSON.stringify(user ? { tenant, user_id: user } : { tenant }) });
     $('prot-msg').textContent = d.success

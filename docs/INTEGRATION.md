@@ -232,7 +232,25 @@ The bundle is PBKDF2-HMAC-SHA256 + AES-256-GCM; a wrong passphrase or any tamper
 fails to decrypt. On Android: **Settings → Bulk import (offline)** → unlock (PIN) →
 choose the file → enter the passphrase. No network path to the device is opened.
 
-## 5d. Self-enrolment invites (unsupervised, token-gated)
+## 5d. Protected (cancelable) templates & reissue
+
+Stored templates live in a **scrambled, revocable protection domain** (accuracy
+unchanged — see `docs/security-keys.md`). If you ever suspect a leak, reissue:
+old exported/stolen copies stop matching instantly and nobody re-enrols.
+
+```bash
+curl -sk https://HOST:5000/v1/templates/status  -H "X-API-Key: fk_xxx"
+curl -sk https://HOST:5000/v1/templates/reissue -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" -d '{"confirm":true}'          # whole tenant
+# one person: -d '{"confirm":true,"user_id":"alice"}'
+```
+
+SDK: `client.template_status()` / `client.reissue_templates(user_id=None)` (Python),
+`fv.templateStatus()` / `fv.reissueTemplates(userId)` (JS). After a reissue,
+hybrid devices re-pull automatically on their next sync; re-export bundles for
+air-gapped devices.
+
+## 5e. Self-enrolment invites (unsupervised, token-gated)
 
 A pre-named person enrols themselves from a private link (no admin password). Links
 are **modality-scoped**: a link that adds a modality to someone who **already exists**

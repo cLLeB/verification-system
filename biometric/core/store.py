@@ -325,12 +325,38 @@ class TemplateStore:
             ).fetchone()
         return self._deserialize(row[0]) if row else None
 
-    def _matching_tmpl(self, data, protected, user_epoch) -> Optional[BioTemplate]:
+    def _current_ref(self, seedref: str, user_epoch: int, epoch: int) -> bool:
+        """Is a stored protected blob's seedref the CURRENT domain? A stale one
+        (e.g. an interrupted reissue) must be re-projected from raw, or the user
+        would silently stop matching."""
+        ue = int(user_epoch or 0)
+        if ue == 0:
+            return seedref == protect.store_ref(epoch)
+        return (seedref.startswith(f"store:e{epoch}:u:")
+                and seedref.endswith(f":{ue}"))
+
+    def _matching_tmpl(self, data, protected, user_epoch,
+                       epoch: Optional[int] = None) -> Optional[BioTemplate]:
         if self._protect is None:
             return self._deserialize(data)
         if protected is not None:
-            return self._deserialize(protected)
-        tmpl = self._deserialize(data)          # pre-protection row: project on the fly
+            raw = protected
+            if self._cipher is not None:
+                try:
+                    raw = self._cipher.decrypt(raw)
+                except Exception:
+                    raw = None
+            if raw is not None and envelope.is_envelope(raw):
+                try:
+                    env = envelope.decode(raw)
+                    ep = self.store_epoch() if epoch is None else epoch
+                    if (self._current_ref(env.get("seedref", ""), user_epoch, ep)
+                            and env["data"][:3] in (_MAGIC, _MAGIC_FT1)):
+                        return _unpack(env["data"])
+                except Exception:
+                    pass
+            # stale/undecodable protected blob: fall through and re-project raw
+        tmpl = self._deserialize(data)          # pre-protection or stale row
         return self._project_tmpl(tmpl, int(user_epoch or 0)) if tmpl is not None else None
 
     def load(self, user_id: str) -> Optional[BioTemplate]:
@@ -344,10 +370,11 @@ class TemplateStore:
         return list(self.iter_templates())
 
     def iter_templates(self) -> Iterator[BioTemplate]:
+        epoch = self.store_epoch() if self._protect is not None else 0
         with self._connect() as conn:
             cur = conn.execute("SELECT data, protected, user_epoch FROM templates WHERE deleted=0")
             for data, protected, ue in cur:
-                t = self._matching_tmpl(data, protected, ue)
+                t = self._matching_tmpl(data, protected, ue, epoch=epoch)
                 if t is not None:
                     yield t
 
@@ -357,6 +384,7 @@ class TemplateStore:
             return int(conn.execute("SELECT value FROM meta WHERE key='seq'").fetchone()[0])
 
     def iter_since(self, seq: int) -> Iterator[Tuple[str, Optional[List[np.ndarray]], int]]:
+        epoch = self.store_epoch() if self._protect is not None else 0
         with self._connect() as conn:
             cur = conn.execute(
                 "SELECT user_id, data, protected, user_epoch, seq, deleted "
@@ -367,7 +395,7 @@ class TemplateStore:
                 if deleted:
                     yield user_id, None, int(row_seq)
                 else:
-                    t = self._matching_tmpl(blob, protected, ue)
+                    t = self._matching_tmpl(blob, protected, ue, epoch=epoch)
                     yield user_id, (t.embeddings if t else []), int(row_seq)
 
     # --- mutations ----------------------------------------------------------
@@ -491,9 +519,10 @@ class TemplateStore:
             return [(r[0], int(r[1])) for r in conn.execute(
                 "SELECT user_id, user_epoch FROM templates WHERE deleted=0 AND user_epoch>0")]
 
-    def protect_fill(self, dry_run: bool = False) -> int:
+    def protect_fill(self, dry_run: bool = False, progress=None) -> int:
         """Materialise the protected column for rows that predate protection
-        (reads already project on the fly; this persists it). Returns rows filled."""
+        (reads already project on the fly; this persists it). Returns rows
+        filled. ``progress(done, total)`` is called periodically if given."""
         if self._protect is None:
             return 0
         filled = 0
@@ -509,6 +538,8 @@ class TemplateStore:
                     conn.execute("UPDATE templates SET protected=? WHERE user_id=?",
                                  (self._protected_blob(tmpl, int(ue or 0)), uid))
                 filled += 1
+                if progress is not None and filled % 500 == 0:
+                    progress(filled, len(rows))
         return filled
 
     def protection_status(self, user_id: Optional[str] = None) -> dict:

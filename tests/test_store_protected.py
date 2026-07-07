@@ -130,6 +130,37 @@ def test_protection_status_shapes(tmp_path):
     assert st.protection_status("nobody")["enrolled"] is False
 
 
+def test_protect_cli_materialises_legacy_rows(tmp_path):
+    import manage_templates
+    d = tmp_path / "cli"
+    TemplateStore(str(d), protect_templates=False).add_embedding("old", _unit(seed=20))
+    assert manage_templates.protect_store(str(d), dry_run=True) == 1
+    assert manage_templates.protect_store(str(d)) == 1
+    st = TemplateStore(str(d), protect_templates=True)
+    with st._connect() as conn:
+        assert conn.execute("SELECT protected FROM templates WHERE user_id='old'"
+                            ).fetchone()[0] is not None
+    assert manage_templates.protect_store(str(d)) == 0     # idempotent
+
+
+def test_stale_domain_blob_self_heals(tmp_path):
+    """An interrupted reissue leaves the epoch bumped but a row's protected blob
+    in the OLD domain — reads must detect the stale seedref and re-project from
+    raw instead of silently failing to match."""
+    st = _store(tmp_path)
+    raw = _unit(seed=21)
+    st.add_embedding("u1", raw)
+    stale = None
+    with st._connect() as conn:
+        stale = conn.execute("SELECT protected FROM templates WHERE user_id='u1'"
+                             ).fetchone()[0]
+    st.reissue()                                           # epoch 0 -> 1
+    with st._write_lock, st._connect() as conn:            # simulate the interrupted row
+        conn.execute("UPDATE templates SET protected=? WHERE user_id='u1'", (stale,))
+    t = st.load("u1")
+    assert float(st.protect_probe(raw) @ t.anchors[0]) > 0.999
+
+
 def test_iter_since_yields_protected(tmp_path):
     st = _store(tmp_path)
     raw = _unit(seed=12)

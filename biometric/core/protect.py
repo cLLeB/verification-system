@@ -54,6 +54,13 @@ def user_ref(epoch: int, user_id: str, user_epoch: int) -> str:
     return f"store:e{int(epoch)}:u:{user_id}:{int(user_epoch)}"
 
 
+def cred_ref(credential_id: str) -> str:
+    """The private domain of one issued credential (Phase 2): every credential
+    lives in its own matching domain, so a stolen QR can't be matched against
+    any store or any other credential."""
+    return f"cred:{credential_id}"
+
+
 def derive_seed(secret: bytes, context: str) -> bytes:
     return hmac.new(secret, context.encode("utf-8"), hashlib.sha256).digest()
 

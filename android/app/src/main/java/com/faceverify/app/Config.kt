@@ -13,6 +13,11 @@ object Config {
     // must match the server's or pulled datasets are rejected as unmatchable.
     const val PROTECT_SCHEME = "hd3-v1"
 
+    // Server template-envelope (BE1) version this app understands. Sync/bundle
+    // payloads are decoded JSON today, but Phase 2 credentials carry BE1 envelopes;
+    // mirrors biometric/core/envelope.py VERSION — keep in sync.
+    const val ENVELOPE_VERSION = 1
+
     // matching (cosine on L2-normalised embeddings)
     const val MATCH_THRESHOLD = 0.40f         // accept if best similarity >= this
     const val IDENTIFY_MARGIN = 0.06f         // 1:N: top must beat 2nd identity by this
