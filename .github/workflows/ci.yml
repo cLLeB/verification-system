@@ -14,10 +14,15 @@ jobs:
         with:
           python-version: "3.12"
       # Lightweight deps for the model-free unit tests (engine/API tests that need
-      # the InsightFace pack are skipped here; run the full suite locally).
-      - run: pip install numpy cryptography flask itsdangerous pytest
+      # the InsightFace/MediaPipe packs are skipped here; run the full suite locally).
+      # cbor2 is imported at startup (template envelopes); qrcode by credential rendering.
+      - run: pip install numpy cryptography flask itsdangerous pytest cbor2 qrcode
       - run: >-
           python -m pytest -q
           tests/test_matcher.py tests/test_storage.py tests/test_index.py
-          tests/test_keys.py tests/test_usage_audit_security.py
-          tests/test_adaptive_drift.py
+          tests/test_keys.py tests/test_usage_audit_security.py tests/test_adaptive_drift.py
+          tests/test_envelope.py tests/test_signing.py tests/test_crypto_kek.py
+          tests/test_protect.py tests/test_store_protected.py tests/test_store_envelope.py
+          tests/test_index_domain.py tests/test_matcher_off_domain.py
+          tests/test_credential.py tests/test_credentials_registry.py tests/test_glance.py
+          tests/test_bench_protected.py tests/test_trust_pack.py tests/test_camera_freeze_fix.py
