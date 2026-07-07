@@ -119,6 +119,13 @@ export class FaceVerifyClient {
     if (embedding) body.embedding = embedding;
     return this._call("POST", "/v1/credentials/verify", body);
   }
+  /** On-device 1:N glance index (int8 protection-domain vectors + calibrated
+   *  threshold). Admin key + allow_export entitlement required. */
+  glanceIndex(modality = "face") { return this._call("GET", `/v1/sync/index?modality=${modality}`); }
+  /** The glance index as a passphrase-encrypted file payload (air-gapped devices). */
+  exportGlanceIndex(passphrase, modality = "face") {
+    return this._call("POST", "/v1/export/glance-index", { passphrase, modality });
+  }
   /** Public signed bundle of issuer keys + revocation lists. */
   trustStore() { return this._call("GET", "/v1/trust-store"); }
   trustedIssuers() { return this._call("GET", "/v1/trust"); }

@@ -4,6 +4,22 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Trust Platform Phase 3 — on-device 1:N "Glance"** — point the phone at people and
+  names appear in under a second, **fully offline**: the Android Scan tab gains a
+  continuous **Glance** mode (back camera, live name chip, batch-friendly — an
+  identification aid with no liveness; access decisions stay in Verify). Powered by a
+  **glance index**: one int8, protection-domain vector per person (~50 MB per 100k),
+  brute-force matched on-device (spec-first: no ANN until measurement demands it).
+  Delivery: `GET /v1/sync/index` (hybrid) or the passphrase-encrypted
+  `POST /v1/export/glance-index` file (air-gapped), both allow_export-gated;
+  SDK `glance_index()`/`export_glance_index()`. The **1:N operating point is
+  calibrated separately from 1:1** (target-FAR over the impostor distribution,
+  clamped server-side AND on-device to `[floor, floor+0.12]`, `GLANCE_*` mirrored in
+  `Config.kt`) with a top-vs-runner-up margin gate — the palm-threshold lessons,
+  institutionalised. Individually reissued users are excluded until the next
+  reissue-all; server 1:N stays exact numpy (proven at 100k — no quantized path
+  needed). Golden-tested: Kotlin search reproduces the server reference bit-near-
+  exactly. (`face_service/glance.py`, `android/.../glance/GlanceIndex.kt`)
 - **Trust Platform Phase 2 — portable offline credentials (the flagship)** — issue anyone
   a **signed QR credential** (`FV1:` CBOR+Ed25519+base45, EU-DCC-style): printed or saved
   to a phone, it carries their protected int8 template in its **own revocable matching

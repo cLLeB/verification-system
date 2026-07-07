@@ -67,6 +67,21 @@ The app ships in two connectivity flavors × two models = 4 APKs:
   payload bytes (BouncyCastle), golden-tested against server-issued credentials and
   trust stores (incl. Bloom revocation, 64-bit-wrapped double hashing).
 
+  **Glance — on-device 1:N (trust platform Phase 3):** the Scan tab's **"Glance"** mode
+  identifies people continuously with the back camera: face detect → embed → project into
+  the index's protection domain → brute-force int8 dot product over EVERY enrolled
+  identity → name chip, in well under a second, fully offline and batch-friendly (no
+  frozen verdict — the chip follows whoever is in frame). The dataset is the **glance
+  index** (`glance/GlanceIndex.kt`): one int8 vector per person (~50 MB per 100k),
+  fetched by hybrid builds from `GET /v1/sync/index` or imported by ANY build from the
+  passphrase-encrypted `/v1/export/glance-index` file (Settings → Glance index). The 1:N
+  operating point ships calibrated from the server's impostor distribution and is
+  **clamped on-device** to `[GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND]` with a top-vs-
+  runner-up margin gate (`Config.kt GLANCE_*` — mirrors `face_service/glance.py`, keep in
+  sync). Glance is an identification aid (no liveness); access decisions stay in Verify.
+  Without an index it falls back to locally enrolled people at the same operating point.
+  Golden-tested against the server's reference search.
+
   **Protected templates (trust platform Phase 1):** synced/bundled templates arrive in a
   scrambled, revocable *protection domain*; the payload carries the domain seed and the app
   projects each live capture with it before matching (`data/Protect.kt` — a bit-exact port of
