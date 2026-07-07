@@ -96,3 +96,27 @@ def test_endpoints(client, fresh_keys, tmp_path, monkeypatch):
     # scope gate
     vk = fresh_keys.create_key("v", "glance_t", "verify")["api_key"]
     assert client.get("/v1/sync/index", headers=_hdr(vk)).status_code == 403
+
+
+def test_admin_exports_carry_protection_and_glance(client, fresh_keys, monkeypatch):
+    """Admin-side exports must match /v1: bundles carry the domain seeds
+    (an airgapped device can't match without them) and the glance index
+    export exists."""
+    from face_service import bundle, tenants
+    monkeypatch.setenv("BIO_PROTECT_TEMPLATES", "1")
+    key = fresh_keys.create_key("acme", "glance_adm", "admin")["api_key"]
+    tenants.set_entitlement("glance_adm", allow_export=True)
+    client.post("/v1/sync/push", headers=_hdr(key),
+                json={"templates": [{"user_id": "alice", "embeddings": [_unit(1).tolist()]}]})
+    client.post("/admin/login", json={"password": "test-pw"})
+
+    r = client.post("/admin/api/export/bundle",
+                    json={"tenant": "glance_adm", "passphrase": "admin-pass-1"}).get_json()
+    payload = bundle.unpack(r["bundle"], "admin-pass-1")
+    assert payload["protection"]["face"]["seedref"] == "store:e0"   # the Phase-2 parity fix
+
+    r = client.post("/admin/api/export/glance-index",
+                    json={"tenant": "glance_adm", "passphrase": "admin-pass-1"}).get_json()
+    payload = bundle.unpack(r["bundle"], "admin-pass-1")
+    assert payload["format"] == "faceverify-glance-index" and payload["count"] == 1
+    client.post("/admin/logout")
