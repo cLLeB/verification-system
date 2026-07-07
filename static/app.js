@@ -51,6 +51,46 @@ const BURST_FRAMES = 7, BURST_GAP_MS = 280;    // ~2s head-turn recording
 let mode = 'verify', busy = false;
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
+// --- Live-preview watchdog — production camera-freeze fix --------------------
+// iOS Safari pauses an inline, transformed <video> after a canvas capture plus
+// CSS animations, and never auto-resumes. A paused <video> keeps re-drawing its
+// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images —
+// that is why enrolment recorded the same frozen frame as samples 2 and 3. A
+// MUTED video may always be replayed programmatically (autoplay policy), so we
+// resume it on every pause / tab return, and wait for a genuinely fresh frame
+// before every capture.
+function keepVideoAlive(v) {
+    if (!v || v._liveWatch) return;
+    v._liveWatch = true;
+    const resume = () => { if (v.srcObject && v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } };
+    v.addEventListener('pause', resume);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
+    window.addEventListener('focus', resume);
+    window.addEventListener('pageshow', resume);
+}
+function nextVideoFrame(v) {
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        if (typeof v.requestVideoFrameCallback === 'function') {
+            try { v.requestVideoFrameCallback(() => finish()); } catch (e) { finish(); }
+        } else {
+            const t0 = v.currentTime, started = performance.now();
+            const tick = () => {
+                if (v.currentTime > t0 || performance.now() - started > 250) finish();
+                else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+        setTimeout(finish, 350);   // hard cap: a capture must never hang
+    });
+}
+async function ensureLiveVideo(v) {
+    if (!v || !v.srcObject) return;
+    if (v.paused || v.ended) { const p = v.play(); if (p) { try { await p; } catch (e) {} } }
+    await nextVideoFrame(v);
+}
+
 let facing = 'user';                         // 'user' = front (selfie), 'environment' = rear
 async function startCamera() {
     try {
@@ -60,6 +100,8 @@ async function startCamera() {
             video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false,
         });
         video.srcObject = stream;
+        try { await video.play(); } catch (e) {}                // iOS sometimes needs an explicit play
+        keepVideoAlive(video);                                  // auto-resume if iOS pauses the preview
         video.classList.toggle('mirror', facing === 'user');   // mirror front only
         statusText.textContent = 'Ready';
         statusPill.classList.remove('bad');
@@ -162,6 +204,7 @@ async function ensureAdmin() {
 async function enrollCapture() {
     if (!userId.value.trim()) { setHint('Enter a name or ID to enrol first'); userId.focus(); return; }
     if (!(await ensureAdmin())) return;
+    await ensureLiveVideo(video);                 // never capture a stale/frozen frame
     const img = grabFrame();
     if (!img) { setHint('Camera not ready — try again.'); return; }
     flashOval();
@@ -215,6 +258,7 @@ async function enrollFromFiles() {
 }
 
 async function verify() {
+    await ensureLiveVideo(video);
     const img0 = grabFrame();
     if (!img0) { setHint('Camera not ready — try again.'); return; }
     flashOval();
@@ -263,6 +307,7 @@ async function verify() {
 // server picks the SHARPEST frame, so one motion-ghosted frame in dim light doesn't
 // sink the attempt.
 async function palmVerify() {
+    await ensureLiveVideo(video);
     setHint('Hold your open palm steady…', 'info');
     statusText.textContent = 'Checking';
     await wait(450);

@@ -28,6 +28,46 @@ const DEAD_CODES = ['used', 'expired', 'revoked', 'invalid'];
 const BURST_FRAMES = 12, BURST_GAP_MS = 130;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// --- Live-preview watchdog — production camera-freeze fix --------------------
+// iOS Safari pauses an inline, transformed <video> after a canvas capture plus
+// CSS animations, and never auto-resumes. A paused <video> keeps re-drawing its
+// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images —
+// that is why enrolment recorded the same frozen frame as samples 2 and 3. A
+// MUTED video may always be replayed programmatically (autoplay policy), so we
+// resume it on every pause / tab return, and wait for a genuinely fresh frame
+// before every capture.
+function keepVideoAlive(v) {
+    if (!v || v._liveWatch) return;
+    v._liveWatch = true;
+    const resume = () => { if (v.srcObject && v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } };
+    v.addEventListener('pause', resume);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
+    window.addEventListener('focus', resume);
+    window.addEventListener('pageshow', resume);
+}
+function nextVideoFrame(v) {
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        if (typeof v.requestVideoFrameCallback === 'function') {
+            try { v.requestVideoFrameCallback(() => finish()); } catch (e) { finish(); }
+        } else {
+            const t0 = v.currentTime, started = performance.now();
+            const tick = () => {
+                if (v.currentTime > t0 || performance.now() - started > 250) finish();
+                else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+        setTimeout(finish, 350);   // hard cap: a capture must never hang
+    });
+}
+async function ensureLiveVideo(v) {
+    if (!v || !v.srcObject) return;
+    if (v.paused || v.ended) { const p = v.play(); if (p) { try { await p; } catch (e) {} } }
+    await nextVideoFrame(v);
+}
+
 function setHint(text, kind = '') {
     const h = $('hint');
     h.textContent = text;
@@ -93,6 +133,8 @@ async function startCamera() {
             audio: false,
         });
         video.srcObject = stream;
+        try { await video.play(); } catch (e) {}                // iOS sometimes needs an explicit play
+        keepVideoAlive(video);                                  // auto-resume if iOS pauses the preview
         video.classList.toggle('mirror', facing === 'user');   // mirror the selfie view only
         captureBtn.disabled = false;
     } catch (err) {
@@ -174,6 +216,7 @@ async function captureBurst() {
 // Build the POST body for a capture: a liveness burst for a live face (when the
 // server requires it), else a single still.
 async function captureBody() {
+    await ensureLiveVideo(video);                 // never capture a stale/frozen frame
     if (liveness && faceCapture()) {
         const token_challenge = await getChallengeToken();
         if (token_challenge) return { frames: await captureBurst(), token_challenge };
