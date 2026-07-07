@@ -69,7 +69,8 @@ def get(tenant: str) -> dict:
             "allowed_roles": rec.get("allowed_roles", list(_DEFAULT_ROLES)),
             "allow_export": rec.get("allow_export", _DEFAULT_ALLOW_EXPORT),
             "palm_enabled": rec.get("palm_enabled", _DEFAULT_PALM_ENABLED),
-            "match_policy": rec.get("match_policy", _DEFAULT_MATCH_POLICY)}
+            "match_policy": rec.get("match_policy", _DEFAULT_MATCH_POLICY),
+            "trusted_issuers": rec.get("trusted_issuers", [])}
 
 
 def entitlement(tenant: str) -> dict:
@@ -171,6 +172,29 @@ def check_portal_password(tenant: str, password: str) -> bool:
     rec = _load().get((tenant or "").strip()) or {}
     h = rec.get("portal_pw")
     return bool(h) and _pw_check(password, h)
+
+
+# --- cross-org credential trust (trust platform phase 2) ---------------------
+def trusted_issuers(tenant: str) -> list:
+    """Other tenants whose signed credentials THIS tenant's verifiers accept.
+    Adopting the system as a verifier needs no data import: trust the issuer,
+    scan their cards."""
+    return list((_load().get(tenant) or {}).get("trusted_issuers", []))
+
+
+def set_trusted(tenant: str, issuer: str, trusted: bool) -> list:
+    issuer = (issuer or "").strip()
+    with _lock:
+        data = _load()
+        rec = data.setdefault(tenant, {})
+        current = set(rec.get("trusted_issuers", []))
+        if trusted and issuer and issuer != tenant:
+            current.add(issuer)
+        else:
+            current.discard(issuer)
+        rec["trusted_issuers"] = sorted(current)
+        _save(data)
+    return sorted(current)
 
 
 def remove(tenant: str) -> bool:
