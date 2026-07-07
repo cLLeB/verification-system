@@ -312,6 +312,37 @@ def verify_credential_page():
     return render_template("verify_credential.html")
 
 
+@app.route("/glance")
+def glance_page():
+    """Web 'Glance' — continuous on-device-style 1:N from a laptop/phone browser
+    (trust platform Phase 3 web parity, spec 7.2)."""
+    return render_template("glance.html")
+
+
+@app.route("/api/glance", methods=["POST"])
+def api_glance():
+    """One continuous-identification frame: 1:N against the store with the stricter,
+    SEPARATELY-calibrated glance operating point (higher floor + margin than 1:1, no
+    liveness — it's an identification aid; access decisions stay in Verify)."""
+    from face_service import glance as _glance
+    img = decode_image((request.get_json(silent=True) or {}).get("image", ""))
+    if img is None:
+        return jsonify({"success": False, "code": "capture"})
+    out = _modality.identify(img, CONFIG, palm_enabled=True)
+    if out.get("code") == "no_biometric_detected":
+        return jsonify({"success": False, "code": "none"})
+    mod = out.get("matched_modality") or (out.get("modality")
+                                          if out.get("modality") in ("face", "palm") else "face")
+    floor = _glance.GLANCE_FLOORS.get(mod, 0.5)
+    cands = ((out.get("results") or {}).get(mod, {}) or {}).get("candidates") or []
+    top = float(cands[0]["score"]) if cands else float(out.get("score") or -1)
+    second = float(cands[1]["score"]) if len(cands) > 1 else -1.0
+    uid = cands[0]["user_id"] if cands else out.get("user_id")
+    granted = top >= floor and (len(cands) <= 1 or (top - second) >= _glance.GLANCE_MARGIN)
+    return jsonify({"success": bool(granted), "modality": mod,
+                    "user_id": uid if granted else None, "score": round(top, 4)})
+
+
 @app.route("/trust")
 def trust_center():
     """Public Trust Center (trust platform Phase 4): the security story plus the

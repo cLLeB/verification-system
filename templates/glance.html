@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0f16">
+    <title>Glance — continuous identification</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               background: #0d0f16; color: #eef1f9; min-height: 100vh;
+               display: flex; flex-direction: column; align-items: center; padding: 18px 14px; gap: 12px; }
+        h1 { font-size: 1.15rem; font-weight: 700; }
+        .sub { font-size: .82rem; color: #9aa3b8; text-align: center; max-width: 460px; }
+        .stage { position: relative; width: 100%; max-width: 460px; aspect-ratio: 4/3;
+                 border-radius: 16px; overflow: hidden; background: #000; border: 1px solid #232b3d; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .chip { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+                padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 1rem;
+                background: #10361f; color: #7ef0a6; border: 1px solid #1f7a4c;
+                opacity: 0; transition: opacity .15s; white-space: nowrap; max-width: 90%; overflow: hidden; }
+        .chip.show { opacity: 1; }
+        .row { display: flex; gap: 10px; width: 100%; max-width: 460px; }
+        .btn { flex: 1; border: 0; border-radius: 10px; padding: 12px; font-size: .95rem; font-weight: 600;
+               cursor: pointer; background: #4c66f5; color: #fff; }
+        .btn.ghost { background: #1b2030; color: #dfe4f2; }
+        .stat { font-size: .78rem; color: #6b7488; }
+    </style>
+</head>
+<body>
+    <h1>Glance</h1>
+    <p class="sub">Point the camera at people — names appear as they're recognised, continuously
+        and in real time. An <b>identification aid</b> (no liveness); use Verify for access
+        decisions.</p>
+    <div class="stage">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="chip" id="chip"></div>
+    </div>
+    <div class="row">
+        <button class="btn" id="toggle">Start glancing</button>
+        <button class="btn ghost" id="flip">Flip camera</button>
+    </div>
+    <p class="stat" id="stat">Idle.</p>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const video = $('video'), chip = $('chip');
+const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+let facing = 'user', stream = null, running = false, inflight = false, lastSeen = 0;
+
+// --- Live-preview watchdog (same iOS camera-freeze fix as the enrol surfaces) ---
+function keepVideoAlive(v) {
+    if (!v || v._liveWatch) return; v._liveWatch = true;
+    const resume = () => { if (v.srcObject && v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } };
+    v.addEventListener('pause', resume);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
+    window.addEventListener('focus', resume); window.addEventListener('pageshow', resume);
+}
+function nextVideoFrame(v) {
+    return new Promise((resolve) => {
+        let done = false; const finish = () => { if (!done) { done = true; resolve(); } };
+        if (typeof v.requestVideoFrameCallback === 'function') {
+            try { v.requestVideoFrameCallback(() => finish()); } catch (e) { finish(); }
+        } else {
+            const t0 = v.currentTime, s = performance.now();
+            const tick = () => { (v.currentTime > t0 || performance.now() - s > 250) ? finish() : requestAnimationFrame(tick); };
+            requestAnimationFrame(tick);
+        }
+        setTimeout(finish, 350);
+    });
+}
+async function ensureLiveVideo(v) {
+    if (!v || !v.srcObject) return;
+    if (v.paused || v.ended) { const p = v.play(); if (p) { try { await p; } catch (e) {} } }
+    await nextVideoFrame(v);
+}
+
+async function startCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+        video.srcObject = stream;
+        try { await video.play(); } catch (e) {}
+        keepVideoAlive(video);
+    } catch (e) { $('stat').textContent = 'Camera unavailable — allow access and reload.'; }
+}
+
+function grab() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = Math.min(640, vw), h = Math.round(w * vh / vw);
+    canvas.width = w; canvas.height = h; ctx.drawImage(video, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+async function tick() {
+    if (!running) return;
+    if (!inflight) {
+        inflight = true;
+        try {
+            await ensureLiveVideo(video);
+            const img = grab();
+            if (img) {
+                const d = await fetch('/api/glance', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: img }),
+                }).then(r => r.json()).catch(() => ({}));
+                if (d.success && d.user_id) {
+                    chip.textContent = `${d.user_id}  ·  ${d.score}`;
+                    chip.classList.add('show'); lastSeen = Date.now();
+                    $('stat').textContent = `Identified via ${d.modality}.`;
+                } else if (Date.now() - lastSeen > 900) {
+                    chip.classList.remove('show');
+                    $('stat').textContent = d.code === 'none' ? 'No face/palm in view.' : 'Scanning…';
+                }
+            }
+        } finally { inflight = false; }
+    }
+    if (running) setTimeout(tick, 350);   // ~3 checks/sec; server serialises inference
+}
+
+$('toggle').onclick = () => {
+    running = !running;
+    $('toggle').textContent = running ? 'Stop' : 'Start glancing';
+    $('stat').textContent = running ? 'Scanning…' : 'Idle.';
+    if (!running) chip.classList.remove('show');
+    if (running) tick();
+};
+$('flip').onclick = async () => { facing = facing === 'user' ? 'environment' : 'user'; await startCamera(); };
+
+startCamera();
+</script>
+</body>
+</html>

@@ -98,6 +98,13 @@ def test_endpoints(client, fresh_keys, tmp_path, monkeypatch):
     assert client.get("/v1/sync/index", headers=_hdr(vk)).status_code == 403
 
 
+def test_web_glance_page_and_endpoint(client):
+    # Phase 3 web parity (spec 7.2): the /glance page + continuous /api/glance loop
+    assert client.get("/glance").status_code == 200
+    r = client.post("/api/glance", json={}).get_json()      # no image -> graceful, no crash
+    assert r["success"] is False and r["code"] == "capture"
+
+
 def test_admin_exports_carry_protection_and_glance(client, fresh_keys, monkeypatch):
     """Admin-side exports must match /v1: bundles carry the domain seeds
     (an airgapped device can't match without them) and the glance index

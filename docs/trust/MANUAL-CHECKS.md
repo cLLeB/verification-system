@@ -48,12 +48,7 @@ Last updated: 2026-07-07 (after the Phase 0–4 audit pass).
 
 ## D. Product decisions / deferred features (not built — your call)
 
-9. **Phase 3 web-client "Glance" UI (spec §7.2).** The server (`POST /v1/identify`)
-   and the Android Glance mode are done; the spec also mentions a *continuous*
-   glance UX on the web client so the demo works from a laptop. Not built — it's a
-   web-UI feature, not a backend gap. Say the word and I'll add a continuous-identify
-   mode to the web client.
-10. **Palm glance on Android.** Android Glance pulls the FACE index only. The code is
+9. **Palm glance on Android.** Android Glance pulls the FACE index only. The code is
     now palm-safe (per-modality clamp floor), but there's no palm-glance UI/pull.
     Fast-follow if wanted.
 11. **Third-party certification (FIDO/iBeta).** Explicitly out of scope this program;
