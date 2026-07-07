@@ -50,6 +50,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const TOKEN = "{{ token }}";
+const ADMIN = {{ 'true' if admin else 'false' }};
 const video = $('video');
 const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
 let facing = 'user', stream = null, busy = false;
@@ -92,14 +93,14 @@ async function capture(kind) {
         if ($('palm').checked) label = (kind === 'live' ? 'palm_live' : 'palm_spoof');
         const d = await fetch('/api/collect', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: TOKEN, label, image: img }) }).then(r => r.json()).catch(() => ({}));
-        if (d.success) { count[label] = d.count; renderTally(); }
-        else if (d.code === 'forbidden') $('gate').innerHTML = '<p class="warn">Wrong or missing token — open /collect?token=YOUR_SECRET.</p>';
+        if (d.success) { count[label] = d.count; renderTally(); $('gate').innerHTML = ''; }
+        else if (d.code === 'forbidden') $('gate').innerHTML = '<p class="warn">Not saving — sign in at /admin first (or open /collect?token=YOUR_SECRET).</p>';
     } finally { busy = false; }
 }
 $('cap-live').onclick = () => capture('live');
 $('cap-spoof').onclick = () => capture('spoof');
 $('flip').onclick = async () => { facing = facing === 'user' ? 'environment' : 'user'; await startCamera(); };
-if (!TOKEN) $('gate').innerHTML = '<p class="warn">Add ?token=YOUR_SECRET to the URL to save captures.</p>';
+if (!TOKEN && !ADMIN) $('gate').innerHTML = '<p class="warn">Sign in at <b>/admin</b> first (or add ?token=YOUR_SECRET) so captures save.</p>';
 startCamera();
 </script>
 </body>

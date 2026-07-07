@@ -8,36 +8,47 @@ Last updated: 2026-07-07 (after the Phase 0–4 audit pass).
 
 ## 0. Pilot data collection (the current plan — what you do, what I do)
 
-You'll go around enrolling/verifying real people and taking still photos for the
-liveness test. Here's the exact setup so I can read and process all of it afterwards.
-
-**One switch turns it all on.** In the HF Space → Settings → **Variables and secrets**,
-add a secret **`FACE_ANALYTICS_TOKEN`** = any long random string. Nothing collects or
-exports until this is set; deleting it turns everything off instantly.
-(Also confirm **`FACE_PERSIST_DATASET` + `HF_TOKEN`** are set — see §A — or the day's
-collection is lost on restart.)
+You go around enrolling/verifying real people and collecting liveness samples. Your
+work is **not** wasted — everything saves on the server (and syncs to your persistence
+Dataset), and I read + process it afterwards. **You do NOT need a token to collect.**
 
 **What you do on your phone (over the coming days):**
-1. **Enrol & verify real people** normally at `/` and `/admin` — face and palm. This
-   builds the real population; I read the (protected) templates from it to measure
-   accuracy and recalibrate the face/palm thresholds on YOUR people.
-2. **Collect liveness samples** at **`/collect?token=YOUR_SECRET`**:
-   - Tap **LIVE** with a genuine person in front of the camera (a handful each of
-     several people, varied light).
-   - Tap **SPOOF** while holding up a **printed photo** of a face, or a face shown on
-     **another phone's screen**. (Tick "these are PALM captures" if collecting palms.)
-   - Aim for maybe 30–60 of each to start; more is better. A running tally shows on
-     screen. It saves to the persisted disk, so multiple days accumulate safely.
+1. **Sign in to `/admin`** on your phone (the same login you use to enrol). That's it —
+   no token, no secret to fiddle with for collecting.
+2. **Enrol & verify real people** normally — face and palm. This builds the real
+   population; I later read the (protected) templates from it and recalibrate the
+   face/palm thresholds on YOUR people.
+3. **Collect liveness samples** at **`/collect`** (while signed in):
+   - Tap **LIVE** with a genuine person really in front of the camera (several people,
+     varied light).
+   - Tap **SPOOF** while **pointing the camera at a re-presented face** — see the note
+     below. Tick "these are PALM captures" for palms.
+   - A running tally shows on screen (that's your proof it's saving). Aim for ~30–60 of
+     each to start; more is better. It persists across days/restarts.
 
-**What I do when you say it's ready** (just give me the Space URL + the secret):
-- Pull the templates → report genuine/impostor separation, EER, and recommended
-  face/palm thresholds on your real population (`_analytics_pull.py`); apply + mirror
-  any change into `Config.kt` and rebuild the APKs.
-- Pull the liveness images (`_collect_pull.py`) → run `python -m bench run --suite pad`
+**About SPOOF samples (your printed-vs-still-photo question):** the camera must be
+looking at a *re-presented* face, not a live person — that's what makes it a spoof.
+- ✅ **Easiest, no printing:** show a face **on another phone's screen** and point the
+  collection camera at that screen (a "replay attack" — just as valid as, and more
+  common than, print).
+- ✅ Or hold up a **printed photo**.
+- ❌ **Does NOT count:** taking a normal still photo of a person and using that as a
+  spoof. A clean face image looks *live* to the detector — a spoof needs the visible
+  artefacts of a screen or paper (glare, moiré, edges). So don't just snap a still;
+  **display it on a second screen and capture that.**
+
+**What I do when you say it's ready — give me the Space URL + the `FACE_ANALYTICS_TOKEN`
+value** (from Space → Settings → Variables and secrets; it's already set. If you'd
+rather, set it to a fresh random value and paste me that). The token is only for MY
+pull — you never need it while collecting:
+- Pull templates → recommend calibrated face/palm thresholds on your real people
+  (`_analytics_pull.py`); apply + mirror into `Config.kt`, rebuild APKs.
+- Pull the liveness images (`_collect_pull.py`) → `python -m bench run --suite pad`
   → publish the real anti-spoof number on `/trust`.
 
-**Teardown when the pilot's done:** delete the `FACE_ANALYTICS_TOKEN` secret (exports
-404 instantly), and I can wipe the collected images with `_collect_pull.py --wipe`.
+**Confirm `FACE_PERSIST_DATASET` + `HF_TOKEN` are set** (§A) — you said they are — or a
+restart loses the collection. **Teardown when done:** delete the token secret;
+I wipe the images with `_collect_pull.py --wipe`.
 
 ---
 

@@ -22,6 +22,19 @@ def test_off_without_secret(client, monkeypatch):
     assert client.get("/api/analytics/collect").status_code == 404
 
 
+def test_admin_session_collects_without_a_token(client, monkeypatch, tmp_path):
+    # the pilot path: signed in to /admin (the login used to enrol), no token needed
+    import app
+    monkeypatch.setattr(app, "ANALYTICS_TOKEN", "")           # token feature OFF
+    monkeypatch.setattr(app, "_COLLECT_DIR", str(tmp_path / "collect"))
+    assert client.get("/collect").status_code == 404          # off before login
+    client.post("/admin/login", json={"password": "test-pw"})
+    assert client.get("/collect").status_code == 200          # on once signed in
+    r = client.post("/api/collect", json={"label": "spoof", "image": _img_b64()}).get_json()
+    assert r["success"] and r["count"] == 1
+    client.post("/admin/logout")
+
+
 def test_gated_save_and_export(client, monkeypatch, tmp_path):
     import app
     monkeypatch.setattr(app, "ANALYTICS_TOKEN", "sekret")

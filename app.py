@@ -1059,20 +1059,23 @@ def _collect_enabled(supplied: str) -> bool:
 @app.route("/collect")
 def collect_page():
     """TEMPORARY data-collection screen for building a liveness/anti-spoof (PAD) test
-    set on real captures. Open /collect?token=<FACE_ANALYTICS_TOKEN> on the phone; tap
-    LIVE for a genuine person, SPOOF for a held-up photo / phone-screen replay. Images
-    save under the persisted dir. Off (404) unless FACE_ANALYTICS_TOKEN is set."""
-    if not ANALYTICS_TOKEN:
-        return ("Collection is not enabled (set FACE_ANALYTICS_TOKEN).", 404)
-    return render_template("collect.html", token=request.args.get("token", ""))
+    set on real captures. If you're signed in to /admin, just open /collect — no token
+    needed. Tap LIVE for a genuine person, SPOOF for a held-up photo / phone-screen
+    replay. Images save under the persisted dir. Available when an admin is signed in
+    OR FACE_ANALYTICS_TOKEN is set."""
+    if not (admin.valid_session() or ANALYTICS_TOKEN):
+        return ("Collection is off — sign in to /admin, or set FACE_ANALYTICS_TOKEN.", 404)
+    return render_template("collect.html", token=request.args.get("token", ""),
+                           admin=admin.valid_session())
 
 
 @app.route("/api/collect", methods=["POST"])
 def api_collect():
-    """Save one labeled capture image for the PAD/liveness test set. Token-gated."""
+    """Save one labeled capture image for the PAD/liveness test set. Authorised by the
+    admin session (the login you already use to enrol) OR the analytics token."""
     data = request.get_json(silent=True) or {}
-    if not _collect_enabled(data.get("token", "")):
-        return jsonify({"success": False, "code": "forbidden"}), (404 if not ANALYTICS_TOKEN else 403)
+    if not (admin.valid_session() or _collect_enabled(data.get("token", ""))):
+        return jsonify({"success": False, "code": "forbidden"}), (403 if ANALYTICS_TOKEN else 404)
     label = (data.get("label") or "").strip()
     if label not in _COLLECT_LABELS:
         return jsonify({"success": False, "code": "bad_label"}), 400
