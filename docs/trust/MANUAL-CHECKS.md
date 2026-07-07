@@ -6,6 +6,41 @@ data captures, secrets, and product decisions. Grouped by priority.
 
 Last updated: 2026-07-07 (after the Phase 0–4 audit pass).
 
+## 0. Pilot data collection (the current plan — what you do, what I do)
+
+You'll go around enrolling/verifying real people and taking still photos for the
+liveness test. Here's the exact setup so I can read and process all of it afterwards.
+
+**One switch turns it all on.** In the HF Space → Settings → **Variables and secrets**,
+add a secret **`FACE_ANALYTICS_TOKEN`** = any long random string. Nothing collects or
+exports until this is set; deleting it turns everything off instantly.
+(Also confirm **`FACE_PERSIST_DATASET` + `HF_TOKEN`** are set — see §A — or the day's
+collection is lost on restart.)
+
+**What you do on your phone (over the coming days):**
+1. **Enrol & verify real people** normally at `/` and `/admin` — face and palm. This
+   builds the real population; I read the (protected) templates from it to measure
+   accuracy and recalibrate the face/palm thresholds on YOUR people.
+2. **Collect liveness samples** at **`/collect?token=YOUR_SECRET`**:
+   - Tap **LIVE** with a genuine person in front of the camera (a handful each of
+     several people, varied light).
+   - Tap **SPOOF** while holding up a **printed photo** of a face, or a face shown on
+     **another phone's screen**. (Tick "these are PALM captures" if collecting palms.)
+   - Aim for maybe 30–60 of each to start; more is better. A running tally shows on
+     screen. It saves to the persisted disk, so multiple days accumulate safely.
+
+**What I do when you say it's ready** (just give me the Space URL + the secret):
+- Pull the templates → report genuine/impostor separation, EER, and recommended
+  face/palm thresholds on your real population (`_analytics_pull.py`); apply + mirror
+  any change into `Config.kt` and rebuild the APKs.
+- Pull the liveness images (`_collect_pull.py`) → run `python -m bench run --suite pad`
+  → publish the real anti-spoof number on `/trust`.
+
+**Teardown when the pilot's done:** delete the `FACE_ANALYTICS_TOKEN` secret (exports
+404 instantly), and I can wipe the collected images with `_collect_pull.py --wipe`.
+
+---
+
 ## A. Must-do for production correctness (credentials/trust across restarts)
 
 1. **Confirm Space persistence is enabled.** Set (as HF Space secrets, if not already):

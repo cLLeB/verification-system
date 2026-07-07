@@ -89,3 +89,4 @@ android/build_fresh.log
 
 # Temporary analytics pulls from the live Space (biometric embeddings — never commit)
 _analytics/
+collect/

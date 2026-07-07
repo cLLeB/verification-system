@@ -234,9 +234,14 @@ SELF_ENROLL_LIVENESS = os.environ.get("FACE_SELF_ENROLL_LIVENESS", "0") == "1"
 # default; set to 0 to require a claimed user_id (1:1 only) so the open endpoint
 # can't be used to probe "is this person in your DB" (fix F — identify privacy).
 PUBLIC_IDENTIFY = os.environ.get("FACE_PUBLIC_IDENTIFY", "1") == "1"
-# TEMPORARY analytics export (accuracy tuning on real data). OFF unless this secret is
-# set; delete the secret to switch it off instantly. See /api/analytics/templates.
+# TEMPORARY analytics + data collection (accuracy tuning + liveness/PAD test-set on real
+# data). ALL of it is OFF unless this ONE secret is set; delete the secret to switch it
+# off instantly. See /api/analytics/templates, /collect, /api/analytics/collect.
 ANALYTICS_TOKEN = os.environ.get("FACE_ANALYTICS_TOKEN", "")
+# Collected liveness images live under the persisted dir so they survive restarts + sync.
+_COLLECT_DIR = os.environ.get("FACE_COLLECT_DIR",
+                              os.path.join(os.environ.get("FACE_PERSIST_DIR", "."), "collect"))
+_COLLECT_LABELS = ("live", "spoof", "palm_live", "palm_spoof")
 
 # Warm the models in the MAIN thread before any request hits a worker thread.
 MODEL_READY = _face_engine.warm(CONFIG)
@@ -1045,6 +1050,70 @@ def analytics_templates():
     return jsonify({"success": True, "generated": int(time.time()),
                     "counts": {"face": len(face), "palm": len(palm)},
                     "face": face, "palm": palm})
+
+
+def _collect_enabled(supplied: str) -> bool:
+    return bool(ANALYTICS_TOKEN) and bool(supplied) and hmac.compare_digest(supplied, ANALYTICS_TOKEN)
+
+
+@app.route("/collect")
+def collect_page():
+    """TEMPORARY data-collection screen for building a liveness/anti-spoof (PAD) test
+    set on real captures. Open /collect?token=<FACE_ANALYTICS_TOKEN> on the phone; tap
+    LIVE for a genuine person, SPOOF for a held-up photo / phone-screen replay. Images
+    save under the persisted dir. Off (404) unless FACE_ANALYTICS_TOKEN is set."""
+    if not ANALYTICS_TOKEN:
+        return ("Collection is not enabled (set FACE_ANALYTICS_TOKEN).", 404)
+    return render_template("collect.html", token=request.args.get("token", ""))
+
+
+@app.route("/api/collect", methods=["POST"])
+def api_collect():
+    """Save one labeled capture image for the PAD/liveness test set. Token-gated."""
+    data = request.get_json(silent=True) or {}
+    if not _collect_enabled(data.get("token", "")):
+        return jsonify({"success": False, "code": "forbidden"}), (404 if not ANALYTICS_TOKEN else 403)
+    label = (data.get("label") or "").strip()
+    if label not in _COLLECT_LABELS:
+        return jsonify({"success": False, "code": "bad_label"}), 400
+    img = decode_image(data.get("image", ""))
+    if img is None:
+        return jsonify({"success": False, "code": "capture"})
+    d = os.path.join(_COLLECT_DIR, label)
+    os.makedirs(d, exist_ok=True)
+    name = f"{int(time.time() * 1000)}_{secrets.token_hex(3)}.jpg"
+    cv2.imwrite(os.path.join(d, name), img)
+    n = len([f for f in os.listdir(d) if f.lower().endswith(".jpg")])
+    audit.log(_FP_TENANT, "collect", actor="collect", success=True, detail=f"{label} #{n}")
+    return jsonify({"success": True, "label": label, "count": n})
+
+
+@app.route("/api/analytics/collect", methods=["GET"])
+def analytics_collect_export():
+    """Export the collected liveness images as a base64 zip (for offline PAD tuning).
+    Token-gated via the X-Analytics-Token header. ?wipe=1 clears them after export."""
+    if not ANALYTICS_TOKEN:
+        return jsonify({"success": False, "code": "disabled"}), 404
+    if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
+        return jsonify({"success": False, "code": "forbidden"}), 403
+    import io
+    import shutil
+    import zipfile
+    buf, counts = io.BytesIO(), {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for label in _COLLECT_LABELS:
+            d = os.path.join(_COLLECT_DIR, label)
+            if not os.path.isdir(d):
+                continue
+            files = [f for f in os.listdir(d) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+            counts[label] = len(files)
+            for f in files:
+                z.write(os.path.join(d, f), arcname=f"{label}/{f}")
+    payload = base64.b64encode(buf.getvalue()).decode("ascii")
+    if request.args.get("wipe") == "1":
+        shutil.rmtree(_COLLECT_DIR, ignore_errors=True)
+    audit.log(_FP_TENANT, "collect_export", actor="analytics", success=True, detail=str(counts))
+    return jsonify({"success": True, "counts": counts, "zip_b64": payload})
 
 
 @app.route("/api/health")
