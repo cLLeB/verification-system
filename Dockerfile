@@ -38,8 +38,6 @@ COPY --chown=user face_service ./face_service
 COPY --chown=user templates ./templates
 COPY --chown=user static ./static
 COPY --chown=user app.py manage_keys.py manage_admins.py bulk_enroll.py manage_templates.py openapi.yaml ./
-# Trust Center (/trust) reads these measured benchmark reports; small JSON only.
-COPY --chown=user docs/trust ./docs/trust
 
 # Bake the palm models into the image from Hugging Face (kept out of git: HF Spaces
 # reject committed binaries). CCNet fp16 (~129 MB, ~lossless) + the MediaPipe hand
