@@ -28,3 +28,4 @@ jpype1>=1.5              # bridge to SourceAFIS (needs Java 21 + jars in fingerp
 
 # --- Dev/test ---
 pytest>=8.0
+qrcode>=8.0              # credential QR rendering (trust platform phase 2)
