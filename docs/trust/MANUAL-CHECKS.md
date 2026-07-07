@@ -36,12 +36,33 @@ Last updated: 2026-07-07 (after the Phase 0–4 audit pass).
 
 ## C. Data captures needed to complete a spec item
 
-7. **PAD (anti-spoof) benchmark numbers.** `/trust` shows "not yet published" for
-   presentation-attack detection because it needs a physical attack set. Capture
-   `pad_data/live/*.jpg` (genuine faces) and `pad_data/spoof/*.jpg` (printed photos +
-   phone-screen replays of those faces), then run `python -m bench run --suite pad`
-   and redeploy — the number appears automatically. Active head-turn liveness ships
-   enabled regardless.
+7. **PAD (passive anti-spoof) benchmark number.** Only needed if you want the *optional*
+   passive-liveness score on `/trust` (the active head-turn liveness that actually
+   protects verification is already on by default — the page now says so). The bench is
+   fully wired; it just needs a folder of examples arranged like this, then one command:
+
+   ```
+   pad_data/
+     live/   real1.jpg  real2.jpg  ...      # genuine live faces
+     spoof/  print1.jpg screen1.jpg ...      # photos-of-photos + phone-screen replays
+   ```
+   ```
+   python -m bench run --suite pad     # writes the number; redeploy to publish it
+   ```
+
+   **You do NOT have to photograph anything yourself** — any of these work:
+   - **Easiest, real:** a **public PAD dataset** arranged into `live/` + `spoof/`. Good
+     freely/registration-available ones: *NUAA Imposter*, *Replay-Attack (Idiap)*,
+     *CASIA-FASD*, *MSU-MFSD*, *OULU-NPU*, *Rose-Youtu* (most need a short research
+     licence/registration — that's why only you can fetch them).
+   - **Tiny & quick:** even ~10 genuine + ~10 spoof (print a couple of faces, snap them,
+     and photograph a face shown on a phone screen) yields a demonstrative number.
+
+   **Honesty rule (don't skip):** do **not** use *CelebA-Spoof* here — the bundled
+   anti-spoof model was trained on it, so testing on it is train/test leakage and the
+   number would be dishonestly inflated. Use a *different* dataset than the training one.
+   If you can later give me network access or a downloaded dataset, I'll produce the
+   number in one step.
 8. **Palm threshold calibration on production palms.** (Pre-existing item — see the
    palm-calibration memory.) Add real production palm images locally and recalibrate
    so the palm operating point is data-driven, not the curated baseline.

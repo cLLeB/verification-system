@@ -89,11 +89,13 @@
         </div>
         {% elif skipped.pad %}
         <div class="stat">
-            <div class="v warn">not yet published</div>
-            <div class="k">Presentation-attack detection</div>
-            <div class="d">{{ skipped.pad }} — active head-turn liveness ships
-                enabled regardless; passive PAD numbers publish once measured on a
-                local attack set.</div>
+            <div class="v ok">liveness on by default</div>
+            <div class="k">Anti-spoofing</div>
+            <div class="d">A live <b>head-turn challenge</b> ships enabled — a flat photo
+                or a screen replay can't perform a real 3D turn, so print/replay attacks
+                are refused. The optional <i>passive</i> anti-spoof score is published
+                only when measured on a properly licensed, non-training attack dataset
+                (we don't quote a number we haven't earned).</div>
         </div>
         {% endif %}
     </div>
