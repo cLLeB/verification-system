@@ -4,6 +4,22 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Trust Platform Phase 4 — trust pack** — the program's evidence layer.
+  **Benchmark harness**: `python -m bench run --suite all|protected|credential|speed|
+  face|palm|pad` consolidates the ad-hoc scripts into versioned suites that exercise
+  the REAL serving code paths and write JSON reports + a manifest to
+  `docs/trust/reports/`; suites missing local datasets/models SKIP with a stated
+  reason (published numbers only ever come from something that ran). Committed run:
+  protection TAR delta 0.0 (gate PASS), credentials ~1,202 chars (fits QR v25,
+  verify ~1 ms, gate PASS), 5k-identity encrypted+protected store at 1:N p50 0.66 ms
+  with 100/100 top-1 (gate PASS), live face/palm model suites, PAD honestly skipped
+  pending a physical attack set. **Trust Center**: public `/trust` page renders the
+  latest measured numbers with the plain-language security story (what's stored, what
+  can never leak, the full revocation table) — linked from the enrol explainer and
+  docs. **Compliance dossier**: `docs/trust/compliance.md` maps Ghana DPA (Act 843) +
+  GDPR obligations to the exact enforcing code paths, with per-deployment data flows,
+  retention/erasure guarantees, and honest limitations. (`bench/`, `templates/
+  trust.html`, `docs/trust/compliance.md`)
 - **Trust Platform Phase 3 — on-device 1:N "Glance"** — point the phone at people and
   names appear in under a second, **fully offline**: the Android Scan tab gains a
   continuous **Glance** mode (back camera, live name chip, batch-friendly — an
