@@ -56,7 +56,9 @@ ENV FACE_DB_PATH=/data/face_db \
     FACE_TENANTS_FILE=/data/tenants.json \
     FACE_USAGE_FILE=/data/usage.json \
     FACE_AUDIT_DIR=/data/audit_logs \
-    FACE_PERSIST_DIR=/data
+    FACE_PERSIST_DIR=/data \
+    BIO_ISSUER_KEY_DIR=/data/issuer \
+    BIO_CREDENTIALS_DIR=/data/credentials
 
 EXPOSE 7860
 

@@ -23,6 +23,10 @@ services:
       FACE_TENANTS_FILE: /data/tenants.json
       FACE_USAGE_FILE: /data/usage.json
       FACE_AUDIT_DIR: /data/audit_logs
+      # issuer signing keys + credential registry MUST persist, or every restart
+      # regenerates keys and breaks all previously issued credentials (unknown_issuer)
+      BIO_ISSUER_KEY_DIR: /data/issuer
+      BIO_CREDENTIALS_DIR: /data/credentials
     volumes:
       - facedata:/data
     expose:

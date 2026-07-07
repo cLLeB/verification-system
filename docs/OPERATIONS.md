@@ -27,6 +27,8 @@ First start downloads the ArcFace model (InsightFace) unless cached/baked; warmi
 | `FACE_SIGNING_SECRET` | — | HMAC-sign first-party verify results. |
 | `FACE_DB_PATH` | `face_db` | Base data dir (store + per-tenant + index). |
 | `FACE_KEYS_FILE` · `FACE_ADMINS_FILE` · `FACE_TENANTS_FILE` · `FACE_USAGE_FILE` · `FACE_AUDIT_DIR` | `apikeys.json` · `admins.json` · `tenants.json` · `usage.json` · `audit_logs` | State locations. |
+| `BIO_ISSUER_KEY_DIR` · `BIO_CREDENTIALS_DIR` | `secrets/issuer` · `secrets/credentials` | Per-tenant Ed25519 **issuer signing keys** + the **credential registry/revocation list**. On ephemeral hosts these MUST live under the persisted dir (the Docker image sets them to `/data/...`), or a restart regenerates keys and **breaks every issued credential** (`unknown_issuer`) and empties the revocation list. |
+| `BIO_PROTECT_TEMPLATES` | 1 | Protected (cancelable) templates. `0` disables (raw matching). |
 | `FACE_CORS_ORIGINS` | same-origin | Comma-separated browser origins allowed on `/v1` (per-tenant origins also work via admin). |
 | `FACE_RATE_LIMIT` / `FACE_RATE_WINDOW` | 120 / 60 | Requests per window per caller. |
 | `FACE_ACTIVE_LIVENESS` | 1 | Require a live head-turn on verify. |
