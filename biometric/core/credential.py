@@ -15,10 +15,14 @@ privacy properties do not depend on seed secrecy: a stolen/photographed QR is
 (a) unmatchable against any store or other credential (its own domain),
 (b) useless without the live person, (c) revocable, (d) expiring.
 
-Wire format:  "FV1:" + base45( CBOR [payload_map, sig64] )
+Wire format:  "FV1:" + base45( CBOR [payload_bytes, sig64] )
+where ``payload_bytes`` is the CBOR-encoded payload map carried as a byte
+string and ``sig`` = Ed25519 over exactly those bytes (COSE-style detached
+payload). Verifiers check the signature over the received bytes and only then
+parse them — no CBOR canonicalization to re-implement on any platform.
 Payload map (spec 6.1): v, cid(16B), iss, kid, sub, mod[], tpl[BE1 envelopes],
-iat, exp, and optional name / attrs. ``sig`` = Ed25519 over canonical CBOR of
-the payload map. Decoding fails closed with typed error codes (spec 6.6).
+iat, exp, and optional name / attrs. Decoding fails closed with typed error
+codes (spec 6.6).
 """
 
 from __future__ import annotations
@@ -121,12 +125,14 @@ def signing_bytes(payload: dict) -> bytes:
 
 
 def encode(payload: dict, sig: bytes) -> str:
-    return PREFIX + base45.encode(cbor2.dumps([payload, bytes(sig)]))
+    return PREFIX + base45.encode(
+        cbor2.dumps([signing_bytes(payload), bytes(sig)]))
 
 
 # --- decode / verify (fail closed) --------------------------------------------
-def decode(text: str) -> Tuple[dict, bytes]:
-    """Wire string -> (payload, sig). Schema-validated; signature NOT yet checked."""
+def decode(text: str) -> Tuple[dict, bytes, bytes]:
+    """Wire string -> (payload, payload_bytes, sig). Schema-validated; the
+    signature is NOT yet checked (verify() checks it over payload_bytes)."""
     text = (text or "").strip()
     if not text.startswith(PREFIX):
         raise CredentialError(MALFORMED, "not a FaceVerify credential (missing FV1 prefix)")
@@ -136,11 +142,17 @@ def decode(text: str) -> Tuple[dict, bytes]:
     except (base45.Base45Error, Exception) as exc:
         raise CredentialError(MALFORMED, f"undecodable credential: {exc}") from exc
     if (not isinstance(outer, list) or len(outer) != 2
+            or not isinstance(outer[0], bytes)
             or not isinstance(outer[1], bytes) or len(outer[1]) != 64):
-        raise CredentialError(MALFORMED, "credential must be [payload, 64-byte signature]")
-    payload, sig = outer
+        raise CredentialError(MALFORMED,
+                              "credential must be [payload bytes, 64-byte signature]")
+    payload_bytes, sig = outer
+    try:
+        payload = cbor2.loads(payload_bytes)
+    except Exception as exc:
+        raise CredentialError(MALFORMED, f"undecodable payload: {exc}") from exc
     _validate(payload)
-    return payload, sig
+    return payload, payload_bytes, sig
 
 
 def verify(text: str, resolve_key: Callable[[str, str], Optional[bytes]],
@@ -148,12 +160,12 @@ def verify(text: str, resolve_key: Callable[[str, str], Optional[bytes]],
     """Decode + verify signature and validity window. ``resolve_key(iss, kid)``
     returns the issuer's 32-byte public key, or None for an untrusted/unknown
     issuer. Returns the payload; raises ``CredentialError`` on ANY failure."""
-    payload, sig = decode(text)
+    payload, payload_bytes, sig = decode(text)
     pk = resolve_key(payload["iss"], payload["kid"])
     if pk is None:
         raise CredentialError(UNKNOWN_ISSUER,
                               f"issuer '{payload['iss']}' is not trusted here")
-    if not signing.verify(pk, signing_bytes(payload), sig):
+    if not signing.verify(pk, payload_bytes, sig):
         raise CredentialError(BAD_SIGNATURE, "signature check failed — tampered or forged")
     now = int(time.time()) if now is None else int(now)
     if now > payload["exp"]:

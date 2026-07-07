@@ -93,7 +93,7 @@ def test_tamper_and_wrong_key_fail_closed():
 def test_expiry_unknown_issuer_and_version():
     sk, pk = signing.generate()
     text, _ = _issue(sk, pk, expiry_days=1)
-    payload, _sig = credential.decode(text)
+    payload, _pbytes, _sig = credential.decode(text)
     with pytest.raises(CredentialError) as e:
         credential.verify(text, lambda iss, kid: pk, now=payload["exp"] + 1)
     assert e.value.code == "credential_expired"

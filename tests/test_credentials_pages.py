@@ -87,6 +87,18 @@ def test_admin_endpoints_issue_list_revoke(client, fresh_keys):
     client.post("/admin/logout")
 
 
+def test_invite_auto_issues_credential_on_finish(client, fresh_keys):
+    from face_service import invites
+    key = fresh_keys.create_key("acme", "page_inv", "admin")["api_key"]
+    client.post("/v1/sync/push", headers=_hdr(key),
+                json={"templates": [{"user_id": "alice", "embeddings": [_unit(5).tolist()]}]})
+    info = invites.create_invite("alice", "page_inv", issue_credential=True)
+    invites.mark_progress(info["token"], "face")           # simulate the capture step
+    d = client.post("/api/invite/finish", json={"token": info["token"]}).get_json()
+    assert d["success"] and d["credential"]["card_url"].startswith("/card?d=FV1")
+    assert client.get(d["credential"]["card_url"]).status_code == 200
+
+
 def test_portal_endpoints(client, fresh_keys):
     from face_service import tenants
     tenant = "page_portal"

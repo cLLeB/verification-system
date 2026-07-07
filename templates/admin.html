@@ -78,6 +78,10 @@
                     <input id="inv-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
                     <input id="inv-hours" class="field" type="number" min="1" max="72" value="24" placeholder="Expires in hours (1–72)">
                 </div>
+                <label class="chk" style="display:block;margin:6px 0">
+                    <input id="inv-cred" type="checkbox">
+                    Also hand them an offline QR ID card when they finish (auto-issue credential)
+                </label>
                 <button id="inv-create" class="btn primary">Create invite</button>
 
                 <p class="muted" style="margin-top:18px">…or create many at once from a list of names
@@ -271,6 +275,6 @@
     </section>
 </main>
 <canvas id="canvas" hidden></canvas>
-<script src="/static/admin.js?v=5"></script>
+<script src="/static/admin.js?v=6"></script>
 </body>
 </html>

@@ -250,7 +250,44 @@ SDK: `client.template_status()` / `client.reissue_templates(user_id=None)` (Pyth
 hybrid devices re-pull automatically on their next sync; re-export bundles for
 air-gapped devices.
 
-## 5e. Self-enrolment invites (unsupervised, token-gated)
+## 5e. Portable offline credentials (signed QR cards)
+
+Issue an enrolled person a **signed QR credential** — printed or saved to their
+phone, anyone you authorise verifies them in seconds, **fully offline**, without
+touching your database. Stolen codes are unmatchable elsewhere, revocable, expiring.
+
+```bash
+# issue (admin key) -> {credential_id, payload_b45, qr_png_b64, expires}
+curl -sk https://HOST:5000/v1/credentials -H "X-API-Key: fk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"alice","name":"Alice A.","attrs":{"role":"staff"},"expiry_days":365}'
+
+curl -sk "https://HOST:5000/v1/credentials?user_id=alice" -H "X-API-Key: fk_xxx"   # list
+curl -sk -X DELETE https://HOST:5000/v1/credentials/CID -H "X-API-Key: fk_xxx"     # revoke
+
+# hosted verify (verify key): scanned FV1: string + live capture
+curl -sk https://HOST:5000/v1/credentials/verify -H "X-API-Key: fk_yyy" \
+  -H "Content-Type: application/json" \
+  -d '{"credential":"FV1:...","image":"<base64 live capture>"}'
+
+# cross-org: accept another tenant's cards (no data import)
+curl -sk -X POST https://HOST:5000/v1/trust/other_org -H "X-API-Key: fk_xxx"
+curl -sk https://HOST:5000/v1/trust-store          # public signed keys + revocations
+```
+
+SDK: `issue_credential` / `list_credentials` / `revoke_credential` /
+`verify_credential` / `trust_issuer` / `trust_store` (same names camelCased in JS).
+Human surfaces: give holders the `/card?d=<payload_b45>` link (save-to-phone +
+printable card); verify hands-on at `/verify-credential`. Typed failure codes:
+`bad_signature`, `unknown_issuer`, `credential_expired`, `credential_revoked`,
+`capture_quality`, `liveness`, `biometric_mismatch`.
+
+**3-minute demo (the M2 moment):** enrol someone → issue → open `/card` and print
+it → turn on airplane mode on the verifier phone → scan the paper at
+`/verify-credential` → live capture → green verdict in seconds. Revoke it in the
+portal and scan again: red, "revoked by issuer".
+
+## 5f. Self-enrolment invites (unsupervised, token-gated)
 
 A pre-named person enrols themselves from a private link (no admin password). Links
 are **modality-scoped**: a link that adds a modality to someone who **already exists**
@@ -258,6 +295,8 @@ is scoped to the missing modality and requires a **step-up** (the enrollee prove
 existing modality first) — so a leaked "add-a-modality" link can't bind a stranger's
 biometric to a real account. Revoke with `{"purge":true}` to also delete what the
 invite enrolled. Admin: `POST /admin/api/invites {user_id, tenant?, modalities?}`.
+Pass `"issue_credential": true` to hand the enrollee their offline QR card (§5e)
+automatically when they tap Finish.
 
 ## 6. Notes
 

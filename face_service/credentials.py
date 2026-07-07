@@ -230,11 +230,14 @@ def _bloom_params(n: int, fpr: float = _BLOOM_FPR) -> tuple:
 
 
 def _bloom_positions(cid_hex: str, m: int, k: int):
+    # Double hashing in EXPLICIT 64-bit wrapped arithmetic, so verifiers on any
+    # platform (Kotlin ULong, uint64_t, ...) reproduce identical positions.
+    mask = (1 << 64) - 1
     digest = hashlib.sha256(bytes.fromhex(cid_hex)).digest()
     h1 = int.from_bytes(digest[:8], "big")
     h2 = int.from_bytes(digest[8:16], "big") | 1
     for i in range(k):
-        yield (h1 + i * h2) % m
+        yield ((h1 + i * h2) & mask) % m
 
 
 def build_revocation_list(tenant: Optional[str]) -> dict:

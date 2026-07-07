@@ -104,8 +104,19 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(vm.mode == Mode.VERIFY, { vm.selectMode(Mode.VERIFY) }, { Text("Verify") })
             FilterChip(vm.mode == Mode.ENROLL, { vm.selectMode(Mode.ENROLL) }, { Text("Enrol") })
+            FilterChip(vm.mode == Mode.CREDENTIAL, {
+                vm.selectMode(Mode.CREDENTIAL)
+                // cards are scanned with the BACK camera; flip automatically
+                lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+            }, { Text("Check card") })
         }
         Spacer(Modifier.height(12.dp))
+        if (vm.mode == Mode.CREDENTIAL && vm.credPayload != null && vm.result == null) {
+            // card accepted — the live person is captured with the front camera
+            LaunchedEffect(vm.credPayload) {
+                lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+            }
+        }
 
         if (vm.mode == Mode.ENROLL) {
             OutlinedTextField(
@@ -153,7 +164,7 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                 vm.status, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (vm.mode == Mode.VERIFY) {
+            if (vm.mode == Mode.VERIFY || vm.mode == Mode.CREDENTIAL) {
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { vm.livenessProgress },
@@ -314,6 +325,43 @@ private fun SettingsScreen(vm: ScannerViewModel) {
         }
         Spacer(Modifier.height(24.dp))
         BundleImportSection(vm, ctx)
+        Spacer(Modifier.height(24.dp))
+        TrustStoreSection(vm)
+    }
+}
+
+/** Trust list for the offline credential verifier ("Check card" mode): which
+ *  issuers' signed QR cards this device accepts + their revocation lists.
+ *  Hybrid refreshes from the server; any build can import a saved file. */
+@Composable
+private fun TrustStoreSection(vm: ScannerViewModel) {
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) vm.importTrust(uri)
+    }
+    Text("Credential trust list", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "\"Check card\" verifies signed QR credentials against this list of issuers " +
+            "and their revocations — fully offline. Refresh it when you can so " +
+            "revoked cards are rejected promptly.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(10.dp))
+    InfoRow("Trust list", vm.trustSummary())
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (vm.isHybrid) {
+            Button(onClick = { vm.refreshTrust() }, enabled = !vm.trustBusy) {
+                Icon(Icons.Filled.CloudDownload, null); Spacer(Modifier.size(8.dp)); Text("Refresh")
+            }
+        }
+        OutlinedButton(onClick = { pickFile.launch("*/*") }, enabled = !vm.trustBusy) {
+            Text("Import file…")
+        }
+    }
+    if (vm.trustBusy) { Spacer(Modifier.height(6.dp)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+    if (vm.trustMsg.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text(vm.trustMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -891,7 +891,12 @@ def trust_store():
     signed = json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
     kid, sig = issuer_keys.sign_for(_ROOT_TENANT, signed)
     root = issuer_keys.get_or_create(_ROOT_TENANT)
-    return jsonify({"trust_store": body, "kid": kid,
+    return jsonify({"trust_store": body,
+                    # exact signed bytes, so offline verifiers check the root
+                    # signature over these and parse them — no JSON
+                    # canonicalization to re-implement anywhere
+                    "payload_b64": base64.b64encode(signed).decode("ascii"),
+                    "kid": kid,
                     "sig": base64.b64encode(sig).decode("ascii"),
                     "root_key": root["public_key"]})
 

@@ -24,6 +24,7 @@ import json
 import os
 import secrets
 import time
+import urllib.parse
 import uuid
 
 import cv2
@@ -294,7 +295,7 @@ def credential_card():
     from biometric.core import credential as _credential
     text = (request.args.get("d") or "").strip()
     try:
-        payload, _sig = _credential.decode(text)
+        payload, _pbytes, _sig = _credential.decode(text)
     except _credential.CredentialError:
         return ("<h3 style='font-family:sans-serif'>This card link is not valid.</h3>"
                 "<p style='font-family:sans-serif'>Ask the issuer for a fresh link.</p>", 404)
@@ -803,14 +804,16 @@ def _invite_scope(user_id: str, tenant: str, requested):
     return _modality.invite_scope(user_id, face_cfg, palm_enabled, requested)
 
 
-def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None) -> dict:
+def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None,
+                          issue_credential=False) -> dict:
     """Mint an invite with its modality scope + step-up computed from the current
     store — used by BOTH single and bulk creation so a roster name that already
     exists is scoped/step-up'd too (never an open re-bind)."""
     mods, step_up, step_mod = _invite_scope(name, tenant, requested)
     return invites.create_invite(name, tenant, expires_in_hours=expires_in_hours,
                                  modalities=mods, requires_step_up=step_up,
-                                 step_up_modality=step_mod)
+                                 step_up_modality=step_mod,
+                                 issue_credential=bool(issue_credential))
 
 
 @app.route("/admin/api/invites", methods=["GET"])
@@ -829,7 +832,8 @@ def admin_invites_create():
         return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
     info = _create_scoped_invite(name, tenant, data.get("expires_in_hours"),
-                                 _req_modalities(data))
+                                 _req_modalities(data),
+                                 issue_credential=bool(data.get("issue_credential")))
     audit.log(_FP_TENANT, "invite_create", actor=g.get("admin_user", "admin"),
               user_id=name, success=True,
               detail=f"tenant={tenant} modalities={info['modalities']} "
@@ -853,7 +857,9 @@ def admin_invites_bulk():
         return jsonify({"success": False, "message": "No names found in the upload."}), 400
     requested = _req_modalities(data)
     hours = data.get("expires_in_hours")
-    batch = [_create_scoped_invite(n, tenant, hours, requested) for n in names]
+    issue_cred = bool(data.get("issue_credential"))
+    batch = [_create_scoped_invite(n, tenant, hours, requested,
+                                   issue_credential=issue_cred) for n in names]
     stepped = sum(1 for b in batch if b["requires_step_up"])
     audit.log(_FP_TENANT, "invite_bulk", actor=g.get("admin_user", "admin"),
               success=True,
@@ -1160,7 +1166,23 @@ def api_invite_finish():
     invites.consume(token)
     audit.log(rec["tenant"], "self_enroll_finish", actor=f"invite:{rec['invite_id']}",
               user_id=rec["user_id"], success=True, detail=f"modalities={rec.get('enrolled')}")
-    return jsonify({"success": True, "user_id": rec["user_id"], "enrolled": rec.get("enrolled", [])})
+    out = {"success": True, "user_id": rec["user_id"], "enrolled": rec.get("enrolled", [])}
+    # Auto-issue option (trust platform phase 2): the invite ends with a QR card
+    # the enrollee saves to their phone or prints — verifiable offline anywhere.
+    if rec.get("issue_credential"):
+        try:
+            face_cfg, palm_enabled = _invite_target(rec["tenant"])
+            issued = credentials.issue(rec["tenant"], face_cfg, palm_enabled,
+                                       rec["user_id"])
+            out["credential"] = {"credential_id": issued["credential_id"],
+                                 "card_url": "/card?d=" + urllib.parse.quote(issued["payload_b45"]),
+                                 "expires": issued["expires"]}
+            audit.log(rec["tenant"], "credential_issue",
+                      actor=f"invite:{rec['invite_id']}", user_id=rec["user_id"],
+                      success=True, detail=f"cid={issued['credential_id']} (auto)")
+        except credentials.IssueError as exc:
+            out["credential_error"] = str(exc)
+    return jsonify(out)
 
 
 @app.route("/api/enroll", methods=["POST"])

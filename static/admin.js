@@ -13,7 +13,7 @@ function showLogin() { $('login').classList.remove('hidden'); $('console').class
 function showConsole() {
     $('login').classList.add('hidden'); $('console').classList.remove('hidden');
     startCamera(); loadOverview(); loadPeople(); loadKeys(); loadTenants(); loadUsage(); loadOps();
-    populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad(); credLoad();
+    populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad(); credLoad(); loadInvites();
 }
 async function checkSession() {
     const d = await (await fetch('/admin/session')).json();
@@ -143,6 +143,118 @@ $('people-csv').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'people.csv'; a.click(); URL.revokeObjectURL(a.href);
+};
+
+// --- invites (self-enrolment links) ------------------------------------------
+let invCache = [];
+
+function invLinkRow(inv) {
+    // creation response: raw link shown ONCE — copy/save now
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `<div class="grow"><div>${inv.user_id}
+        <span class="pill">${(inv.modalities || []).join('+') || 'face+palm'}</span>
+        ${inv.requires_step_up ? '<span class="pill">step-up</span>' : ''}</div>
+        <div class="sub"><code>${inv.link}</code></div></div>`;
+    const b = document.createElement('button');
+    b.className = 'btn ghost'; b.textContent = 'Copy';
+    b.onclick = () => navigator.clipboard.writeText(inv.link)
+        .then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1200); });
+    div.appendChild(b);
+    return div;
+}
+
+function showNewInvites(list) {
+    const box = $('inv-new');
+    box.classList.remove('hidden');
+    box.innerHTML = '<p class="muted">Links are shown ONCE — copy or download them now:</p>';
+    list.forEach(inv => box.appendChild(invLinkRow(inv)));
+    if (list.length > 1) {
+        const csv = 'user_id,link\n' + list.map(i => `"${i.user_id}",${i.link}`).join('\n');
+        const a = document.createElement('a');
+        a.className = 'btn ghost';
+        a.textContent = `Download all ${list.length} links (CSV)`;
+        a.download = 'invites.csv';
+        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+        box.appendChild(a);
+    }
+}
+
+function renderInvites() {
+    const q = ($('inv-search').value || '').trim().toLowerCase();
+    const list = $('inv-list');
+    list.innerHTML = '';
+    invCache
+        .filter(i => !q || (i.user_id || '').toLowerCase().includes(q))
+        .sort((a, b) => (b.created || 0) - (a.created || 0))
+        .forEach(i => {
+            const row = document.createElement('div'); row.className = 'item';
+            const exp = i.expires ? new Date(i.expires * 1000).toLocaleString() : '-';
+            const done = (i.enrolled || []).length ? ` · enrolled: ${i.enrolled.join('+')}` : '';
+            row.innerHTML = `<div class="grow"><div>${i.user_id}
+                <span class="pill">${i.status}</span>
+                <span class="pill">${i.tenant}</span>
+                ${i.requires_step_up ? '<span class="pill">step-up</span>' : ''}</div>
+                <div class="sub">${i.invite_id} · expires ${exp}${done}</div></div>`;
+            if (i.status === 'pending') {
+                const b = document.createElement('button');
+                b.className = 'del'; b.textContent = 'Revoke';
+                b.onclick = async () => {
+                    const purge = (i.enrolled || []).length
+                        ? confirm(`Also DELETE the biometrics this invite already enrolled (${i.enrolled.join('+')})?\n\nOK = revoke + purge, Cancel = revoke the link only.`)
+                        : false;
+                    await api('/admin/api/invites/revoke', { method: 'POST',
+                        body: JSON.stringify({ invite_id: i.invite_id, purge }) });
+                    loadInvites();
+                };
+                row.appendChild(b);
+            }
+            list.appendChild(row);
+        });
+}
+
+async function loadInvites() {
+    const d = await api('/admin/api/invites');
+    invCache = d.invites || [];
+    renderInvites();
+}
+$('inv-search').oninput = renderInvites;
+
+$('inv-create').onclick = async () => {
+    const name = ($('inv-name').value || '').trim();
+    if (!name) { alert("Enter the person's name or ID first."); return; }
+    const d = await api('/admin/api/invites', { method: 'POST',
+        body: JSON.stringify({
+            user_id: name,
+            tenant: ($('inv-tenant').value || '').trim() || undefined,
+            expires_in_hours: parseInt($('inv-hours').value, 10) || 24,
+            issue_credential: $('inv-cred').checked,
+        }) });
+    if (!d.success) { alert(d.message || 'Could not create the invite.'); return; }
+    showNewInvites([d]);
+    $('inv-name').value = '';
+    loadInvites();
+};
+
+$('inv-file').onchange = async () => {
+    const f = $('inv-file').files[0];
+    if (f) $('inv-roster').value = await f.text();
+};
+
+$('inv-bulk').onclick = async () => {
+    const roster = ($('inv-roster').value || '').trim();
+    if (!roster) { alert('Paste or upload a list of names first.'); return; }
+    const d = await api('/admin/api/invites/bulk', { method: 'POST',
+        body: JSON.stringify({
+            roster,
+            tenant: ($('inv-tenant').value || '').trim() || undefined,
+            expires_in_hours: parseInt($('inv-hours').value, 10) || 24,
+            issue_credential: $('inv-cred').checked,
+        }) });
+    if (!d.success) { alert(d.message || 'Could not create the invites.'); return; }
+    showNewInvites(d.invites || []);
+    $('inv-roster').value = '';
+    loadInvites();
 };
 
 // --- security: per-tenant issuer signing keys --------------------------------
