@@ -79,6 +79,7 @@ def main() -> None:
         for j, ui in enumerate(pick):
             q = embs[ui, 0] + noise[j]
             q /= np.linalg.norm(q)
+            q = store.protect_probe(q)          # index rows live in the protection domain
             t = time.perf_counter()
             hits = idx.search(q, top_k=5)
             lat.append(time.perf_counter() - t)
@@ -106,9 +107,10 @@ def main() -> None:
         t = time.perf_counter()
         idx3 = faceindex.get_index(tmp, store)  # loads + replays only the 2 changes
         replay_t = time.perf_counter() - t
-        hits = idx3.search(rand_unit(1, seed=99)[0], top_k=1)
+        hits = idx3.search(store.protect_probe(rand_unit(1, seed=99)[0]), top_k=1)
         joined_ok = bool(hits) and hits[0][0] == "late_joiner"
-        gone = all(u != "user0" for u, _ in idx3.search(embs[0, 0], top_k=5))
+        gone = all(u != "user0"
+                   for u, _ in idx3.search(store.protect_probe(embs[0, 0]), top_k=5))
         print(f"reload + replay tail  : {fmt(replay_t)}  "
               f"new-user found={joined_ok}  deleted-user gone={gone}")
 

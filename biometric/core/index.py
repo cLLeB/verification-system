@@ -109,12 +109,18 @@ class _NumpyBackend:
             for e in embs:
                 rows.append(np.asarray(e, np.float32)); rus.append(slot)
         self.mat = np.asarray(rows, np.float32) if rows else np.zeros((0, self.dim), np.float32)
+        if rows:
+            self.dim = int(self.mat.shape[1])    # adopt (possibly padded) row width
         self.row_user = np.asarray(rus, np.int64)
 
     def add(self, uid: str, emb: np.ndarray) -> None:
         slot = self._slot(uid)
         e = np.asarray(emb, np.float32).reshape(1, -1)
-        self.mat = e if self.mat.shape[0] == 0 else np.vstack([self.mat, e])
+        if self.mat.shape[0] == 0:
+            self.dim = int(e.shape[1])           # adopt (possibly padded) row width
+            self.mat = e
+        else:
+            self.mat = np.vstack([self.mat, e])
         self.row_user = np.append(self.row_user, slot)
 
     def remove_user(self, uid: str) -> None:
@@ -319,6 +325,11 @@ class TenantIndex:
             else:
                 self._build()
 
+    def _domain_tag(self) -> str:
+        """The store's current protection domain — a persisted index from a
+        different domain (raw pre-upgrade, or pre-reissue) must be rebuilt."""
+        return getattr(self._store, "protection_tag", lambda: "off")() if self._store else "off"
+
     def _try_load(self) -> bool:
         d = self._dir()
         meta_path = os.path.join(d, "meta.json")
@@ -328,6 +339,8 @@ class TenantIndex:
             with open(meta_path, "r", encoding="utf-8") as fh:
                 meta = json.load(fh)
             if meta.get("backend") != self._b.name:
+                return False
+            if meta.get("domain", "off") != self._domain_tag():
                 return False
             self._dim = int(meta.get("dim", self._dim))
             self._b.load(d, self._cipher)
@@ -366,7 +379,8 @@ class TenantIndex:
             os.makedirs(d, exist_ok=True)
             self._b.save(d, self._cipher)
             with open(os.path.join(d, "meta.json"), "w", encoding="utf-8") as fh:
-                json.dump({"backend": self._b.name, "seq": self._seq, "dim": self._dim}, fh)
+                json.dump({"backend": self._b.name, "seq": self._seq, "dim": self._dim,
+                           "domain": self._domain_tag()}, fh)
             self._dirty = 0
         except Exception:
             pass

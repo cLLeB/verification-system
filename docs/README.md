@@ -7,6 +7,9 @@ Start here. Pick the doc for what you're doing.
   the shared recognition core, web vs. Android, design decisions. *(Read this first.)*
 - **[SECURITY.md](SECURITY.md)** — encryption, access control, liveness, privacy/GDPR,
   threat model, production checklist.
+- **[security-keys.md](security-keys.md)** — trust platform foundations: per-tenant
+  signing keys, template envelopes, KEK-wrapped encryption, protected (cancelable)
+  templates + reissue, crypto-erase.
 
 ## Integrate (other apps/companies)
 - **[INTEGRATION.md](INTEGRATION.md)** — managed vs. stateless flows, API keys/roles,

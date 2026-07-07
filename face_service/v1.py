@@ -39,6 +39,8 @@ from face import liveness_active as _active
 from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
+from biometric.core import index as _bio_index
+from biometric.core import protect as _protect
 from .auth import require_key, require_scope
 from . import audit, bundle, issuer_keys, modality as _modality, tenants, usage, webhooks
 from .idempotency import idempotent
@@ -295,23 +297,25 @@ def enroll_bulk():
         conflicts = []
         if face_embs:
             fstore, findex, fthr = _modality.store_and_index(cfg, "face")
-            conflict = _dupe_conflict(findex, face_embs[0], uid, fthr) if dedupe else None
+            conflict = _dupe_conflict(findex, fstore.protect_probe(face_embs[0]),
+                                      uid, fthr) if dedupe else None
             if conflict:
                 conflicts.append({"modality": "face", "conflict_user_id": conflict})
             else:
                 fstore.add_many([(uid, face_embs)])
                 for e in face_embs[:fstore.samples_per_user]:
-                    findex.add(uid, e)
+                    findex.add(uid, fstore.protect_probe(e, user_id=uid))
                 mods.add("face")
         if palm_embs:
             pstore, pindex, pthr = _modality.store_and_index(cfg, "palm")
-            conflict = _dupe_conflict(pindex, palm_embs[0], uid, pthr) if dedupe else None
+            conflict = _dupe_conflict(pindex, pstore.protect_probe(palm_embs[0]),
+                                      uid, pthr) if dedupe else None
             if conflict:
                 conflicts.append({"modality": "palm", "conflict_user_id": conflict})
             else:
                 pstore.add_many([(uid, palm_embs)])
                 for e in palm_embs[:pstore.samples_per_user]:
-                    pindex.add(uid, e)
+                    pindex.add(uid, pstore.protect_probe(e, user_id=uid))
                 mods.add("palm")
         if not mods:
             results.append({"user_id": uid, "success": False, "code": "duplicate",
@@ -502,10 +506,22 @@ def sync_pull():
         if len(out) >= limit:
             break
     cur = store.current_seq()
+    payload = {"success": True, "modality": modality, "templates": out,
+               "next_seq": last, "current_seq": cur, "done": last >= cur}
+    if store.protection_enabled:
+        # Devices match against these rows offline, so they get the DOMAIN seed
+        # (derived per domain — never the store secret). Individually reissued
+        # users carry their own domain seed on their row.
+        payload["protection"] = _protection_block(store)
+        off = dict(store.off_domain_users())
+        for row in out:
+            if not row.get("deleted") and row["user_id"] in off:
+                ref, seed = store.domain_seed(user_id=row["user_id"])
+                row["seedref"] = ref
+                row["seed"] = base64.b64encode(seed).decode("ascii")
     audit.log(g.tenant, "sync_pull", actor=g.key_name, success=True,
               detail=f"{modality}: {len(out)} rows since {since}")
-    return jsonify({"success": True, "modality": modality, "templates": out,
-                    "next_seq": last, "current_seq": cur, "done": last >= cur})
+    return jsonify(payload)
 
 
 @bp.post("/export/bundle")
@@ -525,11 +541,17 @@ def export_bundle():
     cfg = _cfg()
     palm_enabled = tenants.get(g.tenant)["palm_enabled"]
     data = request.get_json(silent=True) or {}
+    protection = {}
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        st, _idx, _thr = _modality.store_and_index(cfg, m)
+        if st.protection_enabled:
+            protection[m] = _protection_block(st)
     try:
         payload = bundle.build_payload(
             g.tenant,
             _modality.export_templates(cfg, "face", palm_enabled),
-            _modality.export_templates(cfg, "palm", palm_enabled))
+            _modality.export_templates(cfg, "palm", palm_enabled),
+            protection=protection or None)
         out = bundle.pack(payload, data.get("passphrase") or "")
     except bundle.BundleError as exc:
         return _err(str(exc), code="bundle_error")
@@ -567,7 +589,7 @@ def sync_push():
                 embs.append(v / n)
         if not uid or not embs:
             continue
-        hit = idx.search(embs[0], top_k=1)
+        hit = idx.search(store.protect_probe(embs[0]), top_k=1)
         matched = hit[0][0] if hit else None
         score = float(hit[0][1]) if hit else -1.0
         if matched is not None and matched != uid and score >= thr:
@@ -578,8 +600,8 @@ def sync_push():
                 continue
             if on_conflict == "merge":
                 for e in embs:                       # fold into the existing person
-                    store.add_adaptive(matched, e)
-                    idx.add(matched, e)
+                    if store.add_adaptive(matched, e):
+                        idx.add(matched, store.protect_probe(e, user_id=matched))
                 merged += 1
                 conflicts.append({"user_id": uid, "matched": matched,
                                   "score": round(score, 4), "action": "merged"})
@@ -587,7 +609,7 @@ def sync_push():
             # force: fall through and enrol under the given user_id
         for e in embs:
             store.add_embedding(uid, e)
-            idx.add(uid, e)
+            idx.add(uid, store.protect_probe(e, user_id=uid))
         pushed += 1
     audit.log(g.tenant, "sync_push", actor=g.key_name, success=True,
               detail=f"pushed={pushed} merged={merged} skipped={skipped}")
@@ -617,6 +639,67 @@ def tenant_keys_rotate():
     audit.log(g.tenant, "issuer_key_rotate", actor=g.key_name, success=True,
               detail=f"new kid {rec['kid']}")
     return jsonify({"success": True, "active": rec})
+
+
+def _protection_block(store) -> dict:
+    """Domain seed for trusted verifier devices (sync/bundle — both already
+    gated by the allow_export entitlement). Never the store secret."""
+    ref, seed = store.domain_seed()
+    return {"scheme": _protect.SCHEME, "seedref": ref,
+            "seed": base64.b64encode(seed).decode("ascii"),
+            "epoch": store.store_epoch()}
+
+
+def _tenant_modalities():
+    return ("face", "palm") if tenants.get(g.tenant)["palm_enabled"] else ("face",)
+
+
+@bp.get("/templates/status")
+@require_scope("manage")
+def templates_status():
+    """Template-protection status: tenant-wide per modality, or one user's
+    detail via ?user_id=. Stored templates are kept in a scrambled, revocable
+    form; this reports which domain (epoch) they live in."""
+    cfg = _cfg()
+    user_id = (request.args.get("user_id") or "").strip() or None
+    out = {}
+    for m in _tenant_modalities():
+        store, _idx, _thr = _modality.store_and_index(cfg, m)
+        out[m] = store.protection_status(user_id)
+    return jsonify({"success": True, "tenant": g.tenant or "default", "modalities": out})
+
+
+@bp.post("/templates/reissue")
+@require_scope("manage")
+def templates_reissue():
+    """Re-protect stored templates in a NEW domain (like resetting a password):
+    every previously stored or exported protected copy stops matching, while
+    enrolled people keep verifying with no recapture. Body: {"confirm": true,
+    "user_id"?: one person only}."""
+    data = request.get_json(silent=True) or {}
+    if data.get("confirm") is not True:
+        return _err("Set 'confirm': true to reissue. Old exported copies stop "
+                    "matching; enrolled people keep verifying without recapture.")
+    user_id = (data.get("user_id") or "").strip() or None
+    cfg = _cfg()
+    counts, enabled_any = {}, False
+    for m in _tenant_modalities():
+        store, _idx, _thr = _modality.store_and_index(cfg, m)
+        if not store.protection_enabled:
+            counts[m] = 0
+            continue
+        enabled_any = True
+        counts[m] = store.reissue(user_id)
+        _bio_index.invalidate(store.db_path)     # cached index holds the old domain
+    if not enabled_any:
+        return _err("Template protection is not enabled on this server.",
+                    code="protection_disabled", status=409)
+    if user_id and not any(counts.values()):
+        return _err(f"User '{user_id}' is not enrolled.", code="not_found", status=404)
+    audit.log(g.tenant, "templates_reissue", actor=g.key_name, success=True,
+              detail=f"user={user_id or 'ALL'} " +
+                     " ".join(f"{m}={n}" for m, n in counts.items()))
+    return jsonify({"success": True, "user_id": user_id, "reissued": counts})
 
 
 @bp.post("/users/purge")

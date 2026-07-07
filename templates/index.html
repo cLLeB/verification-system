@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=21">
+    <link rel="stylesheet" href="/static/app.css?v=22">
 </head>
 <body>
     <main class="app">
@@ -86,6 +86,16 @@
                        aria-label="Choose photos to enroll from">
             </label>
             <button class="btn btn-ghost" id="upload-enroll" hidden>Enroll from photo</button>
+            <details class="protect-note">
+                <summary>How your biometrics are protected</summary>
+                <p>Your face or palm photo is never stored. It is turned into a short list of
+                    numbers (a template), <b>scrambled with a secret code</b>, and encrypted. The
+                    scrambled version can't be turned back into your face, and it only works
+                    here &mdash; a stolen copy is useless anywhere else.</p>
+                <p>If a leak is ever suspected, the organisation presses one button to
+                    <b>re-scramble everything</b>: old copies stop working instantly, like a
+                    password reset, and you don't have to enrol again.</p>
+            </details>
         </div>
 
         <section class="scanner-stage" aria-label="Face scanner">

@@ -298,3 +298,44 @@ def portal_issuer_keys_rotate():
     audit.log(g.portal_tenant, "issuer_key_rotate", actor="portal", success=True,
               detail=f"new kid {rec['kid']}")
     return jsonify({"success": True, "active": rec})
+
+
+# --- template protection (cancelable biometrics) -----------------------------
+@portal_bp.get("/portal/api/protection")
+@require_tenant
+def portal_protection():
+    user_id = (request.args.get("user_id") or "").strip() or None
+    face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+    out = {}
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        store, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        out[m] = store.protection_status(user_id)
+    return jsonify({"success": True, "user_id": user_id, "modalities": out})
+
+
+@portal_bp.post("/portal/api/protection/reissue")
+@require_tenant
+def portal_protection_reissue():
+    from biometric.core import index as _bio_index
+    gate = _enabled_or_402()
+    if gate:
+        return gate
+    data = request.get_json(silent=True) or {}
+    user_id = (data.get("user_id") or "").strip() or None
+    face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+    counts, enabled_any = {}, False
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        store, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        if not store.protection_enabled:
+            counts[m] = 0
+            continue
+        enabled_any = True
+        counts[m] = store.reissue(user_id)
+        _bio_index.invalidate(store.db_path)
+    if not enabled_any:
+        return jsonify({"success": False, "code": "protection_disabled",
+                        "message": "Template protection is not enabled on this server."}), 409
+    audit.log(g.portal_tenant, "templates_reissue", actor="portal", success=True,
+              detail=f"user={user_id or 'ALL'} " +
+                     " ".join(f"{m}={n}" for m, n in counts.items()))
+    return jsonify({"success": True, "user_id": user_id, "reissued": counts})

@@ -68,13 +68,16 @@ def _guards_ok(emb, user_id: str, st: TemplateStore, cfg: PalmConfig,
                consistency_threshold: float):
     """Palm must not belong to another user (duplicate) and must match this user's
     earlier captures (self-consistency). Returns a failure dict, or None."""
-    for uid, score in _index_for(st, cfg).search(emb, top_k=3):
+    dupe_hits = _matcher.merge_off_domain(
+        _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
+    for uid, score in dupe_hits:
         if uid != user_id and score >= cfg.match_threshold:
             return _fail(f"This palm is already enrolled as '{uid}'.", "duplicate",
                          conflict_user_id=uid, score=round(score, 4))
     existing = st.load(user_id)
     if existing is not None and existing.embeddings:
-        score = _matcher.best_score(emb, existing.embeddings)
+        score = _matcher.best_score(st.protect_probe(emb, user_id=user_id),
+                                    existing.embeddings)
         if score < consistency_threshold:
             return _fail("This doesn't match the earlier capture. Use the SAME palm.",
                          "inconsistent", score=round(float(score), 4))
@@ -82,7 +85,8 @@ def _guards_ok(emb, user_id: str, st: TemplateStore, cfg: PalmConfig,
 
 
 def _identify_via_index(emb, st: TemplateStore, cfg: PalmConfig) -> dict:
-    hits = _index_for(st, cfg).search(emb, top_k=5)
+    hits = _index_for(st, cfg).search(st.protect_probe(emb), top_k=5)
+    hits = _matcher.merge_off_domain(hits, emb, st, top_k=5)
     if not hits:
         return {"success": False, "code": "no_match", "message": "Palm not recognised.",
                 "modality": "palm", "user_id": None, "score": -1.0, "margin": 0.0,
@@ -116,7 +120,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     if fail is not None:
         return fail
     tmpl = st.add_embedding(user_id, sample.embedding)
-    _index_for(st, cfg).add(user_id, sample.embedding)
+    _index_for(st, cfg).add(user_id, st.protect_probe(sample.embedding, user_id=user_id))
     return {"success": True, "code": "enrolled", "modality": "palm", "source": "live",
             "message": f"Enrolled palm for '{user_id}' "
                        f"({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
@@ -137,7 +141,8 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
         sample = _engine.embed(image, cfg)
     except PalmError as exc:
         return _fail(exc.message, exc.code)
-    dec = _matcher.verify(sample.embedding, tmpl.embeddings, cfg.match_threshold)
+    dec = _matcher.verify(st.protect_probe(sample.embedding, user_id=user_id),
+                          tmpl.embeddings, cfg.match_threshold)
     out = {"success": dec.granted, "code": "match" if dec.granted else "no_match",
            "modality": "palm",
            "message": "Identity confirmed." if dec.granted else "Does not match.",
@@ -177,7 +182,7 @@ def _maybe_adapt(out: dict, emb, claimed_uid: str, st: TemplateStore, cfg: PalmC
         return out
     added = st.add_adaptive(uid, emb)
     if added:
-        _index_for(st, cfg).add(uid, emb)
+        _index_for(st, cfg).add(uid, st.protect_probe(emb, user_id=uid))
     out["adapted"] = added
     return out
 

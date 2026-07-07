@@ -19,6 +19,7 @@ async function refreshSession() {
         renderEntitlement(d.entitlement);
         loadKeys();
         loadIssuerKeys();
+        loadProtection();
     } else {
         show('login');
     }
@@ -144,6 +145,40 @@ if (psecRotate) psecRotate.onclick = async () => {
     const d = await api('/portal/api/issuer-keys/rotate', { method: 'POST', body: '{}' });
     if (d && !d.success) alert(d.message || 'Rotation failed.');
     loadIssuerKeys();
+};
+
+// --- template protection (revocable biometrics) ------------------------------
+async function loadProtection() {
+    const list = $('pprot-status');
+    if (!list) return;
+    const d = await api('/portal/api/protection');
+    list.innerHTML = '';
+    Object.entries(d.modalities || {}).forEach(([mod, s]) => {
+        const row = document.createElement('div'); row.className = 'item';
+        const last = s.last_reissue ? new Date(s.last_reissue * 1000).toLocaleString() : 'never';
+        row.innerHTML = `<div class="grow"><div><b>${mod}</b>
+            <span class="pill">${s.enabled ? 'protected' : 'not protected'}</span></div>
+            <div class="sub">${s.users} enrolled · last reissue: ${last}</div></div>`;
+        list.appendChild(row);
+    });
+}
+
+const pprotReissue = $('pprot-reissue');
+if (pprotReissue) pprotReissue.onclick = async () => {
+    const user = ($('pprot-user').value || '').trim();
+    if (user) {
+        if (!confirm(`Reissue "${user}"?\n\nAny previously exported or stolen copy of their template stops matching immediately. They keep verifying — no re-enrolment.`)) return;
+    } else {
+        // organisation-wide is the big red button: require typing REISSUE
+        const typed = prompt('Reissue ALL your templates?\n\nAny previously exported or stolen copy stops matching immediately. Your people keep verifying — nobody re-enrols.\n\nType REISSUE to confirm:');
+        if (typed !== 'REISSUE') return;
+    }
+    const d = await api('/portal/api/protection/reissue', { method: 'POST',
+        body: JSON.stringify(user ? { user_id: user } : {}) });
+    $('pprot-msg').textContent = d.success
+        ? `Reissued: ${Object.entries(d.reissued).map(([m, n]) => `${m} ${n}`).join(', ')}.`
+        : (d.message || 'Reissue failed.');
+    if (d.success) loadProtection();
 };
 
 refreshSession();

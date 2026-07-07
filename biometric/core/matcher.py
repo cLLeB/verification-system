@@ -41,6 +41,23 @@ def best_score(probe: np.ndarray, embeddings: Sequence[np.ndarray]) -> float:
     return max(cosine(probe, e) for e in embeddings)
 
 
+def merge_off_domain(hits: List[Tuple[str, float]], emb: np.ndarray, store,
+                     top_k: int = 5) -> List[Tuple[str, float]]:
+    """Correct 1:N index hits for individually reissued users: they live in their
+    own protection domain, so the store-domain index score for them is noise —
+    rescore each against a probe projected into THEIR domain. ``emb`` is the RAW
+    probe. Cheap: individual reissues are rare. No-op when protection is off."""
+    off = getattr(store, "off_domain_users", lambda: [])()
+    if not off:
+        return hits
+    scores = {uid: s for uid, s in hits}
+    for uid, _ue in off:
+        t = store.load(uid)
+        if t is not None and t.embeddings:
+            scores[uid] = best_score(store.protect_probe(emb, user_id=uid), t.embeddings)
+    return sorted(scores.items(), key=lambda kv: -kv[1])[:top_k]
+
+
 def verify(probe: np.ndarray, embeddings: Sequence[np.ndarray],
            match_threshold: float) -> Decision:
     score = best_score(probe, embeddings)

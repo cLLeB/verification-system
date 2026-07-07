@@ -22,9 +22,11 @@ def test_binary_round_trip_and_format(tmp_path):
     st = _store(tmp_path)
     e = _unit(1)
     st.add_embedding("alice", e)
-    got = st.load("alice")
+    got = st.load_raw("alice")                # raw copy round-trips byte-exact
     assert got is not None and len(got.anchors) == 1
     assert np.allclose(got.anchors[0], e)
+    # matching-domain read is the projected row; the projected probe matches it
+    assert float(st.protect_probe(e) @ st.load("alice").anchors[0]) > 0.999
     # raw blob on disk is an envelope (BE1) whose payload is the compact binary format
     from biometric.core import envelope
     row = st._connect().execute("SELECT data FROM templates WHERE user_id='alice'").fetchone()
@@ -42,7 +44,7 @@ def test_reads_legacy_base64_json(tmp_path):
     blob = st._cipher.encrypt(legacy) if st._cipher else legacy
     with st._connect() as c:
         c.execute("INSERT INTO templates(user_id,data,seq,deleted) VALUES('bob',?,1,0)", (blob,))
-    got = st.load("bob")
+    got = st.load_raw("bob")
     assert got is not None and np.allclose(got.anchors[0], e)
 
 
@@ -51,10 +53,10 @@ def test_anchors_never_evicted_by_adaptive(tmp_path):
     st = FaceStore(cfg)
     for s in range(2):
         st.add_embedding("alice", _unit(10 + s))
-    anchors = [a.copy() for a in st.load("alice").anchors]
+    anchors = [a.copy() for a in st.load_raw("alice").anchors]
     for s in range(10):                       # push lots of (novel) adaptive samples
         st.add_adaptive("alice", _unit(100 + s))
-    final = st.load("alice")
+    final = st.load_raw("alice")
     assert len(final.anchors) == 2
     assert all(np.allclose(a, b) for a, b in zip(anchors, final.anchors))
     assert len(final.embeddings) <= cfg.adaptive_max_samples

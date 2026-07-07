@@ -73,8 +73,10 @@ def main() -> None:
         anchors_day0 = [a.copy() for a in store.load("alice").anchors]
 
         # --- 1. Control: no adaptation, verify year-later Alice -------------
+        # (probes are projected into the store's protection domain, exactly as
+        # the live API does — matching math is unchanged by protection)
         later = capture(faces[-1])
-        s_static = matcher.best_score(later, anchors_day0)
+        s_static = matcher.best_score(store.protect_probe(later), anchors_day0)
         print(f"[1] WITHOUT adaptation  year-later Alice vs day-0 anchors only:")
         print(f"      score {s_static:.2f}  ->  "
               f"{'ACCEPTED' if s_static >= tag else 'REJECTED (locked out!)'}\n")
@@ -86,7 +88,7 @@ def main() -> None:
         for k in range(1, VISITS + 1):
             cap = capture(faces[k])
             tmpl = store.load("alice")
-            score = matcher.best_score(cap, tmpl.embeddings)
+            score = matcher.best_score(store.protect_probe(cap), tmpl.embeddings)
             accepted = score >= tag
             # This mirrors face/api.py::_maybe_adapt exactly:
             learned = False
@@ -96,7 +98,8 @@ def main() -> None:
 
             # An impostor also tries this visit and tries to be folded in.
             imp = capture(unit(rng.standard_normal(DIM)))     # a different person
-            imp_score = matcher.best_score(imp, store.load("alice").embeddings)
+            imp_score = matcher.best_score(store.protect_probe(imp),
+                                           store.load("alice").embeddings)
             imposter_scores.append(imp_score)
             # (api would NOT adapt this: imp_score < gate, so add_adaptive is never called)
 
@@ -108,7 +111,8 @@ def main() -> None:
 
         # --- 3. After two years: verify year-later Alice again -------------
         final = store.load("alice")
-        s_adapt = matcher.best_score(capture(faces[-1]), final.embeddings)
+        s_adapt = matcher.best_score(store.protect_probe(capture(faces[-1])),
+                                     final.embeddings)
         print(f"\n[3] WITH adaptation  year-later Alice vs updated template:")
         print(f"      score {s_adapt:.2f}  ->  "
               f"{'ACCEPTED' if s_adapt >= tag else 'REJECTED'}")

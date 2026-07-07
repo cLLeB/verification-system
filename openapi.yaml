@@ -165,14 +165,63 @@ paths:
                       images: { type: array, items: { type: string } }
                       embeddings: { type: array, items: { type: array, items: { type: number } } }
       responses: { "200": { description: Per-user enrolment results } }
+  /v1/sync/pull:
+    get:
+      summary: "Hybrid sync: pull this tenant's templates for offline matching (role: admin, allow_export)"
+      description: >
+        Streams the tenant's templates (PROTECTED embeddings — see /v1/templates/status —
+        never images or raw vectors), incremental by `since` (the previous `next_seq`);
+        deletions come back as `deleted: true`. The response's `protection` block
+        {scheme, seedref, seed, epoch} carries the domain seed the device uses to
+        project live captures before matching; individually reissued users carry their
+        own `seedref`/`seed` on their row. A changed `seedref` means the dataset was
+        reissued — discard the mirror and re-pull from 0. Requires the tenant's
+        `allow_export` entitlement.
+      parameters:
+        - { name: since, in: query, required: false, schema: { type: integer, default: 0 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, default: 500, maximum: 2000 } }
+        - { name: modality, in: query, required: false, schema: { type: string, enum: [face, palm], default: face } }
+      responses:
+        "200": { description: "{ templates[], next_seq, current_seq, done, protection? }" }
+        "403": { description: Template export not enabled for this tenant }
+  /v1/sync/push:
+    post:
+      summary: "Hybrid sync: upload on-device templates into this tenant (role: enroll)"
+      description: >
+        Uploads on-device enrolments (RAW embeddings — the server protects them at
+        rest). Cross-identity dedupe: a biometric matching an EXISTING but
+        differently-named person is a conflict resolved by `on_conflict` =
+        skip (default) | merge | force.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templates]
+              properties:
+                modality: { type: string, enum: [face, palm], default: face }
+                on_conflict: { type: string, enum: [skip, merge, force], default: skip }
+                templates:
+                  type: array
+                  items:
+                    type: object
+                    required: [user_id, embeddings]
+                    properties:
+                      user_id: { type: string }
+                      embeddings: { type: array, items: { type: array, items: { type: number } } }
+      responses:
+        "200": { description: "{ pushed, merged, skipped, conflicts[] }" }
   /v1/export/bundle:
     post:
       summary: "Managed: export templates as an encrypted offline provisioning bundle (role: admin, allow_export)"
       description: >
-        Export this tenant's templates (embeddings only — never images) as a
-        passphrase-encrypted, integrity-protected bundle (PBKDF2-HMAC-SHA256 +
-        AES-256-GCM) for provisioning an AIR-GAPPED device out-of-band. Requires the
-        tenant's `allow_export` entitlement.
+        Export this tenant's templates (PROTECTED embeddings only — never images or
+        raw vectors) as a passphrase-encrypted, integrity-protected bundle
+        (PBKDF2-HMAC-SHA256 + AES-256-GCM) for provisioning an AIR-GAPPED device
+        out-of-band. The payload's `protection` block carries each modality's domain
+        seed so the device can project live captures for matching; after a reissue,
+        export a fresh bundle. Requires the tenant's `allow_export` entitlement.
       requestBody:
         required: true
         content:
@@ -308,3 +357,37 @@ paths:
       responses:
         "200": { description: "The new active key (kid, public_key, created, status)" }
         "400": { description: Missing confirm flag }
+  /v1/templates/status:
+    get:
+      summary: "Template-protection status (role: manage)"
+      description: >
+        Stored templates are kept in a scrambled, revocable form (cancelable
+        biometrics). Returns per-modality status — enabled, scheme, protection
+        epoch, last reissue, user counts — or one user's detail via ?user_id=.
+      parameters:
+        - { name: user_id, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: "Per-modality protection status" }
+  /v1/templates/reissue:
+    post:
+      summary: "Reissue (re-protect) stored templates (role: manage)"
+      description: >
+        Moves templates to a NEW protection domain — like resetting a password:
+        every previously stored or exported protected copy stops matching, while
+        enrolled people keep verifying with no recapture. Omit user_id to
+        reissue the whole tenant; include it to reissue one person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: { type: boolean, enum: [true] }
+                user_id: { type: string }
+      responses:
+        "200": { description: "Reissued row counts per modality" }
+        "400": { description: Missing confirm flag }
+        "404": { description: user_id not enrolled }
+        "409": { description: Protection not enabled on this server }

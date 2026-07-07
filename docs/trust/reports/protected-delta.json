@@ -1,0 +1,13 @@
+{
+  "date": "2026-07-06",
+  "scheme": "hd3-v1",
+  "source": "synthetic(5000 pairs, dim 512)",
+  "far": 0.01,
+  "tar_raw": 0.3218,
+  "tar_protected": 0.3218,
+  "tar_delta_abs": 0.0,
+  "threshold_raw": 0.099547,
+  "threshold_protected": 0.099547,
+  "max_abs_score_diff": 1e-07,
+  "gate": "PASS"
+}

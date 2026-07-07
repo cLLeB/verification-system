@@ -110,7 +110,8 @@ def main() -> None:
     def is_duplicate(embs, person):
         if dedupe_idx is None:
             return None
-        for cu, sc in dedupe_idx.search(embs[0], top_k=3):
+        # the index holds protection-domain vectors — project the probe to match
+        for cu, sc in dedupe_idx.search(store.protect_probe(embs[0]), top_k=3):
             if cu != person and sc >= threshold:
                 return cu
         return None
@@ -137,7 +138,8 @@ def main() -> None:
                 enrolled += 1
                 if dedupe_idx is not None:
                     for e in embs[:store.samples_per_user]:
-                        dedupe_idx.add(person, e)    # so later people see this one too
+                        # so later people see this one too (in the matching domain)
+                        dedupe_idx.add(person, store.protect_probe(e, user_id=person))
         if len(batch) >= args.batch:
             flush()
         if i % 200 == 0:

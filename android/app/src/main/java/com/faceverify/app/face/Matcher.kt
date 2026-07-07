@@ -33,19 +33,27 @@ object Matcher {
         return Decision(s >= matchThreshold, null, s, 0f)
     }
 
-    /** 1:N — who is this? Top identity must clear the threshold AND beat the
-     *  runner-up by the margin, so look-alikes don't slip through. */
-    fun identify(probe: FloatArray, people: List<Pair<String, List<FloatArray>>>,
-                 matchThreshold: Float = Config.MATCH_THRESHOLD,
-                 identifyMargin: Float = Config.IDENTIFY_MARGIN): Decision {
-        if (people.isEmpty()) return Decision(false, null, -1f, 0f)
-        val scored = people.map { it.first to bestScore(probe, it.second) }
-            .sortedByDescending { it.second }
-        val (topId, top) = scored[0]
-        val second = if (scored.size > 1) scored[1].second else -1f
+    /** 1:N decision over ALREADY-SCORED identities: top must clear the threshold
+     *  AND beat the runner-up by the margin, so look-alikes don't slip through.
+     *  Split out so callers can score each user with a per-domain probe
+     *  (protected templates — see Protect.kt). */
+    fun decide(scored: List<Pair<String, Float>>,
+               matchThreshold: Float = Config.MATCH_THRESHOLD,
+               identifyMargin: Float = Config.IDENTIFY_MARGIN): Decision {
+        if (scored.isEmpty()) return Decision(false, null, -1f, 0f)
+        val ranked = scored.sortedByDescending { it.second }
+        val (topId, top) = ranked[0]
+        val second = if (ranked.size > 1) ranked[1].second else -1f
         val margin = top - second
         val granted = top >= matchThreshold &&
-            (scored.size == 1 || margin >= identifyMargin)
+            (ranked.size == 1 || margin >= identifyMargin)
         return Decision(granted, if (granted) topId else null, top, margin)
     }
+
+    /** 1:N — who is this? (single-domain convenience over [decide]). */
+    fun identify(probe: FloatArray, people: List<Pair<String, List<FloatArray>>>,
+                 matchThreshold: Float = Config.MATCH_THRESHOLD,
+                 identifyMargin: Float = Config.IDENTIFY_MARGIN): Decision =
+        decide(people.map { it.first to bestScore(probe, it.second) },
+               matchThreshold, identifyMargin)
 }

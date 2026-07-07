@@ -53,6 +53,14 @@ The app ships in two connectivity flavors × two models = 4 APKs:
   entitlement on; push needs an admin/enroll-scoped key; verify-only keys can pull-to-match.
   Code: `face/sync/{SyncPrefs,SyncClient,SyncManager}.kt`, server `/v1/sync/{pull,push}`.
 
+  **Protected templates (trust platform Phase 1):** synced/bundled templates arrive in a
+  scrambled, revocable *protection domain*; the payload carries the domain seed and the app
+  projects each live capture with it before matching (`data/Protect.kt` — a bit-exact port of
+  the server's scheme, golden-vector tested). If the server **reissues** (rotates the domain),
+  the hybrid app detects the changed `seedref` on its next pull, wipes the synced mirror and
+  re-pulls automatically; **air-gapped devices need a fresh bundle export**. Locally enrolled
+  users stay raw on-device and are the only ones pushed (the server protects them at rest).
+
 ### ID-document detection on enrolment (on-device)
 
 `face/IdDocument.kt` ports the server's `face/id_document.py`. When a capture is an

@@ -4,6 +4,21 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Trust Platform Phase 1 — protected (cancelable) templates, ON by default** — every
+  stored/matched/exported template now lives in a revocable *protection domain*: a
+  seeded orthonormal projection (3× sign-flip + Walsh–Hadamard, seed =
+  HMAC(per-store secret, seedref)) that preserves cosine exactly (measured 0.0 TAR
+  delta — `python -m bench.protected`, report in `docs/trust/reports/`) while making
+  cross-domain copies unmatchable. Raw embeddings never leave the server (kept
+  encrypted solely for reissue). **Reissue** = new domain: `POST /v1/templates/reissue`
+  (+ per-user), `GET /v1/templates/status`, Protection panels in `/admin` + `/portal`,
+  SDK `template_status()`/`reissue_templates()`, plain-language explainer on the enrol
+  screen. Sync/bundles carry protected vectors + the domain seed; Android projects live
+  probes with a bit-compatible Kotlin port (`Protect.kt`, golden-vector tested), wipes
+  and re-pulls its mirror when the domain rotates, and only pushes raw local
+  enrolments. Crypto-erase also destroys the protection secret. Opt out with
+  `BIO_PROTECT_TEMPLATES=0`. (`biometric/core/protect.py`, `store.py`, `matcher.py`,
+  `index.py`, `face_service/v1.py`, `bench/protected.py`, `android/.../Protect.kt`)
 - **Trust Platform Phase 0 — crypto & identity foundations** — per-tenant Ed25519 issuer
   signing keys with rotation history (Security tab in `/admin`, signing-key card in
   `/portal`, `GET/POST /v1/tenant/keys[/rotate]`, SDK `tenant_keys()`/`rotate_tenant_keys()`);

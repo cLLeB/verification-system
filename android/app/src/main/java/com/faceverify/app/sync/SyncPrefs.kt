@@ -38,6 +38,13 @@ class SyncPrefs(context: Context) {
         get() = prefs.getString("last_msg", "") ?: ""
         set(v) { prefs.edit().putString("last_msg", v).apply() }
 
+    /** seedref of the server's template-protection domain at last pull. A change
+     *  (reissue / epoch bump) means every mirrored row is stale — the mirror is
+     *  wiped and re-pulled from seq 0. */
+    var protSeedref: String
+        get() = prefs.getString("prot_seedref", "") ?: ""
+        set(v) { prefs.edit().putString("prot_seedref", v).apply() }
+
     val configured: Boolean get() = serverUrl.isNotEmpty() && apiKey.isNotEmpty()
 
     /** Forget the watermark so the next pull re-downloads the whole dataset. */

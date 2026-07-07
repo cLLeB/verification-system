@@ -73,9 +73,25 @@
                 <div id="psec-keys" class="list"></div>
                 <button id="psec-rotate" class="btn danger">Rotate signing key&hellip;</button>
             </div>
+
+            <div class="card" id="portal-protection">
+                <h2>Template protection <span class="muted">(revocable biometrics)</span></h2>
+                <p class="muted">Your people's stored face/palm templates are kept in a
+                    <b>scrambled, revocable form</b> &mdash; a stolen copy can't be matched anywhere
+                    else, and can be cancelled like a password. If you ever suspect a leak,
+                    <b>reissue</b>: old copies stop working instantly and nobody has to
+                    re-enrol.</p>
+                <div id="pprot-status" class="list"></div>
+                <div class="row">
+                    <input id="pprot-user" class="field" type="text"
+                           placeholder="User id (optional &mdash; reissue one person)">
+                    <button id="pprot-reissue" class="btn danger">Reissue&hellip;</button>
+                </div>
+                <p id="pprot-msg" class="muted"></p>
+            </div>
         </div>
     </section>
 </main>
-<script src="/static/portal.js?v=2"></script>
+<script src="/static/portal.js?v=3"></script>
 </body>
 </html>

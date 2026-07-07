@@ -40,6 +40,7 @@ from face_service import admin, admins, audit, bundle, invites, issuer_keys, key
 from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
+from biometric.core import index as _bio_index
 
 _FP_TENANT = "first_party"               # audit bucket for the built-in app
 
@@ -483,6 +484,46 @@ def admin_issuer_keys_rotate():
     audit.log(tenant, "issuer_key_rotate", actor=g.get("admin_user", "admin"),
               success=True, detail=f"new kid {rec['kid']}")
     return jsonify({"success": True, "tenant": tenant, "active": rec})
+
+
+@app.route("/admin/api/protection", methods=["GET"])
+@admin.require_admin
+def admin_protection():
+    # tenant 'first_party' = the built-in web-client store; anything else lives
+    # under tenants/<name> exactly like /v1 (same mapping as invites).
+    tenant = (request.args.get("tenant") or "default").strip() or "default"
+    user_id = (request.args.get("user_id") or "").strip() or None
+    face_cfg, palm_enabled = _invite_target(tenant)
+    out = {}
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        store, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        out[m] = store.protection_status(user_id)
+    return jsonify({"success": True, "tenant": tenant, "user_id": user_id, "modalities": out})
+
+
+@app.route("/admin/api/protection/reissue", methods=["POST"])
+@admin.require_admin
+def admin_protection_reissue():
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "default").strip() or "default"
+    user_id = (data.get("user_id") or "").strip() or None
+    face_cfg, palm_enabled = _invite_target(tenant)
+    counts, enabled_any = {}, False
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        store, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        if not store.protection_enabled:
+            counts[m] = 0
+            continue
+        enabled_any = True
+        counts[m] = store.reissue(user_id)
+        _bio_index.invalidate(store.db_path)
+    if not enabled_any:
+        return jsonify({"success": False, "code": "protection_disabled",
+                        "message": "Template protection is not enabled on this server."}), 409
+    audit.log(tenant, "templates_reissue", actor=g.get("admin_user", "admin"),
+              success=True, detail=f"user={user_id or 'ALL'} " +
+                                   " ".join(f"{m}={n}" for m, n in counts.items()))
+    return jsonify({"success": True, "tenant": tenant, "user_id": user_id, "reissued": counts})
 
 
 @app.route("/admin/api/overview")

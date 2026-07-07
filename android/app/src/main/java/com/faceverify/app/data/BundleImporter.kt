@@ -26,7 +26,12 @@ object BundleImporter {
 
     private const val TAG_BITS = 128
 
-    data class Person(val userId: String, val embeddings: List<FloatArray>)
+    data class Person(
+        val userId: String,
+        val embeddings: List<FloatArray>,
+        /** Protection-domain seed for this person's PROTECTED rows (null = raw). */
+        val seed: ByteArray? = null,
+    )
     data class Parsed(val tenant: String, val face: List<Person>, val palm: List<Person>)
 
     class BundleException(message: String) : Exception(message)
@@ -66,11 +71,19 @@ object BundleImporter {
             throw BundleException("Bundle payload is not valid JSON.")
         }
         val mods = payload.optJSONObject("modalities") ?: JSONObject()
+        // Protected bundles carry a per-modality domain seed (used to project live
+        // probes for matching); individually reissued people override it per row.
+        val prot = payload.optJSONObject("protection")
         return Parsed(
             tenant = payload.optString("tenant", ""),
-            face = people(mods.optJSONArray("face")),
-            palm = people(mods.optJSONArray("palm")),
+            face = people(mods.optJSONArray("face"), seedOf(prot, "face")),
+            palm = people(mods.optJSONArray("palm"), seedOf(prot, "palm")),
         )
+    }
+
+    private fun seedOf(prot: JSONObject?, modality: String): ByteArray? {
+        val s = prot?.optJSONObject(modality)?.optString("seed") ?: return null
+        return if (s.isEmpty()) null else b64(s)
     }
 
     /** Import a parsed bundle into the on-device stores (upsert per person). Returns
@@ -80,14 +93,14 @@ object BundleImporter {
         var f = 0
         for (p in parsed.face) {
             if (p.userId.isNotBlank() && p.embeddings.isNotEmpty()) {
-                faceRepo.replaceUser(p.userId, p.embeddings, source = "bundle"); f++
+                faceRepo.replaceUser(p.userId, p.embeddings, source = "bundle", seed = p.seed); f++
             }
         }
         var pl = 0
         if (palmRepo != null) {
             for (p in parsed.palm) {
                 if (p.userId.isNotBlank() && p.embeddings.isNotEmpty()) {
-                    palmRepo.replaceUser(p.userId, p.embeddings, source = "bundle"); pl++
+                    palmRepo.replaceUser(p.userId, p.embeddings, source = "bundle", seed = p.seed); pl++
                 }
             }
         }
@@ -103,7 +116,7 @@ object BundleImporter {
     private fun b64(s: String?): ByteArray =
         if (s.isNullOrEmpty()) ByteArray(0) else Base64.decode(s, Base64.NO_WRAP)
 
-    private fun people(arr: JSONArray?): List<Person> {
+    private fun people(arr: JSONArray?, modalitySeed: ByteArray?): List<Person> {
         if (arr == null) return emptyList()
         val out = ArrayList<Person>(arr.length())
         for (i in 0 until arr.length()) {
@@ -116,7 +129,10 @@ object BundleImporter {
                 val vec = FloatArray(vecArr.length()) { k -> vecArr.optDouble(k, 0.0).toFloat() }
                 if (vec.isNotEmpty()) embs.add(vec)
             }
-            if (uid.isNotBlank() && embs.isNotEmpty()) out.add(Person(uid, embs))
+            val rowSeed = o.optString("seed", "").takeIf { it.isNotEmpty() }?.let { b64(it) }
+            if (uid.isNotBlank() && embs.isNotEmpty()) {
+                out.add(Person(uid, embs, seed = rowSeed ?: modalitySeed))
+            }
         }
         return out
     }
