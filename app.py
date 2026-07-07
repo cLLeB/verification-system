@@ -286,6 +286,109 @@ def index():
     return render_template("index.html")
 
 
+# --- portable offline credentials: public pages + demo verifier --------------
+@app.route("/card")
+def credential_card():
+    """Save-to-phone / printable card page. The payload rides in ?d= — it is the
+    signed public credential by design (what gets printed), so no session."""
+    from biometric.core import credential as _credential
+    text = (request.args.get("d") or "").strip()
+    try:
+        payload, _sig = _credential.decode(text)
+    except _credential.CredentialError:
+        return ("<h3 style='font-family:sans-serif'>This card link is not valid.</h3>"
+                "<p style='font-family:sans-serif'>Ask the issuer for a fresh link.</p>", 404)
+    fmt = lambda ts: time.strftime("%d %b %Y", time.localtime(ts))
+    return render_template("card.html", subject=payload["sub"],
+                           name=payload.get("name"), attrs=payload.get("attrs"),
+                           issuer=payload["iss"],
+                           issued=fmt(payload["iat"]), expires=fmt(payload["exp"]),
+                           qr_b64=credentials.qr_png_b64(text))
+
+
+@app.route("/verify-credential")
+def verify_credential_page():
+    return render_template("verify_credential.html")
+
+
+def _any_local_issuer(iss, kid):
+    """Key resolver for the built-in demo verifier: accept credentials issued by
+    any tenant ON THIS SERVER (never mints keys for unknown issuers)."""
+    if iss not in issuer_keys.tenants() or iss == "__server_root__":
+        return None
+    for k in issuer_keys.public_keys(iss):
+        if k["kid"] == kid:
+            return base64.b64decode(k["public_key"])
+    return None
+
+
+@app.route("/api/credentials/decode-qr", methods=["POST"])
+def api_credential_decode_qr():
+    """Server-side QR decode fallback for browsers without BarcodeDetector."""
+    img = decode_image((request.get_json(silent=True) or {}).get("image", ""))
+    if img is None:
+        return jsonify({"success": False, "message": "No usable image."}), 400
+    try:
+        text, _, _ = cv2.QRCodeDetectorAruco().detectAndDecode(
+            cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+    except Exception:
+        text = ""
+    if not text:
+        return jsonify({"success": False, "message": "No QR code found."}), 404
+    return jsonify({"success": True, "credential": text})
+
+
+@app.route("/api/credentials/verify", methods=["POST"])
+def api_credential_verify():
+    """The hosted verdict for the /verify-credential demo page: signature ->
+    expiry -> revocation -> live capture -> match in the credential's domain.
+    Accepts credentials issued by any tenant on this server."""
+    from biometric.core import credential as _credential
+    from face_service import modality as _vmod
+    data = request.get_json(silent=True) or {}
+    text = (data.get("credential") or "").strip()
+    try:
+        payload = _credential.verify(text, _any_local_issuer)
+    except _credential.CredentialError as exc:
+        return jsonify({"success": False, "code": exc.code, "message": str(exc)}), 400
+    cid_hex = payload["cid"].hex()
+    if credentials.is_revoked(payload["iss"], cid_hex):
+        return jsonify({"success": False, "code": "credential_revoked",
+                        "message": "This credential has been revoked by its issuer."}), 410
+    img = decode_image(data.get("image", ""))
+    if img is None:
+        return jsonify({"success": False, "code": "capture_quality",
+                        "message": "'image' is required."}), 400
+    routed = _vmod.embed(img, CONFIG)
+    if not routed.get("success"):
+        return jsonify({"success": False, "code": "capture_quality",
+                        "message": routed.get("message", "No usable capture.")}), 200
+    live_mod = routed["modality"]
+    if live_mod not in payload["mod"]:
+        return jsonify({"success": False, "code": "biometric_mismatch",
+                        "message": f"This credential carries {'+'.join(payload['mod'])}, "
+                                   f"but the capture is a {live_mod}."}), 200
+    if live_mod == "palm":
+        _st, _idx, thr = _vmod.store_and_index(CONFIG, "palm")
+    else:
+        thr = CONFIG.match_threshold
+    emb = np.asarray(routed["embedding"], np.float32)
+    score = _credential.match(payload, live_mod, emb)
+    granted = score >= thr
+    audit.log(_FP_TENANT, "credential_verify", actor="web-verifier",
+              user_id=payload["sub"], success=granted,
+              detail=f"cid={cid_hex} iss={payload['iss']} score={round(score, 4)}")
+    return jsonify({"success": granted,
+                    "code": "match" if granted else "biometric_mismatch",
+                    "message": ("Credential holder verified." if granted
+                                else "The live capture does not match this credential."),
+                    "subject": {"user_id": payload["sub"], "name": payload.get("name"),
+                                "attrs": payload.get("attrs")},
+                    "issuer": payload["iss"], "modality": live_mod,
+                    "score": round(score, 4), "threshold": thr,
+                    "expires": payload["exp"]})
+
+
 @app.route("/sw.js")
 def service_worker():
     # Served from root so the service worker controls the whole app scope.
@@ -526,6 +629,52 @@ def admin_protection_reissue():
               success=True, detail=f"user={user_id or 'ALL'} " +
                                    " ".join(f"{m}={n}" for m, n in counts.items()))
     return jsonify({"success": True, "tenant": tenant, "user_id": user_id, "reissued": counts})
+
+
+@app.route("/admin/api/credentials", methods=["POST"])
+@admin.require_admin
+def admin_credentials_issue():
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "default").strip() or "default"
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."}), 400
+    face_cfg, palm_enabled = _invite_target(tenant)
+    try:
+        out = credentials.issue(tenant, face_cfg, palm_enabled, user_id,
+                                expiry_days=int(data.get("expiry_days") or 365),
+                                name=data.get("name"), attrs=data.get("attrs"))
+    except credentials.IssueError as exc:
+        return jsonify({"success": False, "code": exc.code, "message": str(exc)}), \
+            404 if exc.code == "not_enrolled" else 400
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "expiry_days must be an integer."}), 400
+    audit.log(tenant, "credential_issue", actor=g.get("admin_user", "admin"),
+              user_id=user_id, success=True, detail=f"cid={out['credential_id']}")
+    return jsonify({"success": True, "tenant": tenant, **out})
+
+
+@app.route("/admin/api/credentials", methods=["GET"])
+@admin.require_admin
+def admin_credentials_list():
+    tenant = (request.args.get("tenant") or "default").strip() or "default"
+    user_id = (request.args.get("user_id") or "").strip() or None
+    return jsonify({"success": True, "tenant": tenant,
+                    "credentials": credentials.list_for(tenant, user_id)})
+
+
+@app.route("/admin/api/credentials/revoke", methods=["POST"])
+@admin.require_admin
+def admin_credentials_revoke():
+    data = request.get_json(silent=True) or {}
+    tenant = (data.get("tenant") or "default").strip() or "default"
+    cid = (data.get("credential_id") or "").strip().lower()
+    ok = credentials.revoke(tenant, cid)
+    if not ok and credentials.get(tenant, cid) is None:
+        return jsonify({"success": False, "message": "No such credential."}), 404
+    audit.log(tenant, "credential_revoke", actor=g.get("admin_user", "admin"),
+              success=True, detail=f"cid={cid}")
+    return jsonify({"success": True, "credential_id": cid, "revoked": True})
 
 
 @app.route("/admin/api/overview")

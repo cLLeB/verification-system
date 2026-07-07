@@ -13,7 +13,7 @@ function showLogin() { $('login').classList.remove('hidden'); $('console').class
 function showConsole() {
     $('login').classList.add('hidden'); $('console').classList.remove('hidden');
     startCamera(); loadOverview(); loadPeople(); loadKeys(); loadTenants(); loadUsage(); loadOps();
-    populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad();
+    populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad(); credLoad();
 }
 async function checkSession() {
     const d = await (await fetch('/admin/session')).json();
@@ -211,6 +211,68 @@ $('prot-reissue').onclick = async () => {
         ? `Reissued: ${Object.entries(d.reissued).map(([m, n]) => `${m} ${n}`).join(', ')}.`
         : (d.message || 'Reissue failed.');
     if (d.success) protLoad();
+};
+
+// --- security: offline QR credentials ----------------------------------------
+function credCardUrl(payload) {
+    return `${location.origin}/card?d=${encodeURIComponent(payload)}`;
+}
+async function credLoad() {
+    const tenant = ($('cred-tenant').value || '').trim() || 'default';
+    const user = ($('cred-user').value || '').trim();
+    const q = `tenant=${encodeURIComponent(tenant)}` + (user ? `&user_id=${encodeURIComponent(user)}` : '');
+    const d = await api(`/admin/api/credentials?${q}`);
+    const list = $('cred-list'); list.innerHTML = '';
+    (d.credentials || []).forEach(c => {
+        const row = document.createElement('div'); row.className = 'item';
+        const exp = new Date(c.exp * 1000).toLocaleDateString();
+        row.innerHTML = `<div class="grow"><div>${c.user_id}
+            <span class="pill">${c.revoked ? 'REVOKED' : 'active'}</span>
+            <span class="pill">${(c.modalities || []).join('+')}</span></div>
+            <div class="sub"><code>${c.cid.slice(0, 12)}…</code> · expires ${exp}${c.name ? ' · ' + c.name : ''}</div></div>`;
+        if (!c.revoked) {
+            const b = document.createElement('button'); b.className = 'del'; b.textContent = 'Revoke';
+            b.onclick = async () => {
+                if (!confirm(`Revoke this credential for ${c.user_id}?\n\nEvery verifier rejects it after their next refresh.`)) return;
+                await api('/admin/api/credentials/revoke', { method: 'POST',
+                    body: JSON.stringify({ tenant, credential_id: c.cid }) });
+                credLoad();
+            };
+            row.appendChild(b);
+        }
+        list.appendChild(row);
+    });
+    $('cred-msg').textContent = `${(d.credentials || []).length} credential(s) for "${tenant}".`;
+}
+$('cred-load').onclick = credLoad;
+$('cred-issue').onclick = async () => {
+    const tenant = ($('cred-tenant').value || '').trim() || 'default';
+    const user = ($('cred-user').value || '').trim();
+    if (!user) { $('cred-msg').textContent = 'Enter the user id to issue for.'; return; }
+    const d = await api('/admin/api/credentials', { method: 'POST',
+        body: JSON.stringify({ tenant, user_id: user,
+            name: ($('cred-name').value || '').trim() || undefined,
+            expiry_days: parseInt($('cred-days').value, 10) || 365 }) });
+    const box = $('cred-new');
+    if (!d.success) {
+        box.classList.add('hidden');
+        $('cred-msg').textContent = d.message || 'Issue failed.';
+        return;
+    }
+    const card = credCardUrl(d.payload_b45);
+    box.classList.remove('hidden');
+    box.innerHTML = `<img src="data:image/png;base64,${d.qr_png_b64}" alt="Credential QR"
+            style="max-width:260px;width:100%;image-rendering:pixelated;background:#fff;border-radius:8px">
+        <div class="row" style="justify-content:center;margin-top:10px">
+            <a class="btn ghost" download="credential-${user}.png"
+               href="data:image/png;base64,${d.qr_png_b64}">Download PNG</a>
+            <a class="btn ghost" href="${card}" target="_blank">Open card (print / save-to-phone)</a>
+            <button class="btn ghost" id="cred-copy">Copy card link</button>
+        </div>`;
+    $('cred-copy').onclick = () => navigator.clipboard.writeText(card)
+        .then(() => { $('cred-msg').textContent = 'Card link copied — send it to the holder.'; });
+    $('cred-msg').textContent = `Issued ${d.credential_id.slice(0, 12)}… (${d.modalities.join('+')}).`;
+    credLoad();
 };
 
 // --- keys ------------------------------------------------------------------

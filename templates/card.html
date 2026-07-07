@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0d0f16">
+    <title>Verification card — {{ subject }}</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; margin: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #eef0f5; color: #131722; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 24px 16px; gap: 18px;
+        }
+        .card {
+            background: #fff; border-radius: 16px; width: 100%; max-width: 420px;
+            box-shadow: 0 6px 24px rgba(15, 20, 40, .12); overflow: hidden;
+        }
+        .card-head {
+            background: #131722; color: #fff; padding: 14px 20px;
+            display: flex; justify-content: space-between; align-items: baseline;
+        }
+        .card-head .org { font-weight: 700; letter-spacing: .02em; }
+        .card-head .tag { font-size: .7rem; opacity: .75; text-transform: uppercase; letter-spacing: .14em; }
+        .card-body { padding: 20px; text-align: center; }
+        .card-body img { width: 100%; max-width: 340px; image-rendering: pixelated; }
+        .who { font-size: 1.15rem; font-weight: 700; margin-top: 6px; }
+        .sub { color: #5a6172; font-size: .85rem; margin-top: 2px; }
+        .attrs { margin-top: 8px; font-size: .8rem; color: #333a4a; }
+        .attrs span { background: #eef0f5; border-radius: 6px; padding: 2px 8px; margin: 0 3px; display: inline-block; }
+        .meta { border-top: 1px dashed #d7dbe4; margin-top: 16px; padding-top: 12px;
+                font-size: .72rem; color: #5a6172; display: flex; justify-content: space-between; }
+        .actions { display: flex; gap: 10px; }
+        .btn {
+            border: 0; border-radius: 10px; padding: 12px 18px; font-size: .9rem;
+            font-weight: 600; cursor: pointer; background: #2a49e0; color: #fff;
+        }
+        .btn.ghost { background: #fff; color: #131722; border: 1px solid #c9cedb; }
+        .hint { max-width: 420px; font-size: .8rem; color: #5a6172; text-align: center; line-height: 1.5; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .actions, .hint { display: none; }
+            .card { box-shadow: none; border: 1px solid #999;
+                    width: 85.6mm; min-height: 54mm; max-width: none; border-radius: 3mm; }
+            .card-body img { max-width: 60mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-head">
+            <span class="org">{{ issuer }}</span>
+            <span class="tag">Verified ID</span>
+        </div>
+        <div class="card-body">
+            <img src="data:image/png;base64,{{ qr_b64 }}" alt="Verification QR code">
+            <div class="who">{{ name or subject }}</div>
+            {% if name %}<div class="sub">{{ subject }}</div>{% endif %}
+            {% if attrs %}<div class="attrs">
+                {% for k, v in attrs.items() %}<span>{{ k }}: {{ v }}</span>{% endfor %}
+            </div>{% endif %}
+            <div class="meta">
+                <span>Issued {{ issued }}</span>
+                <span>Expires {{ expires }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="actions">
+        <button class="btn" onclick="window.print()">Print card</button>
+        <a class="btn ghost" href="data:image/png;base64,{{ qr_b64 }}"
+           download="credential-{{ subject }}.png">Save QR image</a>
+    </div>
+    <p class="hint">Save this page or screenshot the code — it works from your photo
+        gallery or printed on paper, with no app and no internet. Anyone authorised to
+        check it scans the code and compares it with the live you; the code alone can't
+        be used by anyone else, can be cancelled at any time, and expires automatically.</p>
+</body>
+</html>

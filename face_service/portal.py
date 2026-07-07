@@ -339,3 +339,76 @@ def portal_protection_reissue():
               detail=f"user={user_id or 'ALL'} " +
                      " ".join(f"{m}={n}" for m, n in counts.items()))
     return jsonify({"success": True, "user_id": user_id, "reissued": counts})
+
+
+# --- portable offline credentials (issue / list / revoke) --------------------
+@portal_bp.post("/portal/api/credentials")
+@require_tenant
+def portal_credentials_issue():
+    from . import credentials as _credreg
+    gate = _enabled_or_402()
+    if gate:
+        return gate
+    data = request.get_json(silent=True) or {}
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."}), 400
+    face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+    try:
+        out = _credreg.issue(g.portal_tenant, face_cfg, palm_enabled, user_id,
+                             expiry_days=int(data.get("expiry_days") or 365),
+                             name=data.get("name"))
+    except _credreg.IssueError as exc:
+        return jsonify({"success": False, "code": exc.code, "message": str(exc)}), \
+            404 if exc.code == "not_enrolled" else 400
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "expiry_days must be an integer."}), 400
+    audit.log(g.portal_tenant, "credential_issue", actor="portal", user_id=user_id,
+              success=True, detail=f"cid={out['credential_id']}")
+    return jsonify({"success": True, **out})
+
+
+@portal_bp.get("/portal/api/credentials")
+@require_tenant
+def portal_credentials_list():
+    from . import credentials as _credreg
+    user_id = (request.args.get("user_id") or "").strip() or None
+    return jsonify({"success": True,
+                    "credentials": _credreg.list_for(g.portal_tenant, user_id)})
+
+
+@portal_bp.post("/portal/api/credentials/revoke")
+@require_tenant
+def portal_credentials_revoke():
+    from . import credentials as _credreg
+    data = request.get_json(silent=True) or {}
+    cid = (data.get("credential_id") or "").strip().lower()
+    ok = _credreg.revoke(g.portal_tenant, cid)
+    if not ok and _credreg.get(g.portal_tenant, cid) is None:
+        return jsonify({"success": False, "message": "No such credential."}), 404
+    audit.log(g.portal_tenant, "credential_revoke", actor="portal", success=True,
+              detail=f"cid={cid}")
+    return jsonify({"success": True, "credential_id": cid, "revoked": True})
+
+
+# --- cross-org trust (accept another tenant's credentials) --------------------
+@portal_bp.get("/portal/api/trust")
+@require_tenant
+def portal_trust_list():
+    return jsonify({"success": True,
+                    "trusted_issuers": tenants.trusted_issuers(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/trust")
+@require_tenant
+def portal_trust_set():
+    data = request.get_json(silent=True) or {}
+    issuer = (data.get("issuer") or "").strip()
+    trusted = bool(data.get("trusted", True))
+    if not issuer or issuer == g.portal_tenant:
+        return jsonify({"success": False,
+                        "message": "Provide a different organisation's tenant id."}), 400
+    out = tenants.set_trusted(g.portal_tenant, issuer, trusted)
+    audit.log(g.portal_tenant, "trust_issuer", actor="portal", success=True,
+              detail=f"{'trusted' if trusted else 'untrusted'} {issuer}")
+    return jsonify({"success": True, "trusted_issuers": out})

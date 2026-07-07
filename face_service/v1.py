@@ -716,43 +716,18 @@ def templates_reissue():
 
 
 # --- portable offline credentials (trust platform phase 2) -------------------
-_QR_MAX_CHARS = 2600                 # ~QR version 33 at ECC-M alphanumeric; fail early past it
-_CRED_MAX_DIM = 512                  # per-modality template budget (512 int8 bytes)
 _ROOT_TENANT = "__server_root__"     # signs the published trust store
-
-
-def _qr_png_b64(text: str) -> str:
-    import qrcode
-    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4)
-    qr.add_data(text)
-    qr.make(fit=True)
-    mat = np.array(qr.get_matrix(), dtype=np.uint8)
-    img = (1 - mat) * 255                                 # modules black on white
-    img = np.kron(img, np.ones((8, 8), np.uint8))         # 8px per module
-    ok, png = cv2.imencode(".png", img)
-    if not ok:
-        raise RuntimeError("QR PNG encoding failed")
-    return base64.b64encode(png.tobytes()).decode("ascii")
-
-
-def _raw_centroid(store, user_id):
-    """One representative RAW vector per modality: the normalised mean of the
-    user's raw anchors (adaptive rows excluded — anchors are the vetted set)."""
-    tmpl = store.load_raw(user_id)
-    if tmpl is None or not tmpl.anchors:
-        return None
-    c = np.mean(np.stack(tmpl.anchors).astype(np.float32), axis=0)
-    n = float(np.linalg.norm(c))
-    return c / n if n > 0 else None
 
 
 def _issuer_key_resolver(verifier_tenant):
     """resolve_key(iss, kid) for credential verification: accept this tenant's
-    own credentials plus its explicitly trusted issuers' (cross-org, spec 6.5)."""
+    own credentials plus its explicitly trusted issuers' (cross-org, spec 6.5).
+    Only issuers that already HAVE a signing identity resolve — public_keys()
+    creates keys on demand, and a forged iss must never mint one."""
     accepted = {verifier_tenant or "default"} | set(tenants.trusted_issuers(verifier_tenant))
 
     def resolve(iss, kid):
-        if iss not in accepted:
+        if iss not in accepted or iss not in issuer_keys.tenants():
             return None
         for k in issuer_keys.public_keys(iss):
             if k["kid"] == kid:
@@ -775,50 +750,19 @@ def credentials_issue():
         expiry_days = int(data.get("expiry_days") or _credential.DEFAULT_TTL_DAYS)
     except (TypeError, ValueError):
         return _err("'expiry_days' must be an integer.")
-    if not 1 <= expiry_days <= 3650:
-        return _err("'expiry_days' must be between 1 and 3650.")
-    requested = data.get("modalities") or ["face", "palm"]
-    cfg = _cfg()
-
-    cid = _credential.new_cid()
-    templates, mods, skipped = [], [], []
-    for m in _tenant_modalities():
-        if m not in requested:
-            continue
-        store, _idx, _thr = _modality.store_and_index(cfg, m)
-        vec = _raw_centroid(store, user_id)
-        if vec is None:
-            skipped.append({"modality": m, "reason": "not_enrolled"})
-            continue
-        if vec.shape[0] > _CRED_MAX_DIM:
-            # spec 6.4: a modality whose vector exceeds the QR budget stays
-            # store-based; the credential ships without it.
-            skipped.append({"modality": m, "reason": "template_too_large"})
-            continue
-        templates.append(_credential.template_envelope(cid, m, vec))
-        mods.append(m)
-    if not templates:
-        return _err(f"'{user_id}' has no enrolment a credential can carry.",
-                    code="not_enrolled", status=404, hint=str(skipped or ""))
-
-    kid = issuer_keys.get_or_create(g.tenant)["kid"]
-    payload = _credential.build(cid, g.tenant or "default", kid, user_id,
-                                templates, mods, expiry_days=expiry_days,
-                                name=(data.get("name") or "").strip() or None,
-                                attrs=data.get("attrs") or None)
-    _, sig = issuer_keys.sign_for(g.tenant, _credential.signing_bytes(payload))
-    text = _credential.encode(payload, sig)
-    if len(text) > _QR_MAX_CHARS:
-        return _err("Credential payload too large for a QR.", code="too_large", status=422)
-
-    _credreg.record(g.tenant, cid.hex(), user_id, mods, payload["iat"], payload["exp"],
-                    name=payload.get("name"))
+    try:
+        out = _credreg.issue(g.tenant, _cfg(), tenants.get(g.tenant)["palm_enabled"],
+                             user_id, modalities=data.get("modalities"),
+                             expiry_days=expiry_days,
+                             name=data.get("name"), attrs=data.get("attrs"))
+    except _credreg.IssueError as exc:
+        status = {"not_enrolled": 404, "too_large": 422}.get(exc.code, 400)
+        return _err(str(exc), code=exc.code, status=status,
+                    hint=str(exc.detail) if exc.detail else None)
     audit.log(g.tenant, "credential_issue", actor=g.key_name, user_id=user_id,
-              success=True, detail=f"cid={cid.hex()} mod={'+'.join(mods)} ttl={expiry_days}d")
-    return jsonify({"success": True, "credential_id": cid.hex(),
-                    "payload_b45": text, "qr_png_b64": _qr_png_b64(text),
-                    "modalities": mods, "skipped": skipped,
-                    "issued_at": payload["iat"], "expires": payload["exp"]})
+              success=True, detail=f"cid={out['credential_id']} "
+                                   f"mod={'+'.join(out['modalities'])} ttl={expiry_days}d")
+    return jsonify({"success": True, **out})
 
 
 @bp.get("/credentials")

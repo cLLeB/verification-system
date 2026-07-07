@@ -135,6 +135,93 @@ def remove_tenant(tenant: Optional[str]) -> bool:
         return True
 
 
+# --- issuance (shared by /v1, admin console, tenant portal) --------------------
+QR_MAX_CHARS = 2600               # ~QR version 33 at ECC-M alphanumeric
+CRED_MAX_DIM = 512                # per-modality template budget (512 int8 bytes)
+
+
+class IssueError(ValueError):
+    """Credential could not be issued. ``code`` is the typed reason."""
+
+    def __init__(self, code: str, message: str, detail=None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.detail = detail
+
+
+def qr_png_b64(text: str) -> str:
+    import cv2
+    import numpy as np
+    import qrcode
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4)
+    qr.add_data(text)
+    qr.make(fit=True)
+    mat = np.array(qr.get_matrix(), dtype=np.uint8)
+    img = np.kron((1 - mat) * 255, np.ones((8, 8), np.uint8))
+    ok, png = cv2.imencode(".png", img)
+    if not ok:
+        raise IssueError("qr_failed", "QR PNG encoding failed")
+    return base64.b64encode(png.tobytes()).decode("ascii")
+
+
+def issue(tenant: Optional[str], face_cfg, palm_enabled: bool, user_id: str,
+          modalities=None, expiry_days: int = 365,
+          name: Optional[str] = None, attrs: Optional[dict] = None) -> dict:
+    """Issue a signed credential for an enrolled user: one protected+quantized
+    centroid per available modality, signed with the tenant's issuer key,
+    recorded in the registry. Raises ``IssueError`` (typed) on failure."""
+    import numpy as np
+    from biometric.core import credential as _cred
+    from . import issuer_keys, modality as _modality
+
+    if not 1 <= int(expiry_days) <= 3650:
+        raise IssueError("bad_request", "'expiry_days' must be between 1 and 3650.")
+    requested = list(modalities or ["face", "palm"])
+    cid = _cred.new_cid()
+    templates, mods, skipped = [], [], []
+    for m in ("face", "palm") if palm_enabled else ("face",):
+        if m not in requested:
+            continue
+        store, _idx, _thr = _modality.store_and_index(face_cfg, m)
+        tmpl = store.load_raw(user_id)
+        if tmpl is None or not tmpl.anchors:
+            skipped.append({"modality": m, "reason": "not_enrolled"})
+            continue
+        vec = np.mean(np.stack(tmpl.anchors).astype(np.float32), axis=0)
+        n = float(np.linalg.norm(vec))
+        if n <= 0:
+            skipped.append({"modality": m, "reason": "not_enrolled"})
+            continue
+        vec /= n
+        if vec.shape[0] > CRED_MAX_DIM:
+            # spec 6.4: a modality whose vector exceeds the QR budget stays
+            # store-based; the credential ships without it.
+            skipped.append({"modality": m, "reason": "template_too_large"})
+            continue
+        templates.append(_cred.template_envelope(cid, m, vec))
+        mods.append(m)
+    if not templates:
+        raise IssueError("not_enrolled",
+                         f"'{user_id}' has no enrolment a credential can carry.",
+                         detail=skipped)
+
+    t = _norm(tenant)
+    kid = issuer_keys.get_or_create(t)["kid"]
+    payload = _cred.build(cid, t, kid, user_id, templates, mods,
+                          expiry_days=int(expiry_days),
+                          name=(name or "").strip() or None, attrs=attrs or None)
+    _, sig = issuer_keys.sign_for(t, _cred.signing_bytes(payload))
+    text = _cred.encode(payload, sig)
+    if len(text) > QR_MAX_CHARS:
+        raise IssueError("too_large", "Credential payload too large for a QR.")
+
+    record(t, cid.hex(), user_id, mods, payload["iat"], payload["exp"],
+           name=payload.get("name"))
+    return {"credential_id": cid.hex(), "payload_b45": text,
+            "qr_png_b64": qr_png_b64(text), "modalities": mods, "skipped": skipped,
+            "issued_at": payload["iat"], "expires": payload["exp"]}
+
+
 # --- revocation list for offline verifiers ------------------------------------
 def _bloom_params(n: int, fpr: float = _BLOOM_FPR) -> tuple:
     m = max(64, int(-n * math.log(fpr) / (math.log(2) ** 2)))
