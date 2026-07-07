@@ -3,6 +3,21 @@
 Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
+### Fixed
+- **Enrolment camera freeze (production, all web surfaces)** — on iOS Safari (and any
+  browser that pauses an inline, transformed `<video>` after a canvas capture) the
+  live preview would freeze on the just-captured frame and never resume, so the same
+  frozen image was re-recorded as enrolment samples 2/3 and 3/3; only a full page
+  refresh recovered it (~15/20 attempts on phones). Root cause: a paused `<video>`
+  keeps re-drawing its last decoded frame, so `drawImage()` returned byte-identical
+  images. Fixed on the main client, invite self-enrol, and admin console: a
+  resume-on-pause watchdog (muted videos may always be replayed) plus a fresh-frame
+  gate before every capture (`requestVideoFrameCallback` with a fallback and a hard
+  timeout so capture never hangs). The cache-first service worker was bumped
+  (v15→v16) and every script `?v=` incremented so the fix actually reaches returning
+  devices instead of being stranded behind stale caches. (`static/{app,enroll,admin,
+  sw}.js`, regression-guarded by `tests/test_camera_freeze_fix.py`)
+
 ### Added
 - **Trust Platform Phase 4 — trust pack** — the program's evidence layer.
   **Benchmark harness**: `python -m bench run --suite all|protected|credential|speed|
