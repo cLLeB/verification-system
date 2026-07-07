@@ -274,9 +274,12 @@ def portal_invites_revoke():
     ok = invites.revoke(invite_id)
     purged = []
     if ok and purge and rec:
+        from . import credentials as _credreg
         face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
         purged = _modality.purge_modalities(rec["user_id"], face_cfg,
                                             rec.get("enrolled") or [], palm_enabled)
+        # a purge means suspected compromise — kill any card this invite issued
+        _credreg.revoke_for_user(g.portal_tenant, rec["user_id"])
     return jsonify({"success": ok, "purged": purged})
 
 

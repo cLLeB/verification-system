@@ -8,7 +8,7 @@ measures it rather than asserting it, and writes a versioned report.
   python -m bench.protected                       # synthetic pairs (default)
   python -m bench.protected --from-store face_db  # pairs from a real store's raw templates
 
-Report: docs/trust/reports/protected-delta.json
+Report: static/trust/protected-delta.json
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import numpy as np
 
 from biometric.core import protect
 
-REPORT_PATH = os.path.join("docs", "trust", "reports", "protected-delta.json")
+REPORT_PATH = os.path.join("static", "trust", "protected-delta.json")
 
 
 def _synthetic_pairs(n_pairs: int, dim: int, rng) -> tuple:

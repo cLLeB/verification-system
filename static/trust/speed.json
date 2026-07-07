@@ -3,11 +3,11 @@
   "identities": 5000,
   "protection": true,
   "encrypted": true,
-  "insert_per_s": 1996.0,
-  "index_build_s": 0.37,
-  "index_reload_s": 0.11,
-  "search_ms_p50": 0.66,
-  "search_ms_p95": 1.53,
+  "insert_per_s": 423.0,
+  "index_build_s": 1.86,
+  "index_reload_s": 0.38,
+  "search_ms_p50": 1.82,
+  "search_ms_p95": 3.18,
   "top1_accuracy": "100/100",
   "gate": "PASS"
 }

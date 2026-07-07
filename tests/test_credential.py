@@ -105,6 +105,37 @@ def test_expiry_unknown_issuer_and_version():
     assert e.value.code == "malformed_credential"
 
 
+def test_palm_credential_round_trip():
+    """Palm (128-d) credentials issue + verify + match like face — spec 6.4 palm
+    fits the QR budget (128 int8 bytes << 700B). No model needed at the core."""
+    sk, pk = signing.generate()
+    cid = credential.new_cid()
+    palm_raw = _unit(dim=128, seed=7)
+    tpl = credential.template_envelope(cid, "palm", palm_raw)
+    payload = credential.build(cid, "acme", signing.kid(pk), "bob", [tpl], ["palm"])
+    text = credential.encode(payload, signing.sign(sk, credential.signing_bytes(payload)))
+    p = credential.verify(text, lambda iss, k: pk)
+    assert p["mod"] == ["palm"]
+    assert credential.match(p, "palm", palm_raw) > 0.99
+    assert credential.match(p, "palm", _unit(dim=128, seed=8)) < 0.3
+    assert credential.match(p, "face", palm_raw) == -1.0     # wrong modality -> no match
+    assert len(text) < 900                                   # palm cred is small
+
+
+def test_dual_modality_credential():
+    """A credential can carry BOTH face and palm templates (spec 6.1 mod: both)."""
+    sk, pk = signing.generate()
+    cid = credential.new_cid()
+    face_raw, palm_raw = _unit(512, 1), _unit(128, 2)
+    tpls = [credential.template_envelope(cid, "face", face_raw),
+            credential.template_envelope(cid, "palm", palm_raw)]
+    payload = credential.build(cid, "acme", signing.kid(pk), "carol", tpls, ["face", "palm"])
+    text = credential.encode(payload, signing.sign(sk, credential.signing_bytes(payload)))
+    p = credential.verify(text, lambda iss, k: pk)
+    assert credential.match(p, "face", face_raw) > 0.99
+    assert credential.match(p, "palm", palm_raw) > 0.99
+
+
 def test_qr_size_budget():
     """Payload must comfortably fit a QR (spec 6.1: ~1.2 KB at version-25 ECC-M)."""
     sk, pk = signing.generate()

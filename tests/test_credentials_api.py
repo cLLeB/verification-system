@@ -140,6 +140,33 @@ def test_scope_gating(client, fresh_keys, make_key):
     assert client.post("/v1/trust/other", headers=_hdr(vk)).status_code == 403
 
 
+def test_deleting_a_user_revokes_their_credential(client, fresh_keys):
+    # A credential is self-contained (template rides in the QR), so deleting the
+    # store copy must revoke the card or a removed person keeps verifying.
+    raw = _unit(8)
+    key = _setup(client, fresh_keys, "cred_del", raw)
+    text = client.post("/v1/credentials", headers=_hdr(key),
+                       json={"user_id": "alice"}).get_json()["payload_b45"]
+    # sanity: verifies before deletion
+    assert client.post("/v1/credentials/verify", headers=_hdr(key),
+                       json={"credential": text, "embedding": raw.tolist()}
+                       ).get_json()["success"]
+    d = client.post("/v1/users/delete", headers=_hdr(key),
+                    json={"user_id": "alice"}).get_json()
+    assert d["deleted"] == 1 and d["credentials_revoked"] == 1
+    dead = client.post("/v1/credentials/verify", headers=_hdr(key),
+                       json={"credential": text, "embedding": raw.tolist()})
+    assert dead.status_code == 410 and dead.get_json()["code"] == "credential_revoked"
+
+
+def test_purge_revokes_all_credentials(client, fresh_keys):
+    raw = _unit(9)
+    key = _setup(client, fresh_keys, "cred_purge", raw)
+    client.post("/v1/credentials", headers=_hdr(key), json={"user_id": "alice"})
+    r = client.post("/v1/users/purge", headers=_hdr(key), json={"confirm": True}).get_json()
+    assert r["credentials_revoked"] == 1
+
+
 def test_per_user_reissue_auto_revokes_credentials(client, fresh_keys):
     raw = _unit(6)
     key = _setup(client, fresh_keys, "cred_reissue", raw)

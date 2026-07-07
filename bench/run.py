@@ -15,7 +15,9 @@ import json
 import os
 import time
 
-REPORT_DIR = os.path.join("docs", "trust", "reports")
+# Reports live under static/ so the running app (and its Docker image, which copies
+# static/ wholesale) can serve them on /trust without extra build wiring.
+REPORT_DIR = os.path.join("static", "trust")
 MANIFEST = os.path.join(REPORT_DIR, "latest.json")
 
 

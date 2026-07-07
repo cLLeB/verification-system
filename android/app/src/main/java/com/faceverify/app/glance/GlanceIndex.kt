@@ -84,7 +84,9 @@ class GlanceIndex private constructor(
             val seed = payload.optJSONObject("protection")?.optString("seed")
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { Base64.getDecoder().decode(it) }
-            val floor = Config.GLANCE_MIN_THRESHOLD
+            // hard device floor is per-modality (palm needs a higher 1:N floor than
+            // face) so a bad/hostile server threshold can't loosen matching below it
+            val floor = Config.glanceFloor(payload.optString("modality", "face"))
             val thr = payload.optDouble("threshold", floor.toDouble()).toFloat()
                 .coerceIn(floor, floor + Config.GLANCE_CLAMP_BAND)
             val margin = payload.optDouble("margin", Config.GLANCE_MARGIN.toDouble())

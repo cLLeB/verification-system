@@ -505,6 +505,11 @@ paths:
         verifiers bundle it and refresh opportunistically.
       responses:
         "200": { description: "{ trust_store, kid, sig, root_key }" }
+  /v1/trust:
+    get:
+      summary: "List issuers this tenant trusts (cross-org) (role: manage)"
+      responses:
+        "200": { description: "{ trusted_issuers: [tenant_id, ...] }" }
   /v1/trust/{tenant}:
     post:
       summary: "Trust another tenant's credentials (cross-org) (role: manage)"

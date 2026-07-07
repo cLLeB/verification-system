@@ -4,19 +4,19 @@
       "status": "ok",
       "file": "protected.json",
       "date": "2026-07-07",
-      "runtime_s": 1.4
+      "runtime_s": 4.7
     },
     "credential": {
       "status": "ok",
       "file": "credential.json",
       "date": "2026-07-07",
-      "runtime_s": 0.3
+      "runtime_s": 1.4
     },
     "speed": {
       "status": "ok",
       "file": "speed.json",
       "date": "2026-07-07",
-      "runtime_s": 3.3
+      "runtime_s": 15.2
     },
     "face": {
       "status": "ok",
@@ -36,5 +36,5 @@
       "date": "2026-07-07"
     }
   },
-  "generated": 1783430970
+  "generated": 1783434656
 }

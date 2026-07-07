@@ -315,8 +315,8 @@ def verify_credential_page():
 @app.route("/trust")
 def trust_center():
     """Public Trust Center (trust platform Phase 4): the security story plus the
-    numbers this exact build measured on itself (docs/trust/reports/)."""
-    reports_dir = os.path.join("docs", "trust", "reports")
+    numbers this exact build measured on itself (static/trust/)."""
+    reports_dir = os.path.join("static", "trust")
     suites, r, skipped, generated = {}, {}, {}, None
     try:
         with open(os.path.join(reports_dir, "latest.json"), encoding="utf-8") as fh:
@@ -897,11 +897,16 @@ def admin_invites_bulk():
 
 def _purge_invite_enrolments(rec: dict) -> list:
     """Delete exactly the biometrics an invite bound (only the modalities it
-    enrolled, leaving any pre-existing modality intact). Returns modalities purged."""
+    enrolled, leaving any pre-existing modality intact). Returns modalities purged.
+    Also revokes any credential auto-issued through the invite (a purge means
+    suspected compromise — the self-contained card must not outlive the data)."""
     if not rec:
         return []
-    face_cfg, palm_enabled = _invite_target(rec.get("tenant") or _FP_TENANT)
-    return _modality.purge_modalities(rec["user_id"], face_cfg, rec.get("enrolled") or [], palm_enabled)
+    tenant = rec.get("tenant") or _FP_TENANT
+    face_cfg, palm_enabled = _invite_target(tenant)
+    purged = _modality.purge_modalities(rec["user_id"], face_cfg, rec.get("enrolled") or [], palm_enabled)
+    credentials.revoke_for_user(tenant, rec["user_id"])
+    return purged
 
 
 @app.route("/admin/api/invites/revoke", methods=["POST"])
@@ -1357,9 +1362,13 @@ def api_delete_user():
     data = request.get_json(silent=True) or {}
     uid = (data.get("user_id") or "").strip()
     out = _modality.delete_user(uid, CONFIG)          # delete from both modalities
+    # revoke any card issued for this built-in user (issued under _FP_TENANT), so a
+    # self-contained credential doesn't outlive the deletion
+    revoked_creds = credentials.revoke_for_user(_FP_TENANT, uid)
     audit.log(_FP_TENANT, "delete", actor=g.get("admin_user", "admin"), user_id=uid,
-              success=bool(out.get("success")))
-    return jsonify(out)
+              success=bool(out.get("success")),
+              detail=f"{revoked_creds} credentials revoked" if revoked_creds else "")
+    return jsonify({**out, "credentials_revoked": revoked_creds})
 
 
 print(admin.startup_banner(), flush=True)

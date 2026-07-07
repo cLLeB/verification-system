@@ -446,10 +446,14 @@ def delete_user():
     palm_enabled = tenants.get(g.tenant)["palm_enabled"]
     results = {uid: bool(_modality.delete_user(uid, cfg, palm_enabled).get("success")) for uid in ids}
     deleted = sum(1 for ok in results.values() if ok)
+    # A credential carries its own template, so deleting the store copy does NOT
+    # invalidate an already-issued card — revoke them, or a removed (e.g. fired)
+    # person's QR keeps verifying.
+    revoked_creds = sum(_credreg.revoke_for_user(g.tenant, uid) for uid in ids)
     audit.log(g.tenant, "delete", actor=g.key_name, success=deleted > 0,
-              detail=f"{deleted}/{len(ids)} users")
+              detail=f"{deleted}/{len(ids)} users; {revoked_creds} credentials revoked")
     return jsonify({"success": deleted > 0, "deleted": deleted, "of": len(ids),
-                    "results": results})
+                    "results": results, "credentials_revoked": revoked_creds})
 
 
 @bp.post("/users/export")
@@ -992,6 +996,10 @@ def purge_tenant():
     users = _modality.list_users(cfg, palm_enabled).get("users", [])   # face + palm
     for uid in users:
         _modality.delete_user(uid, cfg, palm_enabled)                  # erase both modalities
+    # revoke every issued credential — self-contained cards outlive the store copy
+    revoked_creds = sum(_credreg.revoke(g.tenant, r["cid"])
+                        for r in _credreg.list_for(g.tenant) if not r["revoked"])
     audit.log(g.tenant, "purge", actor=g.key_name, success=True,
-              detail=f"{len(users)} users")
-    return jsonify({"success": True, "purged": len(users)})
+              detail=f"{len(users)} users; {revoked_creds} credentials revoked")
+    return jsonify({"success": True, "purged": len(users),
+                    "credentials_revoked": revoked_creds})

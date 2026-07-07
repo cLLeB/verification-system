@@ -38,5 +38,5 @@ def test_trust_page_renders_measured_numbers(client):
     assert "Trust Center" in html
     assert "crypto-erase" in html.lower() or "permanently unreadable" in html
     # the committed reports feed real numbers into the page
-    if os.path.exists(os.path.join("docs", "trust", "reports", "latest.json")):
+    if os.path.exists(os.path.join("static", "trust", "latest.json")):
         assert "TAR delta" in html and "Offline QR credential size" in html

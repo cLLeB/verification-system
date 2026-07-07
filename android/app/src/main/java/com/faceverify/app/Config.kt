@@ -28,9 +28,15 @@ object Config {
     // liveness. The server ships a calibrated threshold; the device CLAMPS it to
     // [GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND] so a bad calibration can never
     // loosen below the floor. Mirrors face_service/glance.py — keep in sync.
-    const val GLANCE_MIN_THRESHOLD = 0.45f
+    const val GLANCE_MIN_THRESHOLD = 0.45f        // face 1:N floor
+    const val GLANCE_MIN_THRESHOLD_PALM = 0.68f   // palm 1:N floor (mirrors glance.py GLANCE_FLOORS)
     const val GLANCE_CLAMP_BAND = 0.12f
     const val GLANCE_MARGIN = 0.08f
+
+    /** Hard device-side 1:N floor for an index of [modality] — the clamp uses this
+     *  so a bad/hostile server-sent threshold can never loosen matching below it. */
+    fun glanceFloor(modality: String): Float =
+        if (modality == "palm") GLANCE_MIN_THRESHOLD_PALM else GLANCE_MIN_THRESHOLD
 
     // adaptive enrolment (track a person as they change; anti-drift)
     const val ADAPTIVE_UPDATE_THRESHOLD = 0.55f
