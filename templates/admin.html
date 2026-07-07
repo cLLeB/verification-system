@@ -78,6 +78,10 @@
                     <input id="inv-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
                     <input id="inv-hours" class="field" type="number" min="1" max="72" value="24" placeholder="Expires in hours (1–72)">
                 </div>
+                <label class="chk" style="display:block;margin:6px 0">
+                    <input id="inv-cred" type="checkbox">
+                    Also hand them an offline QR ID card when they finish (auto-issue credential)
+                </label>
                 <button id="inv-create" class="btn primary">Create invite</button>
 
                 <p class="muted" style="margin-top:18px">…or create many at once from a list of names
@@ -207,6 +211,28 @@
                 <div id="prot-status" class="list" style="margin-top:12px"></div>
                 <p id="prot-msg" class="muted"></p>
             </div>
+            <div class="card">
+                <h2>ID credentials <span class="muted">(offline QR cards)</span></h2>
+                <p class="muted">Issue a person a <b>signed QR credential</b> — printed or saved to
+                    their phone, it lets anyone you authorise verify them in seconds,
+                    <b>fully offline</b>, with no access to your database. A stolen or photographed
+                    code is useless without the live person, can be revoked instantly, and expires.</p>
+                <div class="row">
+                    <input id="cred-tenant" class="field" type="text" placeholder="Tenant id (blank = default)">
+                    <input id="cred-user" class="field" type="text" placeholder="User id (must be enrolled)">
+                </div>
+                <div class="row">
+                    <input id="cred-name" class="field" type="text" placeholder="Display name on the card (optional)">
+                    <input id="cred-days" class="field" type="number" min="1" max="3650" value="365" placeholder="Valid for (days)">
+                </div>
+                <div class="row">
+                    <button id="cred-issue" class="btn primary">Issue credential</button>
+                    <button id="cred-load" class="btn ghost">List issued</button>
+                </div>
+                <div id="cred-new" class="newkey hidden" style="margin-top:12px; text-align:center"></div>
+                <div id="cred-list" class="list" style="margin-top:12px"></div>
+                <p id="cred-msg" class="muted"></p>
+            </div>
         </div>
 
         <!-- Usage -->
@@ -249,6 +275,6 @@
     </section>
 </main>
 <canvas id="canvas" hidden></canvas>
-<script src="/static/admin.js?v=4"></script>
+<script src="/static/admin.js?v=6"></script>
 </body>
 </html>

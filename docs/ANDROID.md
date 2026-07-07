@@ -53,6 +53,20 @@ The app ships in two connectivity flavors × two models = 4 APKs:
   entitlement on; push needs an admin/enroll-scoped key; verify-only keys can pull-to-match.
   Code: `face/sync/{SyncPrefs,SyncClient,SyncManager}.kt`, server `/v1/sync/{pull,push}`.
 
+  **Offline credential verifier (trust platform Phase 2):** the Scan tab's **"Check
+  card"** mode scans an FV1 QR (back camera, ML Kit), checks signature + expiry +
+  revocation against the on-device **trust list**, then flips to the front camera for
+  the live person (head-turn liveness for face; palm for palm-only cards) and matches
+  INSIDE the credential's own domain — airplane-mode demoable. Every failure shows the
+  same plain-language screen as the web verifier (tampered / expired / revoked /
+  untrusted issuer / not the holder). The trust list (Settings → "Credential trust
+  list") is the server's signed `/v1/trust-store`: hybrid builds Refresh it over TLS;
+  ANY build imports it as a file moved out-of-band; the root key is pinned on first
+  use and a store signed by a different root is refused. Verification core:
+  `credential/{Base45,Cbor,CredentialVerifier,TrustStore}.kt` — Ed25519 over the exact
+  payload bytes (BouncyCastle), golden-tested against server-issued credentials and
+  trust stores (incl. Bloom revocation, 64-bit-wrapped double hashing).
+
   **Protected templates (trust platform Phase 1):** synced/bundled templates arrive in a
   scrambled, revocable *protection domain*; the payload carries the domain seed and the app
   projects each live capture with it before matching (`data/Protect.kt` — a bit-exact port of

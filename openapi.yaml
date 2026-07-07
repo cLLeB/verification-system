@@ -391,3 +391,100 @@ paths:
         "400": { description: Missing confirm flag }
         "404": { description: user_id not enrolled }
         "409": { description: Protection not enabled on this server }
+  /v1/credentials:
+    post:
+      summary: "Issue a portable offline credential (signed QR) (role: manage)"
+      description: >
+        Issues a signed, expiring QR credential carrying the user's PROTECTED,
+        int8-quantized template in its own matching domain. Any phone that trusts
+        the issuer can verify the holder offline — no network, no shared database.
+        A stolen/photographed QR is unmatchable against any store, useless without
+        the live person, revocable, and expiring.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+                modalities: { type: array, items: { type: string, enum: [face, palm] } }
+                expiry_days: { type: integer, default: 365, minimum: 1, maximum: 3650 }
+                name: { type: string, description: "Display name shown on verify (optional)" }
+                attrs: { type: object, description: "Small public attribute map (role, class, ...)" }
+      responses:
+        "200": { description: "{ credential_id, payload_b45, qr_png_b64, modalities, expires }" }
+        "404": { description: User has no enrolment a credential can carry }
+        "422": { description: Payload too large for a QR }
+    get:
+      summary: "List issued credentials (role: manage)"
+      parameters:
+        - { name: user_id, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: "Credential metadata list (never the QR itself)" }
+  /v1/credentials/{cid}:
+    delete:
+      summary: "Revoke an issued credential (role: manage)"
+      description: >
+        Adds the credential to the tenant's revocation list; offline verifiers
+        pick it up with their next trust-store refresh.
+      parameters:
+        - { name: cid, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Revoked }
+        "404": { description: No such credential }
+  /v1/credentials/verify:
+    post:
+      summary: "Verify a scanned credential against a live capture (role: verify)"
+      description: >
+        The hosted version of the offline pipeline: signature -> expiry ->
+        revocation -> live capture -> match in the credential's domain. Accepts
+        `image` (single shot), `frames` + `token` (active liveness), or a raw
+        `embedding` for callers doing their own capture. Failures use typed codes:
+        malformed_credential, unsupported_version, bad_signature, unknown_issuer,
+        credential_expired, credential_revoked, capture_quality, liveness,
+        biometric_mismatch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential: { type: string, description: "The scanned FV1: string" }
+                image: { type: string }
+                frames: { type: array, items: { type: string } }
+                token: { type: string }
+                embedding: { type: array, items: { type: number } }
+      responses:
+        "200": { description: "Verdict with subject {user_id, name, attrs}, issuer, score" }
+        "403": { description: bad_signature / unknown_issuer / liveness / biometric modality mismatch }
+        "410": { description: credential_expired / credential_revoked }
+  /v1/trust-store:
+    get:
+      summary: "Public signed trust store (no API key)"
+      description: >
+        Every issuer's public keys (with validity windows) + revocation list
+        (exact list or Bloom filter), signed by the server root key. Offline
+        verifiers bundle it and refresh opportunistically.
+      responses:
+        "200": { description: "{ trust_store, kid, sig, root_key }" }
+  /v1/trust/{tenant}:
+    post:
+      summary: "Trust another tenant's credentials (cross-org) (role: manage)"
+      description: >
+        This tenant's verifiers will accept credentials ISSUED by the named
+        tenant. Adopting as a verifier needs no data import — trust the issuer,
+        scan their cards.
+      parameters:
+        - { name: tenant, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Updated trusted_issuers list" }
+    delete:
+      summary: "Stop trusting another tenant's credentials (role: manage)"
+      parameters:
+        - { name: tenant, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Updated trusted_issuers list" }

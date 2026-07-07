@@ -132,6 +132,11 @@ def verify_for(tenant: Optional[str], kid: str, message: bytes, signature: bytes
     return False
 
 
+def tenants() -> List[str]:
+    """Every tenant with a signing identity (drives the published trust store)."""
+    return sorted(_load().keys())
+
+
 def remove(tenant: Optional[str]) -> bool:
     """Offboarding: drop the tenant's signing identity entirely."""
     t = _norm(tenant)

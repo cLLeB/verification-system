@@ -11,19 +11,40 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faceverify.app.BuildConfig
 import com.faceverify.app.Config
+import com.faceverify.app.PalmConfig
+import com.faceverify.app.credential.CredentialVerifier
+import com.faceverify.app.credential.TrustData
+import com.faceverify.app.credential.TrustStoreManager
 import com.faceverify.app.face.FaceEngine
 import com.faceverify.app.face.LivenessTracker
 import com.faceverify.app.palm.PalmEngine
 import com.faceverify.app.sync.SyncManager
 import com.faceverify.app.sync.SyncPrefs
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
-enum class Mode { VERIFY, ENROLL }
+enum class Mode { VERIFY, ENROLL, CREDENTIAL }
 
 data class ScanResult(val ok: Boolean, val title: String, val sub: String)
+
+/** Plain-language screens per typed failure code (spec 6.6) — the same copy as
+ *  the web verifier, so every surface reads identically. */
+private val CRED_FAIL_COPY = mapOf(
+    "malformed_credential" to ("Not a valid credential" to "This QR isn't one of ours, or it's damaged. Ask for the original card."),
+    "unsupported_version" to ("Newer credential" to "This credential needs an updated verifier app."),
+    "bad_signature" to ("TAMPERED / FORGED" to "The signature check failed — do not accept this credential."),
+    "unknown_issuer" to ("Issuer not trusted" to "This card's issuer isn't in this device's trust list."),
+    "credential_expired" to ("Expired" to "This credential has passed its expiry date."),
+    "credential_not_yet_valid" to ("Not yet valid" to "This credential's start date is in the future."),
+    "credential_revoked" to ("REVOKED" to "The issuer cancelled this credential. Do not accept it."),
+)
 
 class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     var ready by mutableStateOf(false); private set
@@ -51,6 +72,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 palm = try {
                     if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
                 } catch (_: Exception) { null }
+                trustData = TrustStoreManager.load(getApplication())
                 refreshPeople()
                 ready = true
                 status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your palm" else "Enter a name, then show face or palm"
@@ -63,6 +85,12 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     fun selectMode(m: Mode) {
         mode = m; result = null; status = ""; captured = 0; livenessProgress = 0f
         liveness.reset(); captureRequested.set(false)
+        credPayload = null
+        if (m == Mode.CREDENTIAL) {
+            status = if (trustData == null)
+                "No trust list on this device yet — add one in Settings"
+            else "Point the BACK camera at the QR on the card"
+        }
     }
 
     fun requestEnrollCapture() { captureRequested.set(true) }
@@ -70,6 +98,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     fun scanAgain() {
         result = null; liveness.reset(); livenessProgress = 0f
         if (mode == Mode.ENROLL) captureRequested.set(false)
+        if (mode == Mode.CREDENTIAL) {
+            credPayload = null
+            status = "Point the BACK camera at the QR on the card"
+        }
     }
 
     fun refreshPeople() = viewModelScope.launch {
@@ -95,6 +127,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     fun processFrame(bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
+                if (mode == Mode.CREDENTIAL) {
+                    handleCredentialFrame(bitmap)
+                    return@launch
+                }
                 val face = engine.detect(bitmap)
                 if (face != null && face.facepx >= Config.MIN_FACE_PX) {
                     val yaw = face.yaw
@@ -250,6 +286,154 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 bmp?.let { if (!it.isRecycled) it.recycle() }
                 processing.set(false)
+            }
+        }
+    }
+
+    // --- offline credential verifier (trust platform phase 2) -----------------
+    // Scan the FV1 QR on someone's card/phone, check signature + expiry +
+    // revocation against the on-device trust list, then match the LIVE person
+    // against the template inside the credential — fully offline.
+    var credPayload by mutableStateOf<CredentialVerifier.Payload?>(null); private set
+    var trustData by mutableStateOf<TrustData?>(null); private set
+    var trustMsg by mutableStateOf(""); private set
+    var trustBusy by mutableStateOf(false); private set
+
+    private val qrScanner by lazy {
+        BarcodeScanning.getClient(
+            BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
+    }
+
+    private fun credFail(code: String, fallback: String) {
+        val (title, sub) = CRED_FAIL_COPY[code] ?: ("Verification failed" to fallback)
+        result = ScanResult(false, title, sub)
+    }
+
+    private suspend fun handleCredentialFrame(bitmap: Bitmap) {
+        val trust = trustData
+        if (trust == null) {
+            status = "No trust list on this device yet — add one in Settings"
+            return
+        }
+        val payload = credPayload
+        if (payload == null) {                        // phase 1: find + check the QR
+            val codes = try {
+                qrScanner.process(InputImage.fromBitmap(bitmap, 0)).await()
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val text = codes.firstOrNull { it.rawValue?.startsWith("FV1:") == true }?.rawValue
+            if (text == null) {
+                status = "Point the BACK camera at the QR on the card"
+                return
+            }
+            val p = try {
+                CredentialVerifier.verify(text, { iss, kid -> trust.resolve(iss, kid) })
+            } catch (e: CredentialVerifier.CredentialException) {
+                credFail(e.code, e.message ?: ""); return
+            }
+            if (trust.isRevoked(p.issuer, p.cid.joinToString("") { "%02x".format(it) })) {
+                credFail("credential_revoked", ""); return
+            }
+            credPayload = p
+            liveness.reset(); livenessProgress = 0f
+            status = "Card OK (${p.name ?: p.subject}, issuer ${p.issuer}) — " +
+                if ("face" in p.modalities) "now the person: turn your head slowly"
+                else "now the person's open palm"
+            return
+        }
+
+        // phase 2: live capture, matched INSIDE the credential's domain
+        if ("face" in payload.modalities) {
+            val face = engine.detect(bitmap)
+            if (face == null || face.facepx < Config.MIN_FACE_PX) {
+                status = "Show the person's face — turn the head slowly"
+                return
+            }
+            liveness.record(face.yaw)
+            livenessProgress = liveness.progress()
+            status = liveness.hint(face.yaw)
+            if (liveness.passed && abs(face.yaw) <= Config.LIVE_FRONTAL_YAW) {
+                val emb = engine.embed(bitmap, face) ?: return
+                credVerdict(payload, "face",
+                    CredentialVerifier.match(payload, "face", emb), Config.MATCH_THRESHOLD)
+            }
+            return
+        }
+        val p = palm
+        if (p != null && "palm" in payload.modalities) {
+            val s = p.embed(bitmap)
+            if (s.embedding == null) { status = s.message; return }
+            credVerdict(payload, "palm",
+                CredentialVerifier.match(payload, "palm", s.embedding), PalmConfig.MATCH_THRESHOLD)
+            return
+        }
+        result = ScanResult(false, "Can't check this card here",
+            "This credential carries ${payload.modalities.joinToString("+")}, " +
+                "which this device can't capture.")
+    }
+
+    private fun credVerdict(p: CredentialVerifier.Payload, modality: String,
+                            score: Float, threshold: Float) {
+        val attrs = p.attrs?.entries?.joinToString(" · ") { "${it.key}: ${it.value}" } ?: ""
+        result = if (score >= threshold) {
+            ScanResult(true, "VERIFIED — ${p.name ?: p.subject}",
+                "${p.subject} · issuer ${p.issuer} · $modality" +
+                    if (attrs.isNotEmpty()) "\n$attrs" else "")
+        } else {
+            ScanResult(false, "NOT the credential holder",
+                "The live $modality does not match this card.")
+        }
+        liveness.reset(); livenessProgress = 0f
+    }
+
+    // --- trust list management (Settings) --------------------------------------
+    fun trustSummary(): String {
+        val t = trustData ?: return "not loaded"
+        return "${t.issuerCount} issuer(s) · updated " +
+            java.text.DateFormat.getDateTimeInstance().format(java.util.Date(t.generated * 1000))
+    }
+
+    /** Hybrid: fetch + verify the signed trust store from the configured server. */
+    fun refreshTrust() {
+        if (!syncPrefs.configured) { trustMsg = "Set the server URL and API key first."; return }
+        if (trustBusy) return
+        trustBusy = true; trustMsg = "Fetching…"
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = com.faceverify.app.sync.SyncClient(
+                    syncPrefs.serverUrl, syncPrefs.apiKey).get("/v1/trust-store")
+                trustData = TrustStoreManager.save(getApplication(), resp)
+                trustMsg = "Trust list updated: ${trustSummary()}."
+            } catch (e: IllegalArgumentException) {
+                trustMsg = e.message ?: "Trust store rejected."
+            } catch (e: Exception) {
+                trustMsg = "Fetch failed: ${e.message ?: "network error"}"
+            } finally {
+                trustBusy = false
+            }
+        }
+    }
+
+    /** All builds (incl. air-gapped): import a saved /v1/trust-store JSON file
+     *  moved here out-of-band. Signature-checked against the pinned root. */
+    fun importTrust(uri: Uri) {
+        if (trustBusy) return
+        trustBusy = true; trustMsg = "Importing…"
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val bytes = getApplication<Application>().contentResolver
+                    .openInputStream(uri)?.use { it.readBytes() }
+                if (bytes == null) { trustMsg = "Couldn't open that file."; return@launch }
+                val resp = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                trustData = TrustStoreManager.save(getApplication(), resp)
+                trustMsg = "Trust list imported: ${trustSummary()}."
+            } catch (e: IllegalArgumentException) {
+                trustMsg = e.message ?: "Trust store rejected."
+            } catch (e: Exception) {
+                trustMsg = "Import failed — is this a saved trust-store file?"
+            } finally {
+                trustBusy = false
             }
         }
     }

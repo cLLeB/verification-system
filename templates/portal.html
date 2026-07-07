@@ -89,9 +89,39 @@
                 </div>
                 <p id="pprot-msg" class="muted"></p>
             </div>
+
+            <div class="card" id="portal-credentials">
+                <h2>ID credentials <span class="muted">(offline QR cards)</span></h2>
+                <p class="muted">Issue your people <b>signed QR credentials</b> — printed or on
+                    their phone, anyone you authorise verifies them in seconds, <b>fully
+                    offline</b>, without touching your database. Revocable and expiring.</p>
+                <div class="row">
+                    <input id="pcred-user" class="field" type="text" placeholder="User id (must be enrolled)">
+                    <input id="pcred-name" class="field" type="text" placeholder="Name on the card (optional)">
+                </div>
+                <div class="row">
+                    <button id="pcred-issue" class="btn primary">Issue credential</button>
+                    <button id="pcred-load" class="btn ghost">List issued</button>
+                </div>
+                <div id="pcred-new" class="newkey hidden" style="margin-top:12px; text-align:center"></div>
+                <div id="pcred-list" class="list" style="margin-top:12px"></div>
+                <p id="pcred-msg" class="muted"></p>
+            </div>
+
+            <div class="card" id="portal-trust">
+                <h2>Trusted organisations <span class="muted">(accept their cards)</span></h2>
+                <p class="muted">Add another organisation to accept the credentials <b>they</b>
+                    issue — your verifiers then check their cards too. No data import, no
+                    integration: trust the issuer, scan their cards.</p>
+                <div class="row">
+                    <input id="ptrust-issuer" class="field" type="text" placeholder="Their tenant id">
+                    <button id="ptrust-add" class="btn primary">Trust</button>
+                </div>
+                <div id="ptrust-list" class="list" style="margin-top:12px"></div>
+            </div>
         </div>
     </section>
 </main>
-<script src="/static/portal.js?v=3"></script>
+<script src="/static/portal.js?v=4"></script>
 </body>
 </html>

@@ -132,6 +132,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
+    // Ed25519 signature verification for offline FV1 credentials (minSdk 26 —
+    // java.security only gains Ed25519 at API 33).
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+
+    // On-device QR scanning for the credential verifier (bundled model, offline).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // JVM unit tests (Protect.kt golden vectors — real org.json instead of the stub).
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

@@ -259,6 +259,11 @@ async function finish() {
             $('done-name').textContent = $('person-name').textContent;
             $('capture-area').classList.add('hidden');
             $('done').classList.remove('hidden');
+            if (data.credential && data.credential.card_url) {
+                const a = $('done-card');
+                a.href = data.credential.card_url;
+                a.classList.remove('hidden');
+            }
         } else if (DEAD_CODES.includes(data.code)) {
             fatal(data.message);
         } else {

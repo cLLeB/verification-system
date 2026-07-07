@@ -39,10 +39,12 @@ from face import liveness_active as _active
 from face.config import load_config
 from face.errors import FaceError
 from face.storage import FaceStore
+from biometric.core import credential as _credential
 from biometric.core import index as _bio_index
 from biometric.core import protect as _protect
 from .auth import require_key, require_scope
-from . import audit, bundle, issuer_keys, modality as _modality, tenants, usage, webhooks
+from . import audit, bundle, credentials as _credreg, issuer_keys, \
+    modality as _modality, tenants, usage, webhooks
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -696,10 +698,237 @@ def templates_reissue():
                     code="protection_disabled", status=409)
     if user_id and not any(counts.values()):
         return _err(f"User '{user_id}' is not enrolled.", code="not_found", status=404)
+    # Reissuing ONE user means their template leaked — their issued credentials
+    # are tainted too, so revoke them (spec 5.3/6.5). Tenant-wide reissue leaves
+    # credentials alone (they carry their own domains) unless explicitly asked.
+    revoked_creds = 0
+    if user_id:
+        revoked_creds = _credreg.revoke_for_user(g.tenant, user_id)
+    elif data.get("revoke_credentials") is True:
+        revoked_creds = sum(_credreg.revoke(g.tenant, r["cid"])
+                            for r in _credreg.list_for(g.tenant) if not r["revoked"])
     audit.log(g.tenant, "templates_reissue", actor=g.key_name, success=True,
               detail=f"user={user_id or 'ALL'} " +
-                     " ".join(f"{m}={n}" for m, n in counts.items()))
-    return jsonify({"success": True, "user_id": user_id, "reissued": counts})
+                     " ".join(f"{m}={n}" for m, n in counts.items()) +
+                     f" creds_revoked={revoked_creds}")
+    return jsonify({"success": True, "user_id": user_id, "reissued": counts,
+                    "credentials_revoked": revoked_creds})
+
+
+# --- portable offline credentials (trust platform phase 2) -------------------
+_ROOT_TENANT = "__server_root__"     # signs the published trust store
+
+
+def _issuer_key_resolver(verifier_tenant):
+    """resolve_key(iss, kid) for credential verification: accept this tenant's
+    own credentials plus its explicitly trusted issuers' (cross-org, spec 6.5).
+    Only issuers that already HAVE a signing identity resolve — public_keys()
+    creates keys on demand, and a forged iss must never mint one."""
+    accepted = {verifier_tenant or "default"} | set(tenants.trusted_issuers(verifier_tenant))
+
+    def resolve(iss, kid):
+        if iss not in accepted or iss not in issuer_keys.tenants():
+            return None
+        for k in issuer_keys.public_keys(iss):
+            if k["kid"] == kid:
+                return base64.b64decode(k["public_key"])
+        return None
+    return resolve
+
+
+@bp.post("/credentials")
+@require_scope("manage")
+def credentials_issue():
+    """Issue a portable offline credential: a signed QR carrying the user's
+    protected, quantized template in its OWN matching domain. Anyone the tenant
+    authorises can verify the holder — offline, no shared database."""
+    data = request.get_json(silent=True) or {}
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        return _err("'user_id' is required.")
+    try:
+        expiry_days = int(data.get("expiry_days") or _credential.DEFAULT_TTL_DAYS)
+    except (TypeError, ValueError):
+        return _err("'expiry_days' must be an integer.")
+    try:
+        out = _credreg.issue(g.tenant, _cfg(), tenants.get(g.tenant)["palm_enabled"],
+                             user_id, modalities=data.get("modalities"),
+                             expiry_days=expiry_days,
+                             name=data.get("name"), attrs=data.get("attrs"))
+    except _credreg.IssueError as exc:
+        status = {"not_enrolled": 404, "too_large": 422}.get(exc.code, 400)
+        return _err(str(exc), code=exc.code, status=status,
+                    hint=str(exc.detail) if exc.detail else None)
+    audit.log(g.tenant, "credential_issue", actor=g.key_name, user_id=user_id,
+              success=True, detail=f"cid={out['credential_id']} "
+                                   f"mod={'+'.join(out['modalities'])} ttl={expiry_days}d")
+    return jsonify({"success": True, **out})
+
+
+@bp.get("/credentials")
+@require_scope("manage")
+def credentials_list():
+    user_id = (request.args.get("user_id") or "").strip() or None
+    return jsonify({"success": True,
+                    "credentials": _credreg.list_for(g.tenant, user_id)})
+
+
+@bp.delete("/credentials/<cid>")
+@require_scope("manage")
+def credentials_revoke(cid):
+    """Revoke = add to the tenant's revocation list; offline verifiers pick it
+    up with their next trust-store refresh."""
+    ok = _credreg.revoke(g.tenant, (cid or "").strip().lower())
+    if not ok and _credreg.get(g.tenant, (cid or "").strip().lower()) is None:
+        return _err("No such credential for this tenant.", code="not_found", status=404)
+    audit.log(g.tenant, "credential_revoke", actor=g.key_name, success=True,
+              detail=f"cid={cid}")
+    return jsonify({"success": True, "credential_id": cid, "revoked": True})
+
+
+@bp.post("/credentials/verify")
+@require_scope("verify")
+@usage.billable("verify")
+def credentials_verify():
+    """Hosted credential check (the same pipeline devices run offline):
+    signature -> expiry -> revocation -> live capture -> match in the
+    credential's domain. Body: {credential, image | frames+token}. Every
+    failure has a typed code (spec 6.6)."""
+    data = request.get_json(silent=True) or {}
+    text = (data.get("credential") or "").strip()
+    if not text:
+        return _err("'credential' (the scanned FV1: string) is required.")
+    try:
+        payload = _credential.verify(text, _issuer_key_resolver(g.tenant))
+    except _credential.CredentialError as exc:
+        status = 403 if exc.code in (_credential.BAD_SIGNATURE,
+                                     _credential.UNKNOWN_ISSUER) else 410 \
+            if exc.code == _credential.EXPIRED else 400
+        audit.log(g.tenant, "credential_verify", actor=g.key_name, success=False,
+                  detail=f"code={exc.code}")
+        return _err(str(exc), code=exc.code, status=status)
+    cid_hex = payload["cid"].hex()
+    if _credreg.is_revoked(payload["iss"], cid_hex):
+        audit.log(g.tenant, "credential_verify", actor=g.key_name, success=False,
+                  detail=f"cid={cid_hex} code=credential_revoked")
+        return _err("This credential has been revoked by its issuer.",
+                    code=_credential.REVOKED, status=410)
+
+    cfg = _cfg()
+    frames = data.get("frames")
+    if data.get("embedding"):
+        # programmatic callers doing their own capture/liveness (same contract
+        # as /v1/enroll embedding inputs) — raw vector in, we project it
+        v = np.asarray(data["embedding"], dtype=np.float32)
+        n = float(np.linalg.norm(v))
+        if not v.size or n <= 0:
+            return _err("'embedding' must be a non-empty numeric vector.",
+                        code="capture_quality")
+        emb, live_mod = v / n, (data.get("modality") or "face").strip().lower()
+    elif frames and "face" in payload["mod"]:
+        imgs = [im for im in (_decode(f) for f in frames) if im is not None]
+        if not imgs:
+            return _err("Failed to decode frames.", code="capture_quality")
+        if cfg.active_liveness and not _active.valid_token(data.get("token", "")):
+            return _err("Challenge expired — request a new one.", code="liveness", status=403)
+        res = _active.analyze(imgs, cfg)
+        if not res.passed:
+            return _err(res.reason, code="liveness", status=403)
+        emb, live_mod = res.embedding, "face"
+    else:
+        img = _decode(data.get("image", ""))
+        if img is None:
+            return _err("'image' or 'frames' is required.", code="capture_quality")
+        routed = _modality.embed(img, cfg, tenants.get(g.tenant)["palm_enabled"])
+        if not routed.get("success"):
+            return _err(routed.get("message", "No usable capture."),
+                        code="capture_quality")
+        emb, live_mod = np.asarray(routed["embedding"], np.float32), routed["modality"]
+    if live_mod not in payload["mod"]:
+        return _err(f"This credential carries {'+'.join(payload['mod'])}, but the "
+                    f"capture is a {live_mod}.", code="biometric_mismatch", status=403)
+
+    if live_mod == "palm":
+        _st, _idx, thr = _modality.store_and_index(cfg, "palm")
+    else:
+        thr = cfg.match_threshold
+    score = _credential.match(payload, live_mod, emb)
+    granted = score >= thr
+    audit.log(g.tenant, "credential_verify", actor=g.key_name,
+              user_id=payload["sub"], success=granted,
+              detail=f"cid={cid_hex} iss={payload['iss']} score={round(score, 4)}")
+    out = {"success": granted,
+           "code": "match" if granted else "biometric_mismatch",
+           "message": ("Credential holder verified." if granted
+                       else "The live capture does not match this credential."),
+           "subject": {"user_id": payload["sub"], "name": payload.get("name"),
+                       "attrs": payload.get("attrs")},
+           "issuer": payload["iss"], "kid": payload["kid"],
+           "credential_id": cid_hex, "modality": live_mod,
+           "score": round(score, 4), "threshold": thr,
+           "issued_at": payload["iat"], "expires": payload["exp"]}
+    return jsonify(_sign(out))
+
+
+# --- trust store (public) + cross-org trust ----------------------------------
+@bp.get("/trust-store")
+def trust_store():
+    """Signed bundle of every issuer's public keys + revocation list. Public —
+    offline verifiers bundle it and refresh opportunistically; a stale copy
+    still verifies, it just lags on revocations."""
+    body = {"v": 1, "generated": int(time.time()), "tenants": []}
+    for t in issuer_keys.tenants():
+        if t == _ROOT_TENANT:
+            continue
+        keys = []
+        for k in issuer_keys.public_keys(t):
+            entry = {"kid": k["kid"], "key": k["public_key"], "not_before": k["created"]}
+            if k.get("retired_at"):
+                entry["not_after"] = k["retired_at"]
+            keys.append(entry)
+        body["tenants"].append({"tenant": t, "keys": keys,
+                                "revocations": _credreg.build_revocation_list(t)})
+    signed = json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    kid, sig = issuer_keys.sign_for(_ROOT_TENANT, signed)
+    root = issuer_keys.get_or_create(_ROOT_TENANT)
+    return jsonify({"trust_store": body,
+                    # exact signed bytes, so offline verifiers check the root
+                    # signature over these and parse them — no JSON
+                    # canonicalization to re-implement anywhere
+                    "payload_b64": base64.b64encode(signed).decode("ascii"),
+                    "kid": kid,
+                    "sig": base64.b64encode(sig).decode("ascii"),
+                    "root_key": root["public_key"]})
+
+
+@bp.get("/trust")
+@require_scope("manage")
+def trust_list():
+    return jsonify({"success": True,
+                    "trusted_issuers": tenants.trusted_issuers(g.tenant)})
+
+
+@bp.post("/trust/<issuer>")
+@require_scope("manage")
+def trust_add(issuer):
+    """Cross-org verification: accept credentials ISSUED by this other tenant.
+    No data import, no API integration — trust the issuer, scan their cards."""
+    issuer = (issuer or "").strip()
+    if not issuer or issuer == (g.tenant or "default"):
+        return _err("Provide a different tenant id to trust.")
+    out = tenants.set_trusted(g.tenant, issuer, True)
+    audit.log(g.tenant, "trust_issuer", actor=g.key_name, success=True,
+              detail=f"trusted {issuer}")
+    return jsonify({"success": True, "trusted_issuers": out})
+
+
+@bp.delete("/trust/<issuer>")
+@require_scope("manage")
+def trust_remove(issuer):
+    out = tenants.set_trusted(g.tenant, (issuer or "").strip(), False)
+    audit.log(g.tenant, "trust_issuer", actor=g.key_name, success=True,
+              detail=f"untrusted {issuer}")
+    return jsonify({"success": True, "trusted_issuers": out})
 
 
 @bp.post("/users/purge")

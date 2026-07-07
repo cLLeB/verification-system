@@ -20,6 +20,8 @@ async function refreshSession() {
         loadKeys();
         loadIssuerKeys();
         loadProtection();
+        loadCredentials();
+        loadTrust();
     } else {
         show('login');
     }
@@ -179,6 +181,97 @@ if (pprotReissue) pprotReissue.onclick = async () => {
         ? `Reissued: ${Object.entries(d.reissued).map(([m, n]) => `${m} ${n}`).join(', ')}.`
         : (d.message || 'Reissue failed.');
     if (d.success) loadProtection();
+};
+
+// --- offline QR credentials ---------------------------------------------------
+async function loadCredentials() {
+    const list = $('pcred-list');
+    if (!list) return;
+    const d = await api('/portal/api/credentials');
+    list.innerHTML = '';
+    (d.credentials || []).forEach(c => {
+        const row = document.createElement('div'); row.className = 'item';
+        const exp = new Date(c.exp * 1000).toLocaleDateString();
+        row.innerHTML = `<div class="grow"><div>${c.user_id}
+            <span class="pill">${c.revoked ? 'REVOKED' : 'active'}</span></div>
+            <div class="sub"><code>${c.cid.slice(0, 12)}…</code> · expires ${exp}${c.name ? ' · ' + c.name : ''}</div></div>`;
+        if (!c.revoked) {
+            const b = document.createElement('button'); b.className = 'del'; b.textContent = 'Revoke';
+            b.onclick = async () => {
+                if (!confirm(`Revoke this credential for ${c.user_id}?`)) return;
+                await api('/portal/api/credentials/revoke', { method: 'POST',
+                    body: JSON.stringify({ credential_id: c.cid }) });
+                loadCredentials();
+            };
+            row.appendChild(b);
+        }
+        list.appendChild(row);
+    });
+}
+
+const pcredIssue = $('pcred-issue');
+if (pcredIssue) pcredIssue.onclick = async () => {
+    const user = ($('pcred-user').value || '').trim();
+    if (!user) { $('pcred-msg').textContent = 'Enter the user id to issue for.'; return; }
+    const d = await api('/portal/api/credentials', { method: 'POST',
+        body: JSON.stringify({ user_id: user,
+            name: ($('pcred-name').value || '').trim() || undefined }) });
+    const box = $('pcred-new');
+    if (!d.success) {
+        box.classList.add('hidden');
+        $('pcred-msg').textContent = d.message || 'Issue failed.';
+        return;
+    }
+    const card = `${location.origin}/card?d=${encodeURIComponent(d.payload_b45)}`;
+    box.classList.remove('hidden');
+    box.innerHTML = `<img src="data:image/png;base64,${d.qr_png_b64}" alt="Credential QR"
+            style="max-width:240px;width:100%;image-rendering:pixelated;background:#fff;border-radius:8px">
+        <div class="row" style="justify-content:center;margin-top:10px">
+            <a class="btn ghost" download="credential-${user}.png"
+               href="data:image/png;base64,${d.qr_png_b64}">Download PNG</a>
+            <a class="btn ghost" href="${card}" target="_blank">Open card</a>
+            <button class="btn ghost" id="pcred-copy">Copy card link</button>
+        </div>`;
+    $('pcred-copy').onclick = () => navigator.clipboard.writeText(card)
+        .then(() => { $('pcred-msg').textContent = 'Card link copied — send it to the holder.'; });
+    $('pcred-msg').textContent = `Issued ${d.credential_id.slice(0, 12)}…`;
+    loadCredentials();
+};
+const pcredLoad = $('pcred-load');
+if (pcredLoad) pcredLoad.onclick = loadCredentials;
+
+// --- trusted organisations ------------------------------------------------------
+async function loadTrust() {
+    const list = $('ptrust-list');
+    if (!list) return;
+    const d = await api('/portal/api/trust');
+    list.innerHTML = '';
+    (d.trusted_issuers || []).forEach(issuer => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>${issuer}</div>
+            <div class="sub">their credentials verify here</div></div>`;
+        const b = document.createElement('button'); b.className = 'del'; b.textContent = 'Untrust';
+        b.onclick = async () => {
+            await api('/portal/api/trust', { method: 'POST',
+                body: JSON.stringify({ issuer, trusted: false }) });
+            loadTrust();
+        };
+        row.appendChild(b);
+        list.appendChild(row);
+    });
+    if (!(d.trusted_issuers || []).length) {
+        list.innerHTML = '<div class="item"><div class="grow sub">Only your own credentials are accepted.</div></div>';
+    }
+}
+const ptrustAdd = $('ptrust-add');
+if (ptrustAdd) ptrustAdd.onclick = async () => {
+    const issuer = ($('ptrust-issuer').value || '').trim();
+    if (!issuer) return;
+    const d = await api('/portal/api/trust', { method: 'POST',
+        body: JSON.stringify({ issuer, trusted: true }) });
+    if (d && !d.success) alert(d.message || 'Failed.');
+    $('ptrust-issuer').value = '';
+    loadTrust();
 };
 
 refreshSession();

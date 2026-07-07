@@ -114,7 +114,8 @@ def create_invite(user_id: str, tenant: str,
                   expires_in_hours: Optional[int] = None,
                   modalities: Optional[List[str]] = None,
                   requires_step_up: bool = False,
-                  step_up_modality: Optional[str] = None) -> dict:
+                  step_up_modality: Optional[str] = None,
+                  issue_credential: bool = False) -> dict:
     """Mint one invite for a pre-assigned ``user_id`` in ``tenant``. Returns the
     RAW token once (not recoverable) plus the public ``invite_id`` and expiry.
 
@@ -148,6 +149,7 @@ def create_invite(user_id: str, tenant: str,
             "requires_step_up": bool(requires_step_up),
             "step_up_modality": step_up_modality,
             "stepped_up": None,      # epoch when the enrollee proved the existing modality
+            "issue_credential": bool(issue_credential),  # auto-issue a QR card on Finish
         }
         data[_hash(raw)] = record
         _save(data)

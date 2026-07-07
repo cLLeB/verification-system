@@ -4,6 +4,34 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
 ### Added
+- **Trust Platform Phase 2 — portable offline credentials (the flagship)** — issue anyone
+  a **signed QR credential** (`FV1:` CBOR+Ed25519+base45, EU-DCC-style): printed or saved
+  to a phone, it carries their protected int8 template in its **own revocable matching
+  domain** (public per-credential seed — verifiers never need issuer secrets), so a
+  stolen/photographed code is unmatchable against any store, useless without the live
+  person, revocable, and expiring. Issue from `/admin` (Security tab), `/portal`,
+  `POST /v1/credentials` or the SDKs; every issue returns a QR PNG + a `/card` link
+  (save-to-phone page + print-CSS ID card). Verify at `/verify-credential` (camera QR
+  scan + live capture, plain-language verdict per typed failure code) or
+  `POST /v1/credentials/verify`. **Cross-org**: `POST /v1/trust/{tenant}` / portal
+  "Trusted organisations" — accept another org's cards with zero data import. Signed
+  public **trust store** (`GET /v1/trust-store`) ships issuer keys + revocation lists
+  (exact→Bloom with 64-bit-wrapped double hashing, fail-closed). Per-user template
+  reissue auto-revokes that user's credentials; enrolment invites can auto-issue a card
+  on completion (checkbox in the console; enrollee gets the card link on Finish).
+  **Android verifier**: "Check card" mode on the Scan tab — scan the QR (back camera),
+  signature/expiry/revocation against the on-device signed trust list (root key pinned;
+  hybrid refreshes over TLS, any build imports the file), then live head-turn capture
+  matched inside the credential's domain, airplane-mode demoable; golden-tested against
+  server-issued credentials + trust stores. Palm rides along when its encoder fits the
+  QR budget (CCNet 128-d does). (`biometric/core/{credential,base45}.py`,
+  `face_service/credentials.py`, `templates/{card,verify_credential}.html`,
+  `android/.../credential/`)
+- **Admin console: Invites tab now fully wired** — create single invites (with the
+  auto-issue-credential checkbox), bulk-mint from a pasted/uploaded roster with a
+  links CSV download, live status list (pending/used/expired/revoked, enrolled
+  modalities, step-up tag), search filter, and revoke with an optional purge of the
+  biometrics the invite bound. (The tab previously rendered with no handlers.)
 - **Trust Platform Phase 1 — protected (cancelable) templates, ON by default** — every
   stored/matched/exported template now lives in a revocable *protection domain*: a
   seeded orthonormal projection (3× sign-flip + Walsh–Hadamard, seed =
