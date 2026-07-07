@@ -312,6 +312,33 @@ def verify_credential_page():
     return render_template("verify_credential.html")
 
 
+@app.route("/trust")
+def trust_center():
+    """Public Trust Center (trust platform Phase 4): the security story plus the
+    numbers this exact build measured on itself (docs/trust/reports/)."""
+    reports_dir = os.path.join("docs", "trust", "reports")
+    suites, r, skipped, generated = {}, {}, {}, None
+    try:
+        with open(os.path.join(reports_dir, "latest.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        suites = manifest.get("suites", {})
+        if manifest.get("generated"):
+            generated = time.strftime("%d %b %Y", time.localtime(manifest["generated"]))
+        for name, meta in suites.items():
+            if meta.get("status") == "ok" and meta.get("file"):
+                try:
+                    with open(os.path.join(reports_dir, meta["file"]), encoding="utf-8") as fh:
+                        r[name] = json.load(fh)
+                except (OSError, ValueError):
+                    pass
+            elif meta.get("status") == "skipped":
+                skipped[name] = meta.get("reason", "")
+    except (OSError, ValueError):
+        pass
+    return render_template("trust.html", suites=suites, r=r,
+                           skipped=skipped, generated=generated)
+
+
 def _any_local_issuer(iss, kid):
     """Key resolver for the built-in demo verifier: accept credentials issued by
     any tenant ON THIS SERVER (never mints keys for unknown issuers)."""

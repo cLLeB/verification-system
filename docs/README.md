@@ -10,6 +10,10 @@ Start here. Pick the doc for what you're doing.
 - **[security-keys.md](security-keys.md)** — trust platform foundations: per-tenant
   signing keys, template envelopes, KEK-wrapped encryption, protected (cancelable)
   templates + reissue, crypto-erase.
+- **[trust/compliance.md](trust/compliance.md)** — Ghana DPA (Act 843) + GDPR mapping,
+  each obligation tied to the code path enforcing it; data flows per deployment.
+  Live evidence at **`/trust`** on a running service (`python -m bench run` refreshes
+  the numbers).
 
 ## Integrate (other apps/companies)
 - **[INTEGRATION.md](INTEGRATION.md)** — managed vs. stateless flows, API keys/roles,

@@ -1,0 +1,40 @@
+{
+  "suites": {
+    "protected": {
+      "status": "ok",
+      "file": "protected.json",
+      "date": "2026-07-07",
+      "runtime_s": 1.4
+    },
+    "credential": {
+      "status": "ok",
+      "file": "credential.json",
+      "date": "2026-07-07",
+      "runtime_s": 0.3
+    },
+    "speed": {
+      "status": "ok",
+      "file": "speed.json",
+      "date": "2026-07-07",
+      "runtime_s": 3.3
+    },
+    "face": {
+      "status": "ok",
+      "file": "face.json",
+      "date": "2026-07-07",
+      "runtime_s": 26.5
+    },
+    "palm": {
+      "status": "ok",
+      "file": "palm.json",
+      "date": "2026-07-07",
+      "runtime_s": 25.4
+    },
+    "pad": {
+      "status": "skipped",
+      "reason": "no pad_data/live + pad_data/spoof folders (printed/screen attacks vs genuine captures)",
+      "date": "2026-07-07"
+    }
+  },
+  "generated": 1783430970
+}

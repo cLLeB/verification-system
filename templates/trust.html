@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trust Center — Biometric Verify</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               background: #0d0f16; color: #e8ecf5; line-height: 1.6; }
+        .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+        h1 { font-size: 1.9rem; }
+        h2 { font-size: 1.25rem; margin: 40px 0 12px; color: #fff; }
+        p, li { color: #aab3c7; font-size: .95rem; }
+        .lead { font-size: 1.05rem; color: #ccd4e4; margin-top: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 14px; margin-top: 16px; }
+        .stat { background: #151a26; border: 1px solid #232b3d; border-radius: 12px; padding: 16px; }
+        .stat .v { font-size: 1.4rem; font-weight: 700; color: #fff; }
+        .stat .k { font-size: .78rem; color: #8a94ab; margin-top: 4px; }
+        .stat .d { font-size: .72rem; color: #5f6981; margin-top: 8px; }
+        .ok { color: #4ade80; } .warn { color: #fbbf24; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .88rem; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #232b3d; color: #aab3c7; }
+        th { color: #e8ecf5; font-size: .8rem; }
+        code { background: #1a2030; padding: 1px 6px; border-radius: 5px; font-size: .82em; }
+        ul { padding-left: 22px; margin-top: 8px; }
+        .footer { margin-top: 60px; font-size: .78rem; color: #5f6981; }
+        a { color: #7c9bff; }
+        .pill { display: inline-block; font-size: .7rem; padding: 2px 10px; border-radius: 999px;
+                background: #1a2030; border: 1px solid #2a3450; margin-left: 8px; vertical-align: middle; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Trust Center</h1>
+    <p class="lead"><b>Enrol once. Be verifiable by anyone you authorise — instantly,
+        offline, on any phone.</b> This page is the evidence: what we store, what we
+        can never leak, and the numbers this exact build measured on itself
+        {% if generated %}(last run {{ generated }}){% endif %}.</p>
+
+    <h2>Measured on this build</h2>
+    <div class="grid">
+        {% if r.protected %}
+        <div class="stat">
+            <div class="v {{ 'ok' if r.protected.gate == 'PASS' else 'warn' }}">
+                {{ r.protected.tar_delta_abs }} <span style="font-size:.8rem">TAR delta</span></div>
+            <div class="k">Accuracy cost of template protection</div>
+            <div class="d">Matching in the protected (revocable) domain vs raw —
+                gate requires &lt; 0.01 absolute at FAR {{ r.protected.far }}.
+                Max per-score difference {{ r.protected.max_abs_score_diff }}.</div>
+        </div>
+        {% endif %}
+        {% if r.credential %}
+        <div class="stat">
+            <div class="v">{{ r.credential.wire_chars.mean | int }} chars</div>
+            <div class="k">Offline QR credential size</div>
+            <div class="d">Signed face credential — fits a standard QR
+                ({{ 'yes' if r.credential.fits_qr_v25_eccm else 'NO' }} at v25/ECC-M).
+                Verifies in {{ r.credential.verify_ms.mean }} ms; a stranger's best
+                score against one: {{ r.credential.stranger_score_abs_max }}.</div>
+        </div>
+        {% endif %}
+        {% if r.speed %}
+        <div class="stat">
+            <div class="v">{{ r.speed.search_ms_p50 }} ms</div>
+            <div class="k">1:N search, {{ "{:,}".format(r.speed.identities) }} identities (p50)</div>
+            <div class="d">Encrypted, protected store; p95 {{ r.speed.search_ms_p95 }} ms;
+                top-1 accuracy {{ r.speed.top1_accuracy }}; inserts
+                {{ "{:,}".format(r.speed.insert_per_s | int) }}/s.</div>
+        </div>
+        {% endif %}
+        {% if r.face %}
+        <div class="stat">
+            <div class="v ok">bit-exact</div>
+            <div class="k">Face pipeline integrity</div>
+            <div class="d">Live model benchmark over local captures — embeddings and
+                match decisions reproduce across builds (see face.json for the full
+                speed/consistency tables).</div>
+        </div>
+        {% endif %}
+        {% if r.pad %}
+        <div class="stat">
+            <div class="v">{{ (r.pad.eer * 100) | round(1) }}% EER</div>
+            <div class="k">Presentation-attack detection</div>
+            <div class="d">{{ r.pad.n_live }} live vs {{ r.pad.n_spoof }} attacks;
+                APCER {{ (r.pad.apcer_at_that_threshold * 100) | round(1) }}% at
+                BPCER ≤ 1%.</div>
+        </div>
+        {% elif skipped.pad %}
+        <div class="stat">
+            <div class="v warn">not yet published</div>
+            <div class="k">Presentation-attack detection</div>
+            <div class="d">{{ skipped.pad }} — active head-turn liveness ships
+                enabled regardless; passive PAD numbers publish once measured on a
+                local attack set.</div>
+        </div>
+        {% endif %}
+    </div>
+    <p style="margin-top:10px; font-size:.78rem; color:#5f6981">Every number above is
+        produced by <code>python -m bench run</code> against this exact codebase —
+        raw reports in <code>docs/trust/reports/</code>. Nothing is quoted from a
+        datasheet.</p>
+
+    <h2>What we store — and what we can never leak</h2>
+    <ul>
+        <li><b>Never images.</b> A face or palm becomes a short mathematical template
+            (an embedding). Photos are discarded after processing.</li>
+        <li><b>Templates are protected (cancelable).</b> Everything used for matching,
+            sync, or export lives in a scrambled, revocable domain. A copy stolen from
+            the database, a device, or an export cannot be matched anywhere else — and
+            can be cancelled like a password (<i>reissue</i>: one click, nobody re-enrols).</li>
+        <li><b>Honest claim:</b> raw templates DO exist — encrypted at rest, on the
+            server only — solely so a reissue never requires recapture. They never
+            leave the server; every export and every device carries protected forms only.</li>
+        <li><b>Encryption at rest, per tenant.</b> Each organisation's store has its own
+            data key (master-wrapped). Offboarding is a <i>crypto-erase</i>: destroy the
+            keys and every remaining byte — including backups — is permanently unreadable.</li>
+        <li><b>Offline credentials carry their own privacy.</b> A QR card holds a
+            protected template in its own single-credential domain: unmatchable against
+            any database, useless without the live person, revocable, expiring.</li>
+    </ul>
+
+    <h2>Revocation, end to end</h2>
+    <table>
+        <tr><th>If this leaks…</th><th>You do…</th><th>Result</th></tr>
+        <tr><td>A database / export copy</td><td>Reissue (portal, one click)</td>
+            <td>Old copies stop matching instantly; people keep verifying</td></tr>
+        <tr><td>One person's template</td><td>Reissue that person</td>
+            <td>Their credentials auto-revoke; nobody else affected</td></tr>
+        <tr><td>A printed QR card</td><td>Revoke the credential</td>
+            <td>Every verifier rejects it at next trust-list refresh</td></tr>
+        <tr><td>An issuer signing key</td><td>Rotate the key</td>
+            <td>New issues use the new key; old cards stay valid until expiry</td></tr>
+    </table>
+
+    <h2>Methodology</h2>
+    <p>Suites run the same code paths production serves — the real store, index,
+        matcher, credential and liveness modules, not extracts. Protected-domain and
+        credential suites use synthetic unit embeddings (the transform's accuracy
+        properties are independent of the data); face/palm suites run the live models
+        over local captures; PAD requires a physical attack set and is only published
+        once measured. Cross-platform behaviour (Android) is pinned by golden-vector
+        tests generated from the server code.</p>
+
+    <h2>Compliance</h2>
+    <p>The compliance dossier (<code>docs/trust/compliance.md</code> in the
+        distribution) maps Ghana's Data Protection Act (Act 843) and the GDPR to the
+        concrete product mechanisms above — lawful basis, subject rights, retention,
+        erasure — each tied to the code path that enforces it.</p>
+
+    <div class="footer">
+        Report data: {% for name, meta in suites.items() %}<code>{{ name }}:
+        {{ meta.status }}</code> {% endfor %}<br>
+        Biometric Verify · Trust Platform · changelog in <code>CHANGELOG.md</code>
+    </div>
+</div>
+</body>
+</html>
