@@ -189,6 +189,57 @@ class FaceVerifyClient:
             body["user_id"] = user_id
         return self._call("POST", "/v1/templates/reissue", body)
 
+    # --- portable offline credentials (signed QR) ---------------------------
+    def issue_credential(self, user_id: str, modalities=None, expiry_days: int = 365,
+                         name: Optional[str] = None, attrs: Optional[dict] = None) -> dict:
+        """Issue a signed QR credential for an enrolled user. Returns
+        {credential_id, payload_b45, qr_png_b64, expires}. Admin key required."""
+        body = {"user_id": user_id, "expiry_days": expiry_days}
+        if modalities:
+            body["modalities"] = list(modalities)
+        if name:
+            body["name"] = name
+        if attrs:
+            body["attrs"] = dict(attrs)
+        return self._call("POST", "/v1/credentials", body)
+
+    def list_credentials(self, user_id: Optional[str] = None) -> dict:
+        path = "/v1/credentials"
+        if user_id:
+            path += "?user_id=" + urllib.parse.quote(user_id)
+        return self._call("GET", path)
+
+    def revoke_credential(self, credential_id: str) -> dict:
+        """Revoke an issued credential; offline verifiers pick it up on their
+        next trust-store refresh. Admin key required."""
+        return self._call("DELETE", f"/v1/credentials/{credential_id}")
+
+    def verify_credential(self, credential: str, image: Optional[Image] = None,
+                          embedding=None) -> dict:
+        """Hosted check of a scanned credential (the FV1: string) against a live
+        capture: signature -> expiry -> revocation -> biometric match."""
+        body = {"credential": credential}
+        if image is not None:
+            body["image"] = _to_b64(image)
+        if embedding is not None:
+            body["embedding"] = list(embedding)
+        return self._call("POST", "/v1/credentials/verify", body)
+
+    def trust_store(self) -> dict:
+        """The public signed bundle of issuer keys + revocation lists."""
+        return self._call("GET", "/v1/trust-store")
+
+    def trusted_issuers(self) -> dict:
+        return self._call("GET", "/v1/trust")
+
+    def trust_issuer(self, tenant: str) -> dict:
+        """Accept credentials issued by another tenant (cross-org verification —
+        no data import needed). Admin key required."""
+        return self._call("POST", f"/v1/trust/{tenant}")
+
+    def untrust_issuer(self, tenant: str) -> dict:
+        return self._call("DELETE", f"/v1/trust/{tenant}")
+
     def tenant_keys(self) -> dict:
         """List this tenant's issuer signing keys (active first). Admin key required."""
         return self._call("GET", "/v1/tenant/keys")

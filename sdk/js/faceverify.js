@@ -96,6 +96,35 @@ export class FaceVerifyClient {
     if (userId) body.user_id = userId;
     return this._call("POST", "/v1/templates/reissue", body);
   }
+  /** Issue a signed QR credential for an enrolled user -> {credential_id,
+   *  payload_b45, qr_png_b64, expires}. Admin key required. */
+  issueCredential(userId, { modalities, expiryDays = 365, name, attrs } = {}) {
+    const body = { user_id: userId, expiry_days: expiryDays };
+    if (modalities) body.modalities = modalities;
+    if (name) body.name = name;
+    if (attrs) body.attrs = attrs;
+    return this._call("POST", "/v1/credentials", body);
+  }
+  listCredentials(userId) {
+    const q = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
+    return this._call("GET", `/v1/credentials${q}`);
+  }
+  /** Revoke an issued credential (offline verifiers see it on their next
+   *  trust-store refresh). Admin key required. */
+  revokeCredential(credentialId) { return this._call("DELETE", `/v1/credentials/${credentialId}`); }
+  /** Hosted check of a scanned FV1: credential against a live capture. */
+  verifyCredential(credential, { image, embedding } = {}) {
+    const body = { credential };
+    if (image) body.image = image;
+    if (embedding) body.embedding = embedding;
+    return this._call("POST", "/v1/credentials/verify", body);
+  }
+  /** Public signed bundle of issuer keys + revocation lists. */
+  trustStore() { return this._call("GET", "/v1/trust-store"); }
+  trustedIssuers() { return this._call("GET", "/v1/trust"); }
+  /** Accept credentials issued by another tenant (cross-org verification). */
+  trustIssuer(tenant) { return this._call("POST", `/v1/trust/${tenant}`); }
+  untrustIssuer(tenant) { return this._call("DELETE", `/v1/trust/${tenant}`); }
   /** List this tenant's issuer signing keys (active first). Admin key required. */
   tenantKeys() { return this._call("GET", "/v1/tenant/keys"); }
   /** Rotate the issuer signing key. Previously signed items stay verifiable. */
