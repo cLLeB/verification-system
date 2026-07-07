@@ -63,6 +63,17 @@ class GlanceIndexTest {
     }
 
     @Test
+    fun palmIndexClampsToTheHigherPalmFloor() {
+        // a palm index must clamp to the palm 1:N floor (0.68), not the face floor
+        val p = JSONObject(fx.getJSONObject("payload").toString())
+        p.put("modality", "palm")
+        p.put("threshold", 0.05)                       // hostile/bad low value
+        val idx = GlanceIndex.parse(p)
+        assertEquals("palm", idx.modality)
+        assertEquals(com.faceverify.app.Config.GLANCE_MIN_THRESHOLD_PALM, idx.threshold)
+    }
+
+    @Test
     fun rejectsMalformedPayloads() {
         val bad = JSONObject(fx.getJSONObject("payload").toString())
         bad.put("format", "something-else")

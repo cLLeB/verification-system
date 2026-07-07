@@ -28,6 +28,7 @@ class GlanceIndex private constructor(
     val margin: Float,
     val generated: Long,
     val seq: Long,
+    val modality: String,                  // "face" | "palm"
 ) {
     val count: Int get() = users.size
 
@@ -92,23 +93,24 @@ class GlanceIndex private constructor(
             val margin = payload.optDouble("margin", Config.GLANCE_MARGIN.toDouble())
                 .toFloat().coerceAtLeast(Config.GLANCE_MARGIN)
             return GlanceIndex(users, rows, scales, dim, seed, thr, margin,
-                payload.optLong("generated"), payload.optLong("seq"))
+                payload.optLong("generated"), payload.optLong("seq"),
+                payload.optString("modality", "face"))
         }
     }
 }
 
-/** File persistence for the glance index (raw payload JSON in app storage). */
+/** File persistence for glance indexes — one file per modality (face / palm). */
 object GlanceIndexStore {
-    private const val FILE = "glance_index.json"
+    private fun file(modality: String) = "glance_index_$modality.json"
 
     fun save(ctx: Context, payload: JSONObject): GlanceIndex {
         val idx = GlanceIndex.parse(payload)           // validate BEFORE persisting
-        File(ctx.filesDir, FILE).writeText(payload.toString())
+        File(ctx.filesDir, file(idx.modality)).writeText(payload.toString())
         return idx
     }
 
-    fun load(ctx: Context): GlanceIndex? {
-        val f = File(ctx.filesDir, FILE)
+    fun load(ctx: Context, modality: String): GlanceIndex? {
+        val f = File(ctx.filesDir, file(modality))
         if (!f.exists()) return null
         return try {
             GlanceIndex.parse(JSONObject(f.readText()))

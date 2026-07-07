@@ -104,10 +104,7 @@ collection is lost on restart.)
 
 ## D. Product decisions / deferred features (not built — your call)
 
-9. **Palm glance on Android.** Android Glance pulls the FACE index only. The code is
-    now palm-safe (per-modality clamp floor), but there's no palm-glance UI/pull.
-    Fast-follow if wanted.
-11. **Third-party certification (FIDO/iBeta).** Explicitly out of scope this program;
+9. **Third-party certification (FIDO/iBeta).** Explicitly out of scope this program;
     the `/trust` page + `docs/trust/compliance.md` are self-published evidence.
 
 ## E. Known-good, just FYI

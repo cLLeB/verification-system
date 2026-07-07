@@ -87,10 +87,10 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
         }
     }
 
-    /** Fetch the on-device 1:N glance index payload (`GET /v1/sync/index`).
-     *  The caller validates + persists it (GlanceIndexStore). */
-    suspend fun pullIndex(): org.json.JSONObject = withContext(Dispatchers.IO) {
-        client().get("/v1/sync/index")
+    /** Fetch the on-device 1:N glance index payload for [modality]
+     *  (`GET /v1/sync/index?modality=...`). The caller validates + persists it. */
+    suspend fun pullIndex(modality: String = "face"): org.json.JSONObject = withContext(Dispatchers.IO) {
+        client().get("/v1/sync/index?modality=$modality")
     }
 
     /** Push device templates up. [selected] = null pushes everyone. [onConflict] = how the
