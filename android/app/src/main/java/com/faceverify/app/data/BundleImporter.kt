@@ -36,9 +36,10 @@ object BundleImporter {
 
     class BundleException(message: String) : Exception(message)
 
-    /** Decrypt + parse a bundle file's bytes. Throws [BundleException] on a bad
-     *  passphrase, tampering, or malformed content. */
-    fun parse(raw: ByteArray, passphrase: String): Parsed {
+    /** Decrypt any server-packed file (`bundle.pack`) to its JSON payload —
+     *  template bundles AND glance-index exports share this envelope. Throws
+     *  [BundleException] on a bad passphrase, tampering, or malformed content. */
+    fun decryptToJson(raw: ByteArray, passphrase: String): JSONObject {
         if (passphrase.trim().length < 8) throw BundleException("Passphrase is too short.")
         val outer = try {
             JSONObject(String(raw, StandardCharsets.UTF_8))
@@ -64,12 +65,16 @@ object BundleImporter {
         } catch (e: Exception) {
             throw BundleException("Wrong passphrase or corrupted bundle.")
         }
-
-        val payload = try {
+        return try {
             JSONObject(String(plain, StandardCharsets.UTF_8))
         } catch (e: Exception) {
             throw BundleException("Bundle payload is not valid JSON.")
         }
+    }
+
+    /** Decrypt + parse a TEMPLATE bundle's bytes. */
+    fun parse(raw: ByteArray, passphrase: String): Parsed {
+        val payload = decryptToJson(raw, passphrase)
         val mods = payload.optJSONObject("modalities") ?: JSONObject()
         // Protected bundles carry a per-modality domain seed (used to project live
         // probes for matching); individually reissued people override it per row.
