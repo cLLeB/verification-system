@@ -74,7 +74,11 @@ object PalmConfig {
     // STRICTER gates for ENROLMENT only (anchor quality). A weak verify frame costs
     // one retry; a weak enrolment anchor drags every future verify for that person
     // toward the impostor zone, permanently. Mirrors palm/config.py — keep in sync.
-    const val ENROLL_MIN_SHARPNESS = 120.0f    // crisp anchors only (good light, held still)
+    // 2026-07-10: dropped 120 -> 50. Variance-of-Laplacian is resolution-dependent
+    // and camera frames are downscaled before the ROI, so the old 120 floor was
+    // unreachable on real captures and rejected every enrolment. 50 stays stricter
+    // than verify (35), clears careful live captures, and rejects motion-ghosting.
+    const val ENROLL_MIN_SHARPNESS = 50.0f     // reachable anchor floor on downscaled live frames
     const val ENROLL_MIN_ROI_FRAC = 0.30f      // ROI side >= 30% of the frame's short side
     const val ENROLL_MIN_BRIGHTNESS = 70.0f    // ROI luminance mean floor (too dark)
     const val ENROLL_MAX_BRIGHTNESS = 235.0f   // ...and ceiling (blown out)

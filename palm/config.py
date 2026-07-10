@@ -44,12 +44,18 @@ class PalmConfig:
 
     # --- STRICTER gates for ENROLMENT only (anchor quality) ---
     # A weak verify frame costs one retry; a weak enrolment ANCHOR drags every future
-    # verify for that person toward the impostor zone, permanently. So anchors must
-    # clear a higher bar (verify keeps the lenient floors above — soft probes still
-    # match reliably, measured 2026-07-02: varLap-35 probe matched its anchors 0.846).
-    # Floors from measured data: good captures 164-332 varLap / ROI 48-57% of frame /
-    # ROI brightness 169-184; the motion-ghosted reject case was varLap 35 @ mean 92.
-    enroll_min_sharpness: float = 120.0     # crisp anchors only (good light + held still)
+    # verify for that person toward the impostor zone, permanently. So anchors clear a
+    # higher bar than verify — but the bar MUST stay reachable on the frames live
+    # surfaces actually send. Variance-of-Laplacian is resolution-dependent: every
+    # capture surface downscales to <=720px JPEG (web OUT_W=720, Android) before the
+    # ROI, and even crisp full-res stills (164-332 varLap) fall to ~60-320 through
+    # that pipeline — so the original 120 floor was UNREACHABLE live and rejected
+    # every real enrolment (2026-07-10: a textbook Safari open-palm capture ->
+    # "Enrolment needs a crisp capture"). 50 is stricter than verify's 35, clears
+    # careful live captures, and still rejects genuine motion-ghosting (~20-35 at
+    # 720px). Safe to keep low: the encoder is blur-robust (varLap-35 probe matched
+    # its anchors 0.846) and the 3-anchor self-consistency guard rejects bad anchors.
+    enroll_min_sharpness: float = 50.0      # reachable anchor floor on downscaled live frames
     enroll_min_roi_frac: float = 0.30       # ROI side >= 30% of the frame's short side
     enroll_min_brightness: float = 70.0     # ROI gray mean floor (too dark to enrol)
     enroll_max_brightness: float = 235.0    # ...and ceiling (blown-out highlights)

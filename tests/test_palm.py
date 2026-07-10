@@ -93,18 +93,34 @@ def test_quality_gate_passes_and_flags():
 
 
 def test_enroll_gate_is_stricter_than_verify():
-    """Anchor quality (2026-07-02): enrolment demands crisp, well-lit, frame-filling
-    palms — while the SAME capture stays acceptable for verify (soft probes still
-    match; a weak ANCHOR degrades that user's matching forever)."""
+    """Anchor quality: enrolment demands well-lit, frame-filling palms and is
+    stricter on sharpness than verify — but the floor must stay REACHABLE on the
+    downscaled JPEG frames every live surface actually sends (web OUT_W=720,
+    Android). The 2026-07-10 fix dropped enroll_min_sharpness 120 -> 50 after a
+    real Safari enrolment (a textbook open palm) was rejected: variance-of-Laplacian
+    collapses under downscale+JPEG, so even crisp stills land ~60-320 at 720px and
+    the old 120 floor was unreachable live. The encoder is blur-robust (a varLap-35
+    probe matched anchors 0.846) and the 3-anchor self-consistency guard catches
+    genuinely bad anchors, so a lower floor is safe."""
     from palm.roi import enroll_quality_ok
     cfg = PalmConfig()
     frame = np.zeros((720, 720, 3), np.uint8)
     mid_roi = np.full((128, 128, 3), 150, np.uint8)          # well-lit ROI
 
-    # A soft-but-legal capture (sharpness 80 >= verify floor 35, < enrol floor 120):
-    soft = _det(roi=mid_roi, sharpness=80.0, roi_px=400)
-    assert quality_ok(soft, cfg) is None                      # verify: fine
-    assert enroll_quality_ok(soft, frame, cfg)[0] == "palm_enroll_blurry"
+    # Stricter than verify: a marginally-soft frame passes verify (>= floor 35) but
+    # is held back from becoming a permanent anchor (< enrol floor 50).
+    marginal = _det(roi=mid_roi, sharpness=40.0, roi_px=400)
+    assert quality_ok(marginal, cfg) is None                  # verify: fine
+    assert enroll_quality_ok(marginal, frame, cfg)[0] == "palm_enroll_blurry"
+
+    # Genuinely motion-ghosted: rejected for enrolment (varLap ~20-35 at 720px).
+    ghosted = _det(roi=mid_roi, sharpness=25.0, roi_px=400)
+    assert enroll_quality_ok(ghosted, frame, cfg)[0] == "palm_enroll_blurry"
+
+    # A normal, careful live capture (varLap ~75 at 720px) MUST enrol — this is the
+    # case the old 120 floor wrongly blocked everywhere.
+    live = _det(roi=mid_roi, sharpness=75.0, roi_px=400)
+    assert enroll_quality_ok(live, frame, cfg) is None        # reachable live: enrols
 
     crisp = _det(roi=mid_roi, sharpness=200.0, roi_px=400)
     assert enroll_quality_ok(crisp, frame, cfg) is None       # crisp + lit + close: enrols
