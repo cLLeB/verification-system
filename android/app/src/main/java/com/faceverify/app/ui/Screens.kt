@@ -134,6 +134,18 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
             Spacer(Modifier.height(8.dp))
         }
 
+        // A palm matching neither of this name's enrolled hands: confirm binding it as
+        // the person's OTHER hand (so either palm verifies them later).
+        vm.pendingOtherHand?.let { msg ->
+            AlertDialog(
+                onDismissRequest = { vm.cancelOtherHand() },
+                title = { Text("Different hand?") },
+                text = { Text(msg) },
+                confirmButton = { TextButton(onClick = { vm.confirmOtherHand() }) { Text("Add other hand") } },
+                dismissButton = { TextButton(onClick = { vm.cancelOtherHand() }) { Text("Cancel") } },
+            )
+        }
+
         // Camera oval + result overlay
         Box(
             Modifier.fillMaxWidth(0.8f).aspectRatio(0.8f)

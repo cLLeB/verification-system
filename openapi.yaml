@@ -138,7 +138,19 @@ paths:
                     live-face path (single-face/pose/liveness gates). 'id' forces the
                     ID-document path. Detection applies to enrollment only; verify and
                     identify always require liveness.
-      responses: { "200": { description: "Enrolment summary; per-image results include source ('live'|'id_document'), and for ID-sourced results id_confidence + signals." } }
+                hand:
+                  type: string
+                  enum: [auto, other, any]
+                  description: >
+                    Palm only. A person has up to two palms and one user_id may enrol
+                    both (present either to verify). 'any' binds a second, non-matching
+                    hand automatically with no round-trip (default when several images
+                    are sent — bulk/dataset upload); 'other' confirms a second hand
+                    after a 'different_hand' response; 'auto' (default for a single
+                    image) returns code 'different_hand' for a non-matching hand so an
+                    interactive UI can confirm. A third distinct hand is refused with
+                    code 'hands_full'. Face is unaffected.
+      responses: { "200": { description: "Enrolment summary. Per-image palm results carry hand (1|2) and samples; a non-matching hand under 'auto' returns success=false code='different_hand'; a third hand returns code='hands_full'. Per-image results also include source ('live'|'id_document')." } }
   /v1/enroll/bulk:
     post:
       summary: "Managed: enrol many users in one call (role: admin)"
@@ -164,7 +176,12 @@ paths:
                       user_id: { type: string }
                       images: { type: array, items: { type: string } }
                       embeddings: { type: array, items: { type: array, items: { type: number } } }
-      responses: { "200": { description: Per-user enrolment results } }
+                  description: >
+                    One entry per person. A person's palm `images` may include BOTH
+                    hands in any order — they are clustered into up to two hands and up
+                    to samples_per_user each are stored (a third hand's shots are
+                    dropped). Face images enrol under the same user_id.
+      responses: { "200": { description: "Per-user enrolment results (enrolled counts reflect stored anchors, palm capped at two hands)." } }
   /v1/sync/pull:
     get:
       summary: "Hybrid sync: pull this tenant's templates for offline matching (role: admin, allow_export)"

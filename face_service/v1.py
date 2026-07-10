@@ -218,13 +218,21 @@ def enroll():
     if source not in ("auto", "live", "id"):
         source = "auto"
     modality_override = (data.get("modality") or "").strip().lower() or None
+    hand = (data.get("hand") or "").lower()
+    if hand not in ("auto", "other", "any", "second"):
+        # Automation-friendly default: a multi-image upload for one user_id is an
+        # authorized batch, so auto-bind up to two hands with NO confirmation
+        # round-trip. A single image defaults to the interactive prompt behaviour.
+        hand = "any" if len(images) > 1 else "auto"
     settings = tenants.get(g.tenant)
     if not user_id:
         return _err("'user_id' is required.")
     if not images:
         return _err("'image' or 'images' is required.")
     # Auto-route every image (face vs palm vs both); a face+palm shot enrols both
-    # under this user_id. ``modality`` pins it when the caller wants to.
+    # under this user_id. ``modality`` pins it when the caller wants to; ``hand``
+    # (auto/other/any) lets one identity enrol both palms — ``any`` binds a second
+    # hand automatically (bulk upload), ``other`` confirms one, ``auto`` prompts.
     results = []
     for b in images:
         img = _decode(b)
@@ -232,7 +240,7 @@ def enroll():
             results.append({"success": False, "message": "decode failed"})
             continue
         out = _modality.enroll(user_id, img, cfg, settings["palm_enabled"],
-                               modality=modality_override, source=source)
+                               modality=modality_override, source=source, hand=hand)
         if out.get("results"):
             results.extend(out["results"].values())
         else:
@@ -308,15 +316,27 @@ def enroll_bulk():
                 for e in face_embs[:fstore.samples_per_user]:
                     findex.add(uid, fstore.protect_probe(e, user_id=uid))
                 mods.add("face")
+        palm_kept = []
         if palm_embs:
+            from palm import clusters as _pclusters
             pstore, pindex, pthr = _modality.store_and_index(cfg, "palm")
-            conflict = _dupe_conflict(pindex, pstore.protect_probe(palm_embs[0]),
-                                      uid, pthr) if dedupe else None
+            max_hands = _modality._palm_cfg_for(cfg).max_hands_per_user
+            # A person has up to two palms: cluster this bulk of captures into hands
+            # and keep up to samples_per_user each (a 3rd hand's shots are dropped).
+            palm_kept, reps = _pclusters.pick_hands(
+                palm_embs, pthr, pstore.samples_per_user, max_hands)
+            conflict = None
+            if dedupe:
+                for rep in reps:                     # dedupe each hand independently
+                    conflict = _dupe_conflict(pindex, pstore.protect_probe(rep), uid, pthr)
+                    if conflict:
+                        break
             if conflict:
                 conflicts.append({"modality": "palm", "conflict_user_id": conflict})
             else:
-                pstore.add_many([(uid, palm_embs)])
-                for e in palm_embs[:pstore.samples_per_user]:
+                pstore.add_many([(uid, palm_kept)],
+                                max_anchors=pstore.samples_per_user * max_hands)
+                for e in palm_kept:
                     pindex.add(uid, pstore.protect_probe(e, user_id=uid))
                 mods.add("palm")
         if not mods:
@@ -327,7 +347,7 @@ def enroll_bulk():
         ok += 1
         entry = {"user_id": uid, "success": True,
                  "enrolled": (len(face_embs) if "face" in mods else 0) +
-                             (len(palm_embs) if "palm" in mods else 0),
+                             (len(palm_kept) if "palm" in mods else 0),
                  "modalities": sorted(mods)}
         if conflicts:
             entry["conflicts"] = conflicts       # a modality was skipped as a duplicate

@@ -92,7 +92,10 @@ object PalmConfig {
     // — keep the two in sync.
     const val MATCH_THRESHOLD = 0.65f
     const val IDENTIFY_MARGIN = 0.05f
-    const val SAMPLES_PER_USER = 3
+    const val SAMPLES_PER_USER = 3            // anchor captures per HAND
+    // A person has at most two palms; one identity may enrol both (present either to
+    // verify). Mirrors palm/config.py max_hands_per_user — keep in sync.
+    const val MAX_HANDS_PER_USER = 2
 
     // adaptive enrolment
     const val ADAPTIVE_UPDATE_THRESHOLD = 0.45f

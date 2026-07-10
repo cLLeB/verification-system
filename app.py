@@ -1298,8 +1298,11 @@ def api_invite_enroll():
     # Pin the enrol to the allowed modality when the link is single-modality, so a
     # combined shot can't bind the other modality.
     pin = allowed[0] if len(allowed) == 1 else None
+    hand = (data.get("hand") or "auto").lower()
+    if hand not in ("auto", "other", "any", "second"):
+        hand = "auto"
     out = _modality.enroll(uid, img, face_cfg, palm_enabled=palm_enabled,
-                           source="live", modality=pin)
+                           source="live", modality=pin, hand=hand)
     results = out.get("results", {})
     result = dict(next((r for r in results.values() if r.get("success")), None)
                   or next(iter(results.values()), None)
@@ -1370,8 +1373,12 @@ def api_enroll():
     source = (data.get("source") or "auto").lower()
     if source not in ("auto", "live", "id"):
         source = "auto"
+    hand = (data.get("hand") or "auto").lower()
+    if hand not in ("auto", "other", "any", "second"):
+        hand = "auto"
     # Auto-route: a face enrols as a face, a palm as a palm (same name can hold both).
-    out = _modality.enroll(uid, img, CONFIG, palm_enabled=True, source=source)
+    # ``hand=other``/``any`` enrols a person's SECOND palm under this name.
+    out = _modality.enroll(uid, img, CONFIG, palm_enabled=True, source=source, hand=hand)
     results = out.get("results", {})
     result = dict(next((r for r in results.values() if r.get("success")), None)
                   or next(iter(results.values()), None)

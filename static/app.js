@@ -201,20 +201,30 @@ async function ensureAdmin() {
     return true;
 }
 
+let lastEnrollImg = null;                     // last capture, for the "add other hand" confirm
+
+// One place that POSTs an enrolment. `hand` ("other") is sent only when the admin
+// confirms a person's second palm after a different_hand prompt.
+function postEnroll(img, hand) {
+    const body = { image: img, user_id: userId.value.trim() };
+    if (hand) body.hand = hand;
+    return fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body) }).then((r) => r.json());
+}
+
 async function enrollCapture() {
     if (!userId.value.trim()) { setHint('Enter a name or ID to enrol first'); userId.focus(); return; }
     if (!(await ensureAdmin())) return;
     await ensureLiveVideo(video);                 // never capture a stale/frozen frame
     const img = grabFrame();
     if (!img) { setHint('Camera not ready — try again.'); return; }
+    lastEnrollImg = img;
     flashOval();
     startBusy('Checking');
     let p = 25; bar.style.width = '25%'; setHint('Checking…');
     const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
     try {
-        const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: img, user_id: userId.value.trim() }) });
-        const data = await res.json();
+        const data = await postEnroll(img);
         if (data.success) shots.push(img);            // sample thumbnail for the dots row
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
@@ -245,9 +255,10 @@ async function enrollFromFiles() {
         bar.style.width = Math.round(((i + 1) / files.length) * 100) + '%';
         try {
             const img = await fileToDataUrl(files[i]);
-            const res = await fetch('/api/enroll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId.value.trim(), image: img }) });
-            last = await res.json();
+            lastEnrollImg = img;
+            // Uploading several photos is an authorized batch -> auto-bind up to two
+            // hands (both palms under one name) with no per-photo confirmation.
+            last = await postEnroll(img, files.length > 1 ? 'any' : undefined);
             if (last.success) { ok++; shots.push(img); }   // thumbnail for the dots row
         } catch (e) { /* keep going through the rest */ }
     }
@@ -341,7 +352,7 @@ async function singleVerify(img) {
     } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
 }
 
-function handle(data) {
+async function handle(data) {
     statusText.textContent = 'Ready'; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
     // The server routed this to palm (a hand was seen) — if the camera isn't ideal
@@ -355,8 +366,27 @@ function handle(data) {
         renderDots(n);
         const idNote = data.source === 'id_document'
             ? ' (from ID document — add a live capture for best accuracy)' : '';
-        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET}${idNote} — tap Capture again`); return; }
-        if (data.success) { show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify${idNote}`); userId.value = ''; renderDots(0); return; }
+        const handLabel = data.hand === 2 ? "this person's other hand" : 'this palm';
+        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} for ${handLabel}${idNote} — tap Capture again`); return; }
+        if (data.success) {
+            const more = data.hand === 1
+                ? ' — capture their OTHER hand now for either-hand verify, or Start over'
+                : '';
+            show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify${idNote}${more}`);
+            if (data.hand !== 1) { userId.value = ''; }   // keep the name to add the 2nd hand
+            renderDots(0); return;                        // renderDots(0) also clears thumbnails
+        }
+        // A palm that matches neither enrolled hand: offer to bind it as the 2nd hand.
+        if (data.code === 'different_hand') {
+            if (lastEnrollImg && confirm(data.message || "Add as this person's other hand?")) {
+                startBusy('Adding other hand');
+                const d2 = await postEnroll(lastEnrollImg, 'other');
+                if (d2.success) shots.push(lastEnrollImg);
+                return handle(d2);
+            }
+            reset('Okay — present the SAME hand you enrolled first.', 'warn'); return;
+        }
+        if (data.code === 'hands_full') { show('warn', ICON_BAD, 'Both hands already enrolled', data.message || ''); return; }
         if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message, 'warn'); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || ''); return;
     }

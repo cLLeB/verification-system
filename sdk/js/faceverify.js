@@ -53,10 +53,16 @@ export class FaceVerifyClient {
   }
 
   // managed — image may be a face OR a palm; auto-detected unless `modality` is set.
-  enroll(userId, images, modality) {
+  // Palm holds BOTH hands under one id (present either to verify). Several palm
+  // images at once auto-bind up to two hands (bulk). `hand`: "any" (auto-bind 2nd,
+  // default for multi-image) | "other" (confirm after a different_hand prompt) |
+  // "auto" (single-image UI: a new hand returns code:"different_hand" to confirm).
+  // A third distinct hand is refused (code:"hands_full").
+  enroll(userId, images, modality, hand) {
     const imgs = Array.isArray(images) ? images : [images];
     const body = { user_id: userId, images: imgs };
     if (modality) body.modality = modality;
+    if (hand) body.hand = hand;
     return this._call("POST", "/v1/enroll", body);
   }
   enrollBulk(people) { return this._call("POST", "/v1/enroll/bulk", { people }); }

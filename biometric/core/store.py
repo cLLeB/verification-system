@@ -400,13 +400,19 @@ class TemplateStore:
 
     # --- mutations ----------------------------------------------------------
     def add_embedding(self, user_id: str, emb: np.ndarray,
-                      source: str = _SRC_LIVE) -> BioTemplate:
+                      source: str = _SRC_LIVE,
+                      max_anchors: Optional[int] = None) -> BioTemplate:
+        """Append an enrolment anchor, capping the retained anchors (oldest evicted).
+        ``max_anchors`` overrides the per-user default (``samples_per_user``) — palm
+        passes ``samples_per_user * max_hands_per_user`` so a second enrolled hand's
+        anchors don't evict the first."""
+        cap = self.samples_per_user if max_anchors is None else int(max_anchors)
         tmpl = self.load_raw(user_id) or BioTemplate(user_id=user_id)
         tmpl.anchors.append(np.asarray(emb, dtype=np.float32))
         tmpl.anchor_sources.append(_SRC_ID if source == _SRC_ID else _SRC_LIVE)
-        if len(tmpl.anchors) > self.samples_per_user:
-            tmpl.anchors = tmpl.anchors[-self.samples_per_user:]
-            tmpl.anchor_sources = tmpl.anchor_sources[-self.samples_per_user:]
+        if len(tmpl.anchors) > cap:
+            tmpl.anchors = tmpl.anchors[-cap:]
+            tmpl.anchor_sources = tmpl.anchor_sources[-cap:]
         self._write(tmpl)
         return tmpl
 
@@ -427,12 +433,17 @@ class TemplateStore:
         self._write(tmpl)
         return True
 
-    def add_many(self, items) -> int:
+    def add_many(self, items, max_anchors: Optional[int] = None) -> int:
+        """Bulk-write templates (one transaction). ``max_anchors`` overrides the
+        per-user anchor cap (``samples_per_user``) — palm passes
+        ``samples_per_user * max_hands_per_user`` so a person's two enrolled hands
+        both survive (the caller supplies already-clustered anchors)."""
+        cap = self.samples_per_user if max_anchors is None else int(max_anchors)
         n = 0
         with self._write_lock, self._connect() as conn:
             for user_id, embs in items:
                 anchors = [np.asarray(e, dtype=np.float32)
-                           for e in list(embs)[:self.samples_per_user]]
+                           for e in list(embs)[:cap]]
                 if not anchors:
                     continue
                 tmpl = BioTemplate(user_id=user_id, anchors=anchors)

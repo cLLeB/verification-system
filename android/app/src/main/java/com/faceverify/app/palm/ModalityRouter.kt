@@ -36,14 +36,14 @@ class ModalityRouter(
         return Modality.NONE
     }
 
-    suspend fun enroll(userId: String, bitmap: Bitmap): Outcome = when (route(bitmap)) {
+    suspend fun enroll(userId: String, bitmap: Bitmap, hand: String = "auto"): Outcome = when (route(bitmap)) {
         Modality.FACE -> {
             val d = face.detect(bitmap)
             val emb = d?.let { face.embed(bitmap, it) }
             if (emb == null) Outcome(Modality.FACE, false, null, -1f, "low_quality", "Couldn't read the face — move closer, good light.")
             else face.repo.enroll(userId, emb).toOutcome(Modality.FACE)
         }
-        Modality.PALM -> palmEnroll(userId, bitmap)
+        Modality.PALM -> palmEnroll(userId, bitmap, hand)
         Modality.NONE -> noBiometric()
     }
 
@@ -84,10 +84,10 @@ class ModalityRouter(
     }
 
     // --- helpers -----------------------------------------------------------
-    private suspend fun palmEnroll(userId: String, bitmap: Bitmap): Outcome {
-        val s = palm?.embed(bitmap) ?: return unavailable()
+    private suspend fun palmEnroll(userId: String, bitmap: Bitmap, hand: String = "auto"): Outcome {
+        val s = palm?.embed(bitmap, forEnroll = true) ?: return unavailable()
         return if (s.embedding == null) palmBad(s)
-        else palm.repo.enroll(userId, s.embedding).toOutcome(Modality.PALM)
+        else palm.repo.enroll(userId, s.embedding, hand).toOutcome(Modality.PALM)
     }
 
     private fun Decision.toOutcome(m: Modality) = Outcome(

@@ -106,15 +106,26 @@ class FaceVerifyClient:
 
     # --- managed -----------------------------------------------------------
     def enroll(self, user_id: str, images: Union[Image, List[Image]],
-               modality: Optional[str] = None) -> dict:
+               modality: Optional[str] = None, hand: Optional[str] = None) -> dict:
         """Enrol a user from one or more images. By default the server AUTO-DETECTS
         whether each image is a face or a palm and routes it accordingly — the same
         ``user_id`` can hold both. Pass ``modality='face'|'palm'`` only to pin it
-        (e.g. enrolling a combined photo as just one modality)."""
+        (e.g. enrolling a combined photo as just one modality).
+
+        Palm supports BOTH hands under one id (present either to verify). Uploading
+        several palm images at once auto-binds up to two hands with no round-trip —
+        ideal for bulk/dataset upload. ``hand``:
+          * ``'any'`` — bind a second hand automatically (default for multi-image);
+          * ``'other'`` — confirm a second hand after a ``different_hand`` prompt;
+          * ``'auto'`` — one-at-a-time UI: a non-matching hand returns
+            ``code='different_hand'`` for you to confirm (default for a single image).
+        A third distinct hand is refused (``code='hands_full'``)."""
         imgs = images if isinstance(images, list) else [images]
         body = {"user_id": user_id, "images": [_to_b64(i) for i in imgs]}
         if modality:
             body["modality"] = modality
+        if hand:
+            body["hand"] = hand
         return self._call("POST", "/v1/enroll", body)
 
     def enroll_bulk(self, people: List[dict]) -> dict:

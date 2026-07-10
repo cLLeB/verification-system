@@ -244,16 +244,37 @@ async function doStepUp() {
     }
 }
 
+async function postEnroll(body, hand) {
+    const payload = { token: TOKEN, ...body };
+    if (hand) payload.hand = hand;
+    const res = await fetch('/api/invite/enroll', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    return { res, data: await res.json() };
+}
+
 async function doEnroll() {
     const body = await captureBody();
     if (!body) { setHint('Camera not ready — try again.'); return; }
     setHint('Checking…');
-    const res = await fetch('/api/invite/enroll', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: TOKEN, ...body }),
-    });
-    const data = await res.json();
+    let { res, data } = await postEnroll(body);
+    // A palm that matches neither hand you've enrolled: offer to add it as your other
+    // hand (so either palm verifies you later).
+    if (data.code === 'different_hand') {
+        if (confirm(data.message || 'Add as your other hand?')) {
+            setHint('Adding your other hand…');
+            ({ res, data } = await postEnroll(body, 'other'));
+        } else {
+            setHint('Okay — present the SAME hand you enrolled first.', 'warn');
+            return;
+        }
+    }
     if (res.status === 410 || DEAD_CODES.includes(data.code)) { fatal(data.message); return; }
+    if (data.code === 'hands_full') {
+        setHint(data.message || 'Both your hands are already enrolled.', 'warn');
+        return;
+    }
     if (data.code === 'step_up_required') {          // server insists on step-up first
         stepUp.required = true; stepUp.satisfied = false;
         stepUp.modality = data.step_up_modality || stepUp.modality;
@@ -264,11 +285,14 @@ async function doEnroll() {
     if (data.success) {
         enrolled = data.enrolled || enrolled;
         renderChips();
-        const what = data.modality === 'palm' ? 'Palm' : 'Face';
+        const what = data.modality === 'palm'
+            ? (data.hand === 2 ? 'Other palm' : 'Palm') : 'Face';
         const more = allowed.filter((m) => !enrolled.includes(m));
+        const palmHint = data.modality === 'palm' && data.hand === 1
+            ? ' — you can also add your OTHER palm' : '';
         setHint(more.length
             ? `${what} captured ✓ — now your ${more[0]}, or tap Finish`
-            : `${what} captured ✓ — tap Finish`, 'ok');
+            : `${what} captured ✓${palmHint} — tap Finish`, 'ok');
     } else {
         setHint(data.message || 'No usable biometric detected — try again.', 'warn');
     }

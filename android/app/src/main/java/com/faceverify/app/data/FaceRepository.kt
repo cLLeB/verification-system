@@ -13,6 +13,7 @@ data class EnrollResult(
     val message: String,
     val code: String,
     val samples: Int = 0,
+    val hand: Int = 0,          // palm: which hand this capture belongs to (1 or 2)
 )
 
 /** Single on-device source of truth for enrolment + matching. Keeps an in-memory

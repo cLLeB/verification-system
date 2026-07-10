@@ -74,7 +74,11 @@ class PalmConfig:
     identify_margin: float = 0.05           # ONNX-encoder 1:N margin
     classical_match_threshold: float = 0.80  # Gabor-encoder accept threshold
     classical_identify_margin: float = 0.04  # Gabor-encoder 1:N margin
-    samples_per_user: int = 3               # embeddings stored per identity
+    samples_per_user: int = 3               # anchor embeddings stored per HAND
+    # A person has at most two palms. One identity may enrol both hands (present
+    # either to verify); a capture matching neither enrolled hand is accepted as the
+    # second hand only on explicit confirm, and a THIRD distinct hand is refused.
+    max_hands_per_user: int = 2
 
     # --- passive anti-spoofing ---
     liveness_enabled: bool = True           # reject printed/screened palms

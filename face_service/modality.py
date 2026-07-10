@@ -125,10 +125,12 @@ def _routed(image, face_cfg, palm_enabled, modality, prefer=None,
 # --- enrolment -------------------------------------------------------------
 def enroll(user_id: str, image: np.ndarray, face_cfg: FaceConfig,
            palm_enabled: bool = True, modality: Optional[str] = None,
-           source: str = "auto") -> dict:
+           source: str = "auto", hand: str = "auto") -> dict:
     """Auto-routed enrol. A combined face+palm image enrols BOTH under one user_id;
     an explicit ``modality`` pins the target. ``source`` (auto/live/id) is forwarded
-    to the face path for ID-document handling. Returns a per-modality result map."""
+    to the face path for ID-document handling. ``hand`` (auto/other) is forwarded to
+    the palm path so one identity can enrol a second palm on confirmation. Returns a
+    per-modality result map."""
     rr = _routed(image, face_cfg, palm_enabled, modality)
     targets = rr.modalities
     if not targets:
@@ -139,7 +141,7 @@ def enroll(user_id: str, image: np.ndarray, face_cfg: FaceConfig,
         if m == "face":
             results["face"] = _face_api.enroll(user_id, image, face_cfg, source=source)
         else:
-            results["palm"] = _palm_api.enroll(user_id, image, pcfg)
+            results["palm"] = _palm_api.enroll(user_id, image, pcfg, hand=hand)
     ok = any(r.get("success") for r in results.values())
     if results.get("palm", {}).get("success"):
         _maybe_recalibrate(face_cfg)          # tighten the palm threshold as data grows

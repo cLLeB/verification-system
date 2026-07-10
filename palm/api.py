@@ -14,6 +14,7 @@ import numpy as np
 
 from biometric.core import matcher as _matcher
 from biometric.core.store import TemplateStore
+from . import clusters as _clusters
 from . import engine as _engine
 from .config import PalmConfig, CONFIG
 from .errors import PalmError
@@ -64,24 +65,34 @@ def _quality(sample) -> dict:
             "sharpness": round(float(getattr(sample, "sharpness", 0.0)), 1)}
 
 
-def _guards_ok(emb, user_id: str, st: TemplateStore, cfg: PalmConfig,
-               consistency_threshold: float):
-    """Palm must not belong to another user (duplicate) and must match this user's
-    earlier captures (self-consistency). Returns a failure dict, or None."""
-    dupe_hits = _matcher.merge_off_domain(
+def _dupe_check(emb, user_id: str, st: TemplateStore, cfg: PalmConfig):
+    """This palm must not already belong to a DIFFERENT identity, whichever hand it
+    is. Returns a duplicate-failure dict, or None. (Cross-user only — matching one of
+    *this* user's own enrolled hands is expected and handled by the enrol flow.)"""
+    hits = _matcher.merge_off_domain(
         _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
-    for uid, score in dupe_hits:
+    for uid, score in hits:
         if uid != user_id and score >= cfg.match_threshold:
             return _fail(f"This palm is already enrolled as '{uid}'.", "duplicate",
                          conflict_user_id=uid, score=round(score, 4))
-    existing = st.load(user_id)
-    if existing is not None and existing.embeddings:
-        score = _matcher.best_score(st.protect_probe(emb, user_id=user_id),
-                                    existing.embeddings)
-        if score < consistency_threshold:
-            return _fail("This doesn't match the earlier capture. Use the SAME palm.",
-                         "inconsistent", score=round(float(score), 4))
     return None
+
+
+def _enrolled(user_id: str, hand_no: int, hand_samples: int, cfg: PalmConfig,
+              sample, *, new_hand: bool = False, already_complete: bool = False) -> dict:
+    target = cfg.samples_per_user
+    if already_complete:
+        msg = (f"Hand {hand_no} for '{user_id}' is already complete "
+               f"({hand_samples} of {target}).")
+    elif new_hand:
+        msg = (f"Started this person's other hand for '{user_id}' "
+               f"({hand_samples} of {target}).")
+    else:
+        msg = f"Enrolled hand {hand_no} for '{user_id}' ({hand_samples} of {target})."
+    return {"success": True, "code": "enrolled", "modality": "palm", "source": "live",
+            "message": msg, "user_id": user_id, "hand": hand_no,
+            "samples": hand_samples, "samples_target": target,
+            "hand_samples": hand_samples, "quality": _quality(sample)}
 
 
 def _identify_via_index(emb, st: TemplateStore, cfg: PalmConfig) -> dict:
@@ -105,7 +116,22 @@ def _identify_via_index(emb, st: TemplateStore, cfg: PalmConfig) -> dict:
 
 
 def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
-           store: Optional[TemplateStore] = None) -> dict:
+           store: Optional[TemplateStore] = None, hand: str = "auto") -> dict:
+    """Enrol a palm anchor for ``user_id``.
+
+    A person has up to two palms; one identity may enrol both (present either hand to
+    verify). ``hand``:
+      * ``"auto"`` (default): a capture matching an already-enrolled hand tops it up;
+        a capture matching NEITHER enrolled hand returns a soft ``different_hand``
+        prompt instead of enrolling — the caller confirms before a second hand is
+        bound (so a wrong-person palm isn't silently mixed in). Best for interactive
+        UIs (one capture at a time).
+      * ``"other"`` / ``"any"``: no prompt — a non-matching capture is bound as the
+        person's second hand automatically. Best for automation / bulk dataset
+        upload, where grouping images under a ``user_id`` IS the authorization.
+    Either way the cross-user duplicate guard still runs and a THIRD distinct hand is
+    always refused (``hands_full``)."""
+    allow_new_hand = hand in ("other", "any", "second")
     user_id = (user_id or "").strip()
     if not user_id:
         return _fail("A name or ID is required.", "missing_user_id")
@@ -116,16 +142,52 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
         sample = _engine.embed(image, cfg, for_enroll=True)   # strict anchor-quality gate
     except PalmError as exc:
         return _fail(exc.message, exc.code)
-    fail = _guards_ok(sample.embedding, user_id, st, cfg, cfg.match_threshold)
-    if fail is not None:
-        return fail
-    tmpl = st.add_embedding(user_id, sample.embedding)
-    _index_for(st, cfg).add(user_id, st.protect_probe(sample.embedding, user_id=user_id))
-    return {"success": True, "code": "enrolled", "modality": "palm", "source": "live",
-            "message": f"Enrolled palm for '{user_id}' "
-                       f"({len(tmpl.embeddings)} of {cfg.samples_per_user}).",
-            "user_id": user_id, "samples": len(tmpl.embeddings),
-            "samples_target": cfg.samples_per_user, "quality": _quality(sample)}
+    emb = sample.embedding
+
+    # A palm already bound to a DIFFERENT identity can never be enrolled here.
+    dupe = _dupe_check(emb, user_id, st, cfg)
+    if dupe is not None:
+        return dupe
+
+    probe = st.protect_probe(emb, user_id=user_id)
+    existing = st.load(user_id)
+    anchors = existing.anchors if existing is not None else []
+    cap = cfg.samples_per_user * cfg.max_hands_per_user
+
+    # First-ever capture for this name -> hand 1, sample 1.
+    if not anchors:
+        st.add_embedding(user_id, emb, max_anchors=cap)
+        _index_for(st, cfg).add(user_id, probe)
+        return _enrolled(user_id, 1, 1, cfg, sample)
+
+    hands = _clusters.group(anchors, cfg.match_threshold)
+    matched = _clusters.matched_hand(probe, anchors, cfg.match_threshold)
+
+    # Matches an already-enrolled hand -> top that hand up (no confirmation needed).
+    if matched >= 0:
+        in_hand = len(hands[matched])
+        if in_hand >= cfg.samples_per_user:
+            return _enrolled(user_id, matched + 1, in_hand, cfg, sample,
+                             already_complete=True)
+        st.add_embedding(user_id, emb, max_anchors=cap)
+        _index_for(st, cfg).add(user_id, probe)
+        return _enrolled(user_id, matched + 1, in_hand + 1, cfg, sample)
+
+    # Matches no enrolled hand -> a DIFFERENT hand.
+    if len(hands) >= cfg.max_hands_per_user:
+        return _fail(f"'{user_id}' already has both hands enrolled — no more palms "
+                     f"can be added to this name.", "hands_full", user_id=user_id)
+    if not allow_new_hand:
+        return {"success": False, "code": "different_hand", "modality": "palm",
+                "message": f"This looks like a different hand than the one already "
+                           f"enrolled for '{user_id}'. Add it as their other hand?",
+                "user_id": user_id, "hands_enrolled": len(hands),
+                "hint": "Confirm to enrol the second hand, or present the SAME hand "
+                        "you enrolled first."}
+    # Explicit confirmation -> second hand, sample 1.
+    st.add_embedding(user_id, emb, max_anchors=cap)
+    _index_for(st, cfg).add(user_id, probe)
+    return _enrolled(user_id, len(hands) + 1, 1, cfg, sample, new_hand=True)
 
 
 def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,

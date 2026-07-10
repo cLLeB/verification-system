@@ -64,6 +64,7 @@ def main() -> None:
     print(f"warming {args.modality} engine…", flush=True)
     if args.modality == "palm":
         from palm import engine as _palm_engine
+        from palm import clusters as _pclusters
         from palm.profile import PALM_PROFILE
         from palm.config import load_config as _load_palm
         from palm.errors import PalmError
@@ -73,8 +74,14 @@ def main() -> None:
         store = PALM_PROFILE.make_store(pcfg.db_path)
         _embed_errors = (PalmError,)
         threshold = pcfg.match_threshold
+        # A person has up to two palms; cluster each folder's shots into hands and
+        # keep up to `samples` per hand, so a 'palm' dataset can hold both hands.
+        _max_anchors = pcfg.samples_per_user * pcfg.max_hands_per_user
         def embed_one(img):
             return _palm_engine.detect(img, pcfg).embedding
+        def prepare(embs):
+            return _pclusters.pick_hands(embs, threshold, store.samples_per_user,
+                                         pcfg.max_hands_per_user)
         def build_index():
             return PALM_PROFILE.get_index(pcfg.db_path, store)
     else:
@@ -82,8 +89,11 @@ def main() -> None:
         store = FaceStore(cfg)
         _embed_errors = (FaceError,)
         threshold = cfg.match_threshold
+        _max_anchors = None                          # face: default per-user cap
         def embed_one(img):
             return _engine.detect(img, cfg).embedding
+        def prepare(embs):
+            return list(embs), embs[:1]              # no clustering; rep = first
         def build_index():
             faceindex.invalidate(cfg.db_path)
             return faceindex.get_index(cfg.db_path, store)
@@ -99,7 +109,7 @@ def main() -> None:
     def flush():
         nonlocal batch
         if batch:
-            store.add_many(batch)
+            store.add_many(batch, max_anchors=_max_anchors)
             batch = []
 
     # With --dedupe we keep a live index (seeded from any existing store) so a new
@@ -107,13 +117,15 @@ def main() -> None:
     # also updated as we go, so duplicates *within* this run are caught too.
     dedupe_idx = build_index() if args.dedupe else None
 
-    def is_duplicate(embs, person):
+    def is_duplicate(reps, person):
         if dedupe_idx is None:
             return None
-        # the index holds protection-domain vectors — project the probe to match
-        for cu, sc in dedupe_idx.search(store.protect_probe(embs[0]), top_k=3):
-            if cu != person and sc >= threshold:
-                return cu
+        # the index holds protection-domain vectors — project the probe to match.
+        # Check each hand's representative so a second palm can't slip in as a dup.
+        for rep in reps:
+            for cu, sc in dedupe_idx.search(store.protect_probe(rep), top_k=3):
+                if cu != person and sc >= threshold:
+                    return cu
         return None
 
     for i, person in enumerate(people, 1):
@@ -129,15 +141,16 @@ def main() -> None:
             except _embed_errors:
                 imgs_fail += 1                       # no/again unusable biometric in this image
         if embs:
-            conflict = is_duplicate(embs, person)
+            kept, reps = prepare(embs)               # palm: cluster into <=2 hands
+            conflict = is_duplicate(reps, person)
             if conflict:
                 duped += 1
                 print(f"  ! skip '{person}': biometric already enrolled as '{conflict}'", flush=True)
             else:
-                batch.append((person, embs))
+                batch.append((person, kept))
                 enrolled += 1
                 if dedupe_idx is not None:
-                    for e in embs[:store.samples_per_user]:
+                    for e in kept:
                         # so later people see this one too (in the matching domain)
                         dedupe_idx.add(person, store.protect_probe(e, user_id=person))
         if len(batch) >= args.batch:

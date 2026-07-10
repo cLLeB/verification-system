@@ -54,6 +54,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     var result by mutableStateOf<ScanResult?>(null); private set
     var enrollName by mutableStateOf("")
     var captured by mutableStateOf(0); private set
+    // Set when a palm capture matches neither of this name's enrolled hands: the UI
+    // asks whether to bind it as the person's OTHER hand (see confirmOtherHand).
+    var pendingOtherHand by mutableStateOf<String?>(null); private set
+    private var pendingHandEmb: FloatArray? = null
     var livenessProgress by mutableStateOf(0f); private set
     var people by mutableStateOf<List<String>>(emptyList()); private set
 
@@ -235,18 +239,48 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if (!captureRequested.compareAndSet(true, false)) return
         val s = p.embed(bitmap, forEnroll = true)
         if (s.embedding == null) { status = s.message; return }
-        finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false)
+        finishPalmEnroll(p.repo.enroll(enrollName, s.embedding), s.embedding)
+    }
+
+    /** Palm enrol result handling: a different hand offers an "other hand" confirm; a
+     *  third hand is refused; otherwise the shared success/progress path runs. */
+    private fun finishPalmEnroll(r: com.faceverify.app.data.EnrollResult, emb: FloatArray) {
+        when (r.code) {
+            "different_hand" -> { pendingHandEmb = emb; pendingOtherHand = r.message }
+            "hands_full" -> result = ScanResult(false, "Both hands enrolled", r.message)
+            else -> finishEnroll(r, fromId = false)
+        }
+    }
+
+    /** Admin confirmed the capture is the person's OTHER palm — bind it as hand two. */
+    fun confirmOtherHand() {
+        val emb = pendingHandEmb ?: return
+        val p = palm ?: return
+        pendingHandEmb = null; pendingOtherHand = null
+        if (!processing.compareAndSet(false, true)) return
+        viewModelScope.launch(Dispatchers.Default) {
+            try { finishEnroll(p.repo.enroll(enrollName, emb, hand = "other"), fromId = false) }
+            finally { processing.set(false) }
+        }
+    }
+
+    fun cancelOtherHand() {
+        pendingHandEmb = null; pendingOtherHand = null
+        status = "Present the SAME hand you enrolled first."
     }
 
     private fun finishEnroll(r: com.faceverify.app.data.EnrollResult, fromId: Boolean) {
         if (!r.success) { result = ScanResult(false, "Enrolment failed", r.message); return }
         captured = r.samples
         val idNote = if (fromId) " (from ID — add a live capture for best accuracy)" else ""
+        val handNote = if (r.hand >= 2) " (other hand)" else ""
         if (captured >= enrollTarget) {
-            result = ScanResult(true, "Enrolled", "${enrollName.trim()} is ready to verify$idNote")
+            val more = if (r.hand == 1) " — capture their OTHER palm too for either-hand verify, or you're done" else ""
+            result = ScanResult(true, if (r.hand >= 2) "Other hand enrolled" else "Enrolled",
+                "${enrollName.trim()} is ready to verify$idNote$more")
             refreshPeople()
         } else {
-            status = "Captured $captured of $enrollTarget$idNote — tap Capture again"
+            status = "Captured $captured of $enrollTarget$handNote$idNote — tap Capture again"
         }
     }
 
@@ -271,7 +305,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                     if (p != null) {
                         val s = p.embed(bmp, forEnroll = true)
                         if (s.embedding != null) {
-                            finishEnroll(p.repo.enroll(enrollName, s.embedding), fromId = false); return@launch
+                            finishPalmEnroll(p.repo.enroll(enrollName, s.embedding), s.embedding); return@launch
                         }
                         result = ScanResult(false, "No face or palm found", s.message); return@launch
                     }

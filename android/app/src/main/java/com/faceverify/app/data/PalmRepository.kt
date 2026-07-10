@@ -55,37 +55,78 @@ class PalmRepository(context: Context) {
         return people.map { (uid, embs) -> uid to Matcher.bestScore(probeFor(uid, emb, cache), embs) }
     }
 
-    /** Enrol a palm anchor for [userId], with the same duplicate + self-consistency
-     *  guards as the face repository (palm-tuned thresholds). */
-    suspend fun enroll(userId: String, emb: FloatArray): EnrollResult = mutex.withLock {
+    /** Enrol a palm anchor for [userId]. A person has up to two palms; one identity
+     *  may enrol both (present either to verify). Mirrors the server's palm/api.py:
+     *  a capture matching an already-enrolled hand tops it up; one matching NEITHER
+     *  hand needs confirmation ([hand] = "other"/"any") before it binds as hand two
+     *  (otherwise a soft "different_hand" is returned); a third distinct hand is
+     *  refused. The cross-user duplicate guard always runs. */
+    suspend fun enroll(userId: String, emb: FloatArray, hand: String = "auto"): EnrollResult = mutex.withLock {
         val id = userId.trim()
         if (id.isEmpty()) return@withLock EnrollResult(false, "A name or ID is required.", "missing_user_id")
+        val allowNewHand = hand == "other" || hand == "any" || hand == "second"
 
+        // A palm already bound to a DIFFERENT identity can never be enrolled here.
         val dec = Matcher.decide(scoreAll(emb, snapshot().filter { it.first != id }),
             PalmConfig.MATCH_THRESHOLD, PalmConfig.IDENTIFY_MARGIN)
         if (dec.userId != null && dec.score >= PalmConfig.MATCH_THRESHOLD) {
             return@withLock EnrollResult(false, "This palm is already enrolled as '${dec.userId}'.", "duplicate")
         }
-        val existing = index[id]
-        if (existing != null && existing.isNotEmpty()) {
-            if (Matcher.bestScore(probeFor(id, emb, HashMap()), existing) < PalmConfig.MATCH_THRESHOLD) {
-                return@withLock EnrollResult(false, "This doesn't match the earlier palm — use the SAME hand.", "inconsistent")
-            }
-        } else {
-            dao.insertPerson(Person(id))
-        }
-        val stored = userSeeds[id]?.let { Protect.project(it, emb) } ?: emb
-        dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor", blob = Crypto.encrypt(Crypto.floatsToBytes(stored)), source = "live"))
-        index.getOrPut(id) { mutableListOf() }.add(stored)
 
+        val cap = PalmConfig.SAMPLES_PER_USER * PalmConfig.MAX_HANDS_PER_USER
+        val existing = index[id]
+        // First-ever capture for this name -> hand 1, sample 1.
+        if (existing == null || existing.isEmpty()) {
+            dao.insertPerson(Person(id))
+            storeAnchor(id, emb, cap)
+            return@withLock EnrollResult(true, "Enrolled hand 1 for '$id' (1 of ${PalmConfig.SAMPLES_PER_USER}).",
+                "enrolled", samples = 1, hand = 1)
+        }
+
+        val probe = probeFor(id, emb, HashMap())
+        val hands = PalmClusters.group(existing, PalmConfig.MATCH_THRESHOLD)
+        val matched = PalmClusters.matchedHand(probe, existing, PalmConfig.MATCH_THRESHOLD)
+
+        // Matches an already-enrolled hand -> top it up (no confirmation needed).
+        if (matched >= 0) {
+            val inHand = hands[matched].size
+            if (inHand >= PalmConfig.SAMPLES_PER_USER) {
+                return@withLock EnrollResult(true, "Hand ${matched + 1} for '$id' is already complete.",
+                    "enrolled", samples = inHand, hand = matched + 1)
+            }
+            storeAnchor(id, emb, cap)
+            return@withLock EnrollResult(true, "Enrolled hand ${matched + 1} for '$id' (${inHand + 1} of ${PalmConfig.SAMPLES_PER_USER}).",
+                "enrolled", samples = inHand + 1, hand = matched + 1)
+        }
+
+        // Matches no enrolled hand -> a DIFFERENT hand.
+        if (hands.size >= PalmConfig.MAX_HANDS_PER_USER) {
+            return@withLock EnrollResult(false, "'$id' already has both hands enrolled — no more palms can be added.", "hands_full")
+        }
+        if (!allowNewHand) {
+            return@withLock EnrollResult(false,
+                "This looks like a different hand than the one enrolled for '$id'. Add it as their other hand?",
+                "different_hand", hand = hands.size)
+        }
+        storeAnchor(id, emb, cap)
+        EnrollResult(true, "Started this person's other hand for '$id' (1 of ${PalmConfig.SAMPLES_PER_USER}).",
+            "enrolled", samples = 1, hand = hands.size + 1)
+    }
+
+    /** Persist one anchor (projected into the user's domain if protected), keeping at
+     *  most [cap] anchors (oldest evicted) so two enrolled hands both survive. */
+    private suspend fun storeAnchor(id: String, emb: FloatArray, cap: Int) {
+        val stored = userSeeds[id]?.let { Protect.project(it, emb) } ?: emb
+        dao.insertEmbedding(Embedding(ownerId = id, kind = "anchor",
+            blob = Crypto.encrypt(Crypto.floatsToBytes(stored)), source = "live"))
+        index.getOrPut(id) { mutableListOf() }.add(stored)
         val anchors = dao.anchorIds(id)
-        if (anchors.size > PalmConfig.SAMPLES_PER_USER) {
-            val drop = anchors.size - PalmConfig.SAMPLES_PER_USER
+        if (anchors.size > cap) {
+            val drop = anchors.size - cap
             for (i in 0 until drop) dao.deleteEmbedding(anchors[i])
             val list = index[id]!!
             repeat(drop) { if (list.isNotEmpty()) list.removeAt(0) }
         }
-        EnrollResult(true, "Enrolled palm for '$id'.", "enrolled", samples = (index[id]?.size ?: 0))
     }
 
     suspend fun identify(emb: FloatArray): Decision = mutex.withLock {
