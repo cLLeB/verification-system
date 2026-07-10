@@ -14,6 +14,7 @@ data class PalmSample(
     val message: String,
     val handScore: Float = 0f,
     val roiPx: Int = 0,
+    val handedness: String = "",  // 'Left' | 'Right' (MediaPipe; "" if unknown)
 )
 
 /** Ties the on-device palm pipeline together: detect hand → ROI → quality gate →
@@ -62,7 +63,7 @@ class PalmEngine private constructor(
                 return@withContext PalmSample(null, "palm_enroll_too_bright",
                     "Too bright to enrol — avoid direct glare on your palm.", det.handScore, det.roiPx)
         }
-        PalmSample(encode(det.roi), "", "ok", det.handScore, det.roiPx)
+        PalmSample(encode(det.roi), "", "ok", det.handScore, det.roiPx, det.handedness)
     }
 
     /** Mean luminance of the ROI, sampled on a small downscale (cheap, allocation-light). */

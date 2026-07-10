@@ -39,11 +39,11 @@ def setup(tmp_path, monkeypatch):
                        samples_per_user=cfg.samples_per_user,
                        db_file="palms.db", modality="palm",
                        protect_templates=False)
-    holder = {"emb": None}
+    holder = {"emb": None, "side": ""}
 
     def fake_embed(image, c=None, for_enroll=False):
         return PalmSample(embedding=holder["emb"], hand_score=0.9,
-                          roi_px=400, sharpness=200.0)
+                          roi_px=400, sharpness=200.0, handedness=holder["side"])
 
     monkeypatch.setattr(palm_engine, "available", lambda c=None: True)
     monkeypatch.setattr(palm_engine, "embed", fake_embed)
@@ -63,8 +63,11 @@ def setup(tmp_path, monkeypatch):
 
     img = np.zeros((10, 10, 3), np.uint8)
 
-    def enroll(user_id, hand_key, hand="auto"):
+    _sides = {"R": "Right", "L": "Left", "X": "Right"}
+
+    def enroll(user_id, hand_key, hand="auto", side=None):
         holder["emb"] = cap(hand_key)
+        holder["side"] = side if side is not None else _sides[hand_key]
         return palm_api.enroll(user_id, img, cfg, store=st, hand=hand)
 
     def verify(user_id, hand_key):
@@ -134,6 +137,32 @@ def test_third_hand_is_refused(setup):
     setup["enroll"]("caleb", "L", hand="other")
     out = setup["enroll"]("caleb", "X", hand="other")     # try a 3rd distinct hand
     assert out["success"] is False and out["code"] == "hands_full"
+
+
+def test_same_side_second_hand_rejected(setup):
+    """No one has two right hands: a different hand detected on the SAME side as an
+    enrolled one is refused, even with explicit confirmation."""
+    for _ in range(3):
+        setup["enroll"]("caleb", "R")               # right hand -> side Right
+    out = setup["enroll"]("caleb", "L", hand="other", side="Right")  # different hand, still Right
+    assert out["success"] is False and out["code"] == "same_hand_side"
+    assert out.get("side") == "Right"
+
+
+def test_opposite_side_second_hand_allowed(setup):
+    for _ in range(3):
+        setup["enroll"]("caleb", "R")               # Right
+    out = setup["enroll"]("caleb", "L", hand="other", side="Left")
+    assert out["success"] and out["hand"] == 2
+
+
+def test_hand_sides_recorded_in_meta(setup):
+    setup["enroll"]("caleb", "R")
+    assert setup["st"].load_meta("caleb").get("hands") == ["Right"]
+    for _ in range(2):
+        setup["enroll"]("caleb", "R")
+    setup["enroll"]("caleb", "L", hand="other")
+    assert set(setup["st"].load_meta("caleb").get("hands")) == {"Right", "Left"}
 
 
 def test_pick_hands_clusters_and_caps():

@@ -58,6 +58,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     // asks whether to bind it as the person's OTHER hand (see confirmOtherHand).
     var pendingOtherHand by mutableStateOf<String?>(null); private set
     private var pendingHandEmb: FloatArray? = null
+    private var pendingHandSide: String = ""
     var livenessProgress by mutableStateOf(0f); private set
     var people by mutableStateOf<List<String>>(emptyList()); private set
 
@@ -239,15 +240,16 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if (!captureRequested.compareAndSet(true, false)) return
         val s = p.embed(bitmap, forEnroll = true)
         if (s.embedding == null) { status = s.message; return }
-        finishPalmEnroll(p.repo.enroll(enrollName, s.embedding), s.embedding)
+        finishPalmEnroll(p.repo.enroll(enrollName, s.embedding, handedness = s.handedness), s.embedding, s.handedness)
     }
 
     /** Palm enrol result handling: a different hand offers an "other hand" confirm; a
-     *  third hand is refused; otherwise the shared success/progress path runs. */
-    private fun finishPalmEnroll(r: com.faceverify.app.data.EnrollResult, emb: FloatArray) {
+     *  same-side or third hand is refused; otherwise the shared success/progress path runs. */
+    private fun finishPalmEnroll(r: com.faceverify.app.data.EnrollResult, emb: FloatArray, side: String) {
         when (r.code) {
-            "different_hand" -> { pendingHandEmb = emb; pendingOtherHand = r.message }
+            "different_hand" -> { pendingHandEmb = emb; pendingHandSide = side; pendingOtherHand = r.message }
             "hands_full" -> result = ScanResult(false, "Both hands enrolled", r.message)
+            "same_hand_side" -> result = ScanResult(false, "Same hand again", r.message)
             else -> finishEnroll(r, fromId = false)
         }
     }
@@ -256,10 +258,11 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmOtherHand() {
         val emb = pendingHandEmb ?: return
         val p = palm ?: return
-        pendingHandEmb = null; pendingOtherHand = null
+        val side = pendingHandSide
+        pendingHandEmb = null; pendingHandSide = ""; pendingOtherHand = null
         if (!processing.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.Default) {
-            try { finishEnroll(p.repo.enroll(enrollName, emb, hand = "other"), fromId = false) }
+            try { finishEnroll(p.repo.enroll(enrollName, emb, hand = "other", handedness = side), fromId = false) }
             finally { processing.set(false) }
         }
     }
@@ -305,7 +308,8 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                     if (p != null) {
                         val s = p.embed(bmp, forEnroll = true)
                         if (s.embedding != null) {
-                            finishPalmEnroll(p.repo.enroll(enrollName, s.embedding), s.embedding); return@launch
+                            finishPalmEnroll(p.repo.enroll(enrollName, s.embedding, handedness = s.handedness),
+                                s.embedding, s.handedness); return@launch
                         }
                         result = ScanResult(false, "No face or palm found", s.message); return@launch
                     }

@@ -275,6 +275,10 @@ async function doEnroll() {
         setHint(data.message || 'Both your hands are already enrolled.', 'warn');
         return;
     }
+    if (data.code === 'same_hand_side') {          // that side is already enrolled
+        setHint(data.message || 'That side is already enrolled — use your other hand.', 'warn');
+        return;
+    }
     if (data.code === 'step_up_required') {          // server insists on step-up first
         stepUp.required = true; stepUp.satisfied = false;
         stepUp.modality = data.step_up_modality || stepUp.modality;

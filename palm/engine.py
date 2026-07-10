@@ -123,6 +123,7 @@ class PalmSample:
     roi_px: int
     sharpness: float
     live_score: float = 1.0          # passive anti-spoof prob (1.0 if disabled)
+    handedness: str = ""             # 'Left' | 'Right' (MediaPipe; "" if unknown)
 
 
 def _preprocess(roi_bgr: np.ndarray, cfg: PalmConfig) -> np.ndarray:
@@ -159,7 +160,7 @@ def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmSample:
     det = _roi.detect(image, cfg)
     emb = _embed_roi(det.roi, cfg)
     return PalmSample(embedding=emb, hand_score=det.hand_score, roi_px=det.roi_px,
-                      sharpness=det.sharpness)
+                      sharpness=det.sharpness, handedness=det.handedness)
 
 
 def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
@@ -183,4 +184,4 @@ def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
                             code="palm_liveness")
     emb = _embed_roi(det.roi, cfg)
     return PalmSample(embedding=emb, hand_score=det.hand_score, roi_px=det.roi_px,
-                      sharpness=det.sharpness, live_score=live)
+                      sharpness=det.sharpness, live_score=live, handedness=det.handedness)

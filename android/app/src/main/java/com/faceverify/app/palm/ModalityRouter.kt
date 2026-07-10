@@ -87,7 +87,7 @@ class ModalityRouter(
     private suspend fun palmEnroll(userId: String, bitmap: Bitmap, hand: String = "auto"): Outcome {
         val s = palm?.embed(bitmap, forEnroll = true) ?: return unavailable()
         return if (s.embedding == null) palmBad(s)
-        else palm.repo.enroll(userId, s.embedding, hand).toOutcome(Modality.PALM)
+        else palm.repo.enroll(userId, s.embedding, hand, s.handedness).toOutcome(Modality.PALM)
     }
 
     private fun Decision.toOutcome(m: Modality) = Outcome(

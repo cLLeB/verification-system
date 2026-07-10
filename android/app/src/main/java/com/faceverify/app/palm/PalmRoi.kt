@@ -22,6 +22,7 @@ data class PalmDetection(
     val roiPx: Int,
     val sharpness: Float,
     val fingerSpread: Float,
+    val handedness: String = "",     // 'Left' | 'Right' (MediaPipe; "" if unknown)
 )
 
 /** Palm ROI extraction with MediaPipe Hands. Mirrors the server's palm/roi.py:
@@ -42,9 +43,11 @@ class PalmRoi private constructor(private val landmarker: HandLandmarker) {
             px[i * 2] = lms[i].x() * w
             px[i * 2 + 1] = lms[i].y() * h
         }
-        val score = result.handednesses().firstOrNull()?.firstOrNull()?.score() ?: 1f
+        val handed = result.handednesses().firstOrNull()?.firstOrNull()
+        val score = handed?.score() ?: 1f
+        val side = handed?.categoryName() ?: ""
         val (roi, roiPx) = extractRoi(bitmap, px) ?: return null
-        return PalmDetection(roi, score, roiPx, sharpness(roi), fingerSpread(px))
+        return PalmDetection(roi, score, roiPx, sharpness(roi), fingerSpread(px), side)
     }
 
     private fun pt(px: FloatArray, i: Int) = Pair(px[i * 2], px[i * 2 + 1])

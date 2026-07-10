@@ -96,6 +96,9 @@ object PalmConfig {
     // A person has at most two palms; one identity may enrol both (present either to
     // verify). Mirrors palm/config.py max_hands_per_user — keep in sync.
     const val MAX_HANDS_PER_USER = 2
+    // No one has two right (or two left) hands: reject a second hand whose detected
+    // side equals an already-enrolled hand's side. Mirrors reject_same_side_hand.
+    const val REJECT_SAME_SIDE_HAND = true
 
     // adaptive enrolment
     const val ADAPTIVE_UPDATE_THRESHOLD = 0.45f

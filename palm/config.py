@@ -79,6 +79,10 @@ class PalmConfig:
     # either to verify); a capture matching neither enrolled hand is accepted as the
     # second hand only on explicit confirm, and a THIRD distinct hand is refused.
     max_hands_per_user: int = 2
+    # No one has two right (or two left) hands: reject a second hand whose detected
+    # side (MediaPipe handedness, gated by min_hand_score) equals an already-enrolled
+    # hand's side. Set False if a capture domain mislabels handedness.
+    reject_same_side_hand: bool = True
 
     # --- passive anti-spoofing ---
     liveness_enabled: bool = True           # reject printed/screened palms

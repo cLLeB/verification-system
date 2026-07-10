@@ -180,6 +180,10 @@ class TemplateStore:
                 conn.execute("ALTER TABLE templates ADD COLUMN protected BLOB")
             if "user_epoch" not in cols:
                 conn.execute("ALTER TABLE templates ADD COLUMN user_epoch INTEGER NOT NULL DEFAULT 0")
+            if "meta" not in cols:
+                # Small non-sensitive per-identity JSON (e.g. palm hand sides). Lives
+                # with the row: deleted with it, untouched by reissue (embeddings-only).
+                conn.execute("ALTER TABLE templates ADD COLUMN meta TEXT")
 
     # --- protection domains --------------------------------------------------
     @property
@@ -459,6 +463,24 @@ class TemplateStore:
                 n += 1
         return n
 
+    # --- small per-identity metadata (non-sensitive; e.g. palm hand sides) --------
+    def load_meta(self, user_id: str) -> dict:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT meta FROM templates WHERE user_id=? AND deleted=0", (user_id,)
+            ).fetchone()
+        if not row or not row[0]:
+            return {}
+        try:
+            return json.loads(row[0])
+        except ValueError:
+            return {}
+
+    def save_meta(self, user_id: str, meta: dict) -> None:
+        with self._write_lock, self._connect() as conn:
+            conn.execute("UPDATE templates SET meta=? WHERE user_id=? AND deleted=0",
+                         (json.dumps(meta), user_id))
+
     def list_users(self) -> List[str]:
         with self._connect() as conn:
             return [r[0] for r in conn.execute(
@@ -478,7 +500,7 @@ class TemplateStore:
                 return False
             seq = self._next_seq(conn)
             conn.execute(
-                "UPDATE templates SET data=NULL, protected=NULL, deleted=1, seq=? WHERE user_id=?",
+                "UPDATE templates SET data=NULL, protected=NULL, meta=NULL, deleted=1, seq=? WHERE user_id=?",
                 (seq, user_id),
             )
         return True

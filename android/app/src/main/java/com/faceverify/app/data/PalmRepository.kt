@@ -21,7 +21,19 @@ class PalmRepository(context: Context) {
     private val dao = PalmDb.get(context).dao()
     private val index = LinkedHashMap<String, MutableList<FloatArray>>()
     private val userSeeds = HashMap<String, ByteArray>()
+    // Non-sensitive per-user hand sides (e.g. "Right,Left") for the same-side guard —
+    // isolated in prefs so no DB migration is needed. Cleared on delete.
+    private val sidesPrefs = context.applicationContext
+        .getSharedPreferences("palm_hand_sides", Context.MODE_PRIVATE)
     private val mutex = Mutex()
+
+    private fun handSidesOf(id: String): List<String> =
+        sidesPrefs.getString(id, "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+
+    private fun recordSide(id: String, existing: List<String>, side: String) {
+        if (side.isEmpty()) return
+        sidesPrefs.edit().putString(id, (existing + side).joinToString(",")).apply()
+    }
 
     suspend fun load() = mutex.withLock {
         index.clear()
@@ -61,7 +73,8 @@ class PalmRepository(context: Context) {
      *  hand needs confirmation ([hand] = "other"/"any") before it binds as hand two
      *  (otherwise a soft "different_hand" is returned); a third distinct hand is
      *  refused. The cross-user duplicate guard always runs. */
-    suspend fun enroll(userId: String, emb: FloatArray, hand: String = "auto"): EnrollResult = mutex.withLock {
+    suspend fun enroll(userId: String, emb: FloatArray, hand: String = "auto",
+                       handedness: String = ""): EnrollResult = mutex.withLock {
         val id = userId.trim()
         if (id.isEmpty()) return@withLock EnrollResult(false, "A name or ID is required.", "missing_user_id")
         val allowNewHand = hand == "other" || hand == "any" || hand == "second"
@@ -79,6 +92,7 @@ class PalmRepository(context: Context) {
         if (existing == null || existing.isEmpty()) {
             dao.insertPerson(Person(id))
             storeAnchor(id, emb, cap)
+            recordSide(id, emptyList(), handedness)
             return@withLock EnrollResult(true, "Enrolled hand 1 for '$id' (1 of ${PalmConfig.SAMPLES_PER_USER}).",
                 "enrolled", samples = 1, hand = 1)
         }
@@ -103,12 +117,21 @@ class PalmRepository(context: Context) {
         if (hands.size >= PalmConfig.MAX_HANDS_PER_USER) {
             return@withLock EnrollResult(false, "'$id' already has both hands enrolled — no more palms can be added.", "hands_full")
         }
+        // No one has two right (or two left) hands: refuse a different hand on the SAME
+        // side as one already enrolled.
+        val sides = handSidesOf(id)
+        if (PalmConfig.REJECT_SAME_SIDE_HAND && handedness.isNotEmpty() && handedness in sides) {
+            return@withLock EnrollResult(false,
+                "'$id' already has a ${handedness.lowercase()} palm — a person has only one ${handedness.lowercase()} hand. Enrol the OTHER hand.",
+                "same_hand_side")
+        }
         if (!allowNewHand) {
             return@withLock EnrollResult(false,
                 "This looks like a different hand than the one enrolled for '$id'. Add it as their other hand?",
                 "different_hand", hand = hands.size)
         }
         storeAnchor(id, emb, cap)
+        recordSide(id, sides, handedness)
         EnrollResult(true, "Started this person's other hand for '$id' (1 of ${PalmConfig.SAMPLES_PER_USER}).",
             "enrolled", samples = 1, hand = hands.size + 1)
     }
@@ -168,6 +191,7 @@ class PalmRepository(context: Context) {
         dao.deletePerson(id)
         index.remove(id)
         userSeeds.remove(id)
+        sidesPrefs.edit().remove(id).apply()
         true
     }
 

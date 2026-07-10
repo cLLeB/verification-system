@@ -65,6 +65,21 @@ def _quality(sample) -> dict:
             "sharpness": round(float(getattr(sample, "sharpness", 0.0)), 1)}
 
 
+def _hand_sides(st: TemplateStore, user_id: str) -> list:
+    """The sides ('Left'/'Right') of the hands already enrolled for this user, from the
+    template's meta (best-effort — empty if unknown, e.g. bulk-imported users)."""
+    return list(st.load_meta(user_id).get("hands", []))
+
+
+def _record_side(st: TemplateStore, user_id: str, sides: list, side: str) -> None:
+    """Append a newly-enrolled hand's side to the user's meta (no-op if unknown)."""
+    if not side:
+        return
+    meta = st.load_meta(user_id)
+    meta["hands"] = list(sides) + [side]
+    st.save_meta(user_id, meta)
+
+
 def _dupe_check(emb, user_id: str, st: TemplateStore, cfg: PalmConfig):
     """This palm must not already belong to a DIFFERENT identity, whichever hand it
     is. Returns a duplicate-failure dict, or None. (Cross-user only — matching one of
@@ -158,6 +173,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     if not anchors:
         st.add_embedding(user_id, emb, max_anchors=cap)
         _index_for(st, cfg).add(user_id, probe)
+        _record_side(st, user_id, [], sample.handedness)
         return _enrolled(user_id, 1, 1, cfg, sample)
 
     hands = _clusters.group(anchors, cfg.match_threshold)
@@ -177,6 +193,15 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     if len(hands) >= cfg.max_hands_per_user:
         return _fail(f"'{user_id}' already has both hands enrolled — no more palms "
                      f"can be added to this name.", "hands_full", user_id=user_id)
+    # No one has two right (or two left) hands: a different hand on the SAME side as an
+    # already-enrolled one is not this person's other palm — refuse it outright.
+    sides = _hand_sides(st, user_id)
+    side = sample.handedness
+    if cfg.reject_same_side_hand and side and side in sides:
+        return _fail(
+            f"'{user_id}' already has a {side.lower()} palm enrolled — a person has only "
+            f"one {side.lower()} hand. Enrol the OTHER hand, or use a different name if "
+            f"this is someone else.", "same_hand_side", user_id=user_id, side=side)
     if not allow_new_hand:
         return {"success": False, "code": "different_hand", "modality": "palm",
                 "message": f"This looks like a different hand than the one already "
@@ -187,6 +212,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     # Explicit confirmation -> second hand, sample 1.
     st.add_embedding(user_id, emb, max_anchors=cap)
     _index_for(st, cfg).add(user_id, probe)
+    _record_side(st, user_id, sides, side)
     return _enrolled(user_id, len(hands) + 1, 1, cfg, sample, new_hand=True)
 
 

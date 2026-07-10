@@ -386,6 +386,7 @@ async function handle(data) {
             }
             reset('Okay — present the SAME hand you enrolled first.', 'warn'); return;
         }
+        if (data.code === 'same_hand_side') { show('warn', ICON_BAD, 'Same hand again', data.message || ''); return; }
         if (data.code === 'hands_full') { show('warn', ICON_BAD, 'Both hands already enrolled', data.message || ''); return; }
         if (data.code === 'inconsistent' || data.code === 'duplicate') { reset(data.message, 'warn'); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || ''); return;
