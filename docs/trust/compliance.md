@@ -3,8 +3,8 @@
 Audience: a data-protection officer or procurement reviewer. Every row maps a
 legal obligation to the **concrete product mechanism that enforces it and the
 code path that implements it** — nothing here is aspirational. Companion pages:
-the public [Trust Center](/trust) (measured numbers) and
-[security-keys.md](../security-keys.md) (operator how-tos).
+the public [Trust Center](/trust) (measured numbers) and the
+[System guide](../GUIDE.md#2-security--privacy) (security design + operator how-tos).
 
 Biometric templates are **special category / sensitive personal data** under
 both regimes (GDPR Art. 9; DPA s.35 "special personal data"). The system is
@@ -42,7 +42,7 @@ identities (`face_service/tenants.py`, `biometric/core/crypto.py`,
 | Breach mitigation (Art. 33-34 / s.31) | **Reissue**: after a suspected leak, one action moves every template to a new domain — leaked copies stop matching instantly, no re-enrolment; per-person reissue auto-revokes that person's credentials | `POST /v1/templates/reissue`, `store.reissue`, `credentials.revoke_for_user` |
 | Accountability / records (Art. 30 / s.24) | Append-only per-tenant audit log of enrol/verify/identify/export/reissue/credential events with actor + outcome; admin console Audit tab | `face_service/audit.py` |
 | Data-transfer control (Art. 44+ / s.45) | Nothing leaves the server unless the controller opts in (`allow_export`); exports are passphrase-encrypted and carry protected forms only; the airgapped deployment never opens a network path | `tenants.set_entitlement`, `face_service/bundle.py`, offline APK flavor |
-| Automated decision safeguards (Art. 22 / s.41) | Every verdict carries score + threshold + typed reason; thresholds are measured and clamped, not guessed; liveness gates prevent photo attacks; a human-readable failure screen accompanies every rejection | `face_service/glance.py` (calibration), `docs/ERRORS.md` |
+| Automated decision safeguards (Art. 22 / s.41) | Every verdict carries score + threshold + typed reason; thresholds are measured and clamped, not guessed; liveness gates prevent photo attacks; a human-readable failure screen accompanies every rejection | `face_service/glance.py` (calibration), `docs/API.md` (error codes) |
 
 ## 4. Retention & erasure guarantees, concretely
 

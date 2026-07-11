@@ -25,4 +25,4 @@ by the Android app (`android/.../Config.kt`).
 - Person score = **max** cosine over their stored embeddings.
 - Templates are **encrypted at rest**; the index is encrypted too (`index/`).
 
-See [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for data flow.
+See [../docs/GUIDE.md#13-data-flow](../docs/GUIDE.md#13-data-flow) for data flow.

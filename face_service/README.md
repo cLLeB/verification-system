@@ -22,8 +22,8 @@ Mounted by `app.py`. HTTP-aware; depends on `face/` for the actual recognition.
 
 ## Conventions
 - Each endpoint: `@require_scope(...)` (auth) → `@idempotent` (writes) → `@usage.billable(...)`.
-- Responses are JSON envelopes (`success`/`code`/`message`); see [../docs/ERRORS.md](../docs/ERRORS.md).
+- Responses are JSON envelopes (`success`/`code`/`message`); see [../docs/API.md#7-error--code-reference](../docs/API.md#7-error--code-reference).
 - Per-tenant isolation: data under `<db>/tenants/<tenant>/`; CORS/webhooks/usage per tenant.
 - State files are env-configurable and gitignored (keys, admins, tenants, usage, audit).
 
-See [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) and [../docs/INTEGRATION.md](../docs/INTEGRATION.md).
+See [../docs/GUIDE.md#1-architecture](../docs/GUIDE.md#1-architecture) and [../docs/API.md](../docs/API.md).

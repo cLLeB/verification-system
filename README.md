@@ -370,7 +370,7 @@ In everyday terms:
   faces).
 
 Always obtain a person's consent before registering them. Full detail:
-[Security & Privacy](docs/SECURITY.md) and the compliance summary at `/trust`.
+[Security & Privacy](docs/GUIDE.md#2-security--privacy) and the compliance summary at `/trust`.
 
 ---
 
@@ -383,7 +383,7 @@ Add identity to your own product with a simple web API — no biometric work of 
 - **Ready-made libraries** for Python and JavaScript are in [`sdk/`](sdk/) — a few lines
   to enrol, verify, identify, issue and check credentials, run Glance, and more.
 - **Everything is documented** in [`openapi.yaml`](openapi.yaml) (import into Postman or
-  code generators) and [`docs/INTEGRATION.md`](docs/INTEGRATION.md), with a live,
+  code generators) and [`docs/API.md`](docs/API.md), with a live,
   self-contained reference at `/docs` on a running server.
 
 ```python
@@ -414,16 +414,15 @@ python app.py            # opens a secure dev server on :5000
 Open `https://<this-computer's-ip>:5000` on a phone on the same Wi-Fi, allow the camera,
 and you're running. For always-on public hosting (a free cloud Space, your own server
 with Docker, or a Cloudflare tunnel), and how to keep data safe across restarts, see
-**[docs/DEPLOY.md](docs/DEPLOY.md)** and **[docs/OPERATIONS.md](docs/OPERATIONS.md)**.
+the [Deployment](docs/GUIDE.md#4-deployment) and [Operations](docs/GUIDE.md#3-operations) sections of the guide.
 
 ## Full documentation
 
-Plain-language and technical guides live in **[`docs/`](docs/README.md)**:
+Two consolidated docs live in **[`docs/`](docs/)**:
 
-- **[Architecture](docs/ARCHITECTURE.md)** — how the pieces fit together
-- **[Security & Privacy](docs/SECURITY.md)** · **[Signing keys, encryption & protected templates](docs/security-keys.md)** · **[Compliance mapping](docs/trust/compliance.md)**
-- **[Integration guide](docs/INTEGRATION.md)** · **[API error codes](docs/ERRORS.md)** · **[`openapi.yaml`](openapi.yaml)**
-- **[Operations](docs/OPERATIONS.md)** · **[Deploy](docs/DEPLOY.md)** · **[Android](docs/ANDROID.md)**
+- **[System guide](docs/GUIDE.md)** — architecture, security & privacy, operations, deployment, development, and direction (one technical reference).
+- **[Integration & API reference](docs/API.md)** — how other apps integrate: managed/stateless flows, SDKs, credentials, Glance, and the full error/code table. Machine-readable spec in [`openapi.yaml`](openapi.yaml).
+- **[Compliance mapping](docs/trust/compliance.md)** — Ghana DPA (Act 843) + GDPR, each obligation tied to its code path.
 - **[What's new (Changelog)](CHANGELOG.md)** · **[Things that need you (manual checklist)](docs/trust/MANUAL-CHECKS.md)**
 
 ---
