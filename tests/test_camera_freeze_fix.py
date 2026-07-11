@@ -41,8 +41,9 @@ def test_every_capture_surface_has_the_watchdog_and_fresh_frame_gate():
 
 def test_capture_calls_ensure_before_grabbing_a_frame():
     # app.js: enrol + verify both gate before grabFrame (allow a trailing comment)
+    # enrol now captures a burst — it gates on a fresh frame on every iteration.
     app = _read("static/app.js")
-    assert re.search(r"await ensureLiveVideo\(video\);.*\n\s*const img = grabFrame\(\)", app)
+    assert re.search(r"await ensureLiveVideo\(video\);.*\n\s*const f = grabFrame\(\)", app)
     assert re.search(r"await ensureLiveVideo\(video\);.*\n\s*const img0 = grabFrame\(\)", app)
     # enroll.js: the single capture choke point gates first
     enr = _read("static/enroll.js")
