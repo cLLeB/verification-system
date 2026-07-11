@@ -894,6 +894,14 @@ def admin_invites_create():
     if not name:
         return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+    # Already-complete identities get no invite: there is nothing to add, and a
+    # self-enrol link would only re-bind/refresh existing biometrics (and burn on
+    # Finish). Delete the person first to deliberately re-enrol.
+    _fc, _pe = _invite_target(tenant)
+    if _modality.is_fully_enrolled(name, _fc, _pe):
+        return jsonify({"success": False, "code": "already_enrolled",
+                        "message": f"'{name}' is already fully enrolled (face + palm). "
+                                   f"Delete them first if you want to re-enrol."}), 409
     info = _create_scoped_invite(name, tenant, data.get("expires_in_hours"),
                                  _req_modalities(data),
                                  issue_credential=bool(data.get("issue_credential")))
@@ -921,14 +929,19 @@ def admin_invites_bulk():
     requested = _req_modalities(data)
     hours = data.get("expires_in_hours")
     issue_cred = bool(data.get("issue_credential"))
+    # Skip names that are already fully enrolled — no invite to mint for them.
+    _fc, _pe = _invite_target(tenant)
+    skipped = [n for n in names if _modality.is_fully_enrolled(n, _fc, _pe)]
+    to_mint = [n for n in names if n not in set(skipped)]
     batch = [_create_scoped_invite(n, tenant, hours, requested,
-                                   issue_credential=issue_cred) for n in names]
+                                   issue_credential=issue_cred) for n in to_mint]
     stepped = sum(1 for b in batch if b["requires_step_up"])
     audit.log(_FP_TENANT, "invite_bulk", actor=g.get("admin_user", "admin"),
               success=True,
-              detail=f"{len(batch)} invites, tenant={tenant}, {stepped} step-up")
+              detail=f"{len(batch)} invites, tenant={tenant}, {stepped} step-up, "
+                     f"{len(skipped)} already-enrolled skipped")
     return jsonify({"success": True, "tenant": tenant, "count": len(batch),
-                    "invites": _invite_links(batch)})
+                    "invites": _invite_links(batch), "skipped": skipped})
 
 
 def _purge_invite_enrolments(rec: dict) -> list:
@@ -1226,7 +1239,8 @@ def api_invite_stepup():
     face_cfg, palm_enabled = _invite_target(tenant)
 
     frames = data.get("frames")
-    if step_mod == "face" and CONFIG.active_liveness and frames:
+    if frames and CONFIG.active_liveness and data.get("token_challenge"):
+        # A face liveness burst (head-turn) — verify the face.
         imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
         if not imgs:
             return jsonify({"success": False, "message": "Failed to decode frames."})
@@ -1235,17 +1249,23 @@ def api_invite_stepup():
                             "message": "Challenge expired — try again."})
         res = engine.verify_live(uid, imgs, face_cfg)
     else:
-        img = decode_image(data.get("image", ""))
+        # A palm (or non-liveness) burst: confirm from the sharpest frame. Accept ANY
+        # biometric this person already holds — proving either their face OR a palm
+        # proves they're the pre-assigned person, so the capture is auto-routed.
+        if frames:
+            decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
+            img = _modality.best_enroll_frame(decoded, face_cfg, palm_enabled) if decoded else None
+        else:
+            img = decode_image(data.get("image", ""))
         if img is None:
             return jsonify({"success": False, "message": "Failed to decode image."})
-        # Pin to the existing modality so the wrong biometric can't accidentally pass.
-        res = _modality.verify(uid, img, face_cfg, palm_enabled=palm_enabled,
-                               modality=step_mod)
+        res = _modality.verify(uid, img, face_cfg, palm_enabled=palm_enabled)
     ok = bool(res.get("success"))
     if ok:
         invites.mark_stepped_up(token)
     audit.log(tenant, "self_enroll_stepup", actor=f"invite:{rec['invite_id']}", user_id=uid,
-              success=ok, detail=f"modality={step_mod} score={res.get('score')}")
+              success=ok, detail=f"via={res.get('matched_modality') or res.get('modality')} "
+                                 f"score={res.get('score')}")
     return jsonify({"success": ok,
                     "code": "step_up_ok" if ok else "step_up_failed",
                     "message": ("Identity confirmed — you can now add the new modality."
@@ -1274,7 +1294,8 @@ def api_invite_enroll():
     # Optional liveness-gated face self-enrol (fix B): when active liveness is on and
     # a frame burst is posted, enrol from a confirmed live head-turn, not a still.
     frames = data.get("frames")
-    if frames and "face" in allowed and CONFIG.active_liveness:
+    if frames and "face" in allowed and CONFIG.active_liveness and data.get("token_challenge"):
+        # Face liveness burst (head-turn) path.
         imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
         if not imgs:
             return jsonify({"success": False, "message": "Failed to decode frames."})
@@ -1286,7 +1307,13 @@ def api_invite_enroll():
         _record_self_enroll(token, tenant, rec, result, imgs[len(imgs) // 2])
         return jsonify(result)
 
-    img = decode_image(data.get("image", ""))
+    # Otherwise a capture burst (palm, or non-liveness face): enrol from the SHARPEST
+    # frame so one soft/ghosted still never decides it. Falls back to a single 'image'.
+    if frames:
+        decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
+        img = _modality.best_enroll_frame(decoded, face_cfg, palm_enabled) if decoded else None
+    else:
+        img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
     # If active liveness is required for self-enrol, refuse a single still for a face.
@@ -1366,7 +1393,13 @@ def api_invite_finish():
 @admin.require_admin
 def api_enroll():
     data = request.get_json(silent=True) or {}
-    img = decode_image(data.get("image", ""))
+    # Accept a capture burst (preferred — the sharpest frame wins) or a single image.
+    frames = data.get("frames")
+    if frames:
+        decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
+        img = _modality.best_enroll_frame(decoded, CONFIG, True) if decoded else None
+    else:
+        img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
     uid = data.get("user_id", "")

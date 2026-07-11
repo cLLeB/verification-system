@@ -109,11 +109,11 @@ function inStepUp() {
 // Reflect the current phase (step-up vs enrol) in the banner + button label + hint.
 function renderPhase() {
     if (inStepUp()) {
-        const m = stepUp.modality === 'palm' ? 'palm' : 'face';
-        setModeNote(`Security check: this link adds a new biometric to an existing ` +
-            `record. First confirm your ${m} to prove it's you.`);
-        captureBtn.textContent = `Confirm ${m}`;
-        setHint(`Show your ${m} to confirm your identity, then tap Confirm ${m}`);
+        setModeNote('Security check: this link adds a new biometric to an existing ' +
+            "record. First confirm your identity with a biometric you've already " +
+            'enrolled — your face (front camera) OR your palm (rear camera).');
+        captureBtn.textContent = 'Confirm identity';
+        setHint('Show your enrolled face or palm, then tap Confirm identity');
     } else {
         setModeNote('');
         captureBtn.textContent = 'Capture';
@@ -213,16 +213,29 @@ async function captureBurst() {
     return frames;
 }
 
-// Build the POST body for a capture: a liveness burst for a live face (when the
-// server requires it), else a single still.
+// A short burst of fresh stills (no head-turn) — the server keeps the sharpest, so
+// one soft/ghosted frame never decides a capture. Used for palm and non-liveness face.
+async function captureStillBurst(n = 5, gap = 110) {
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+        await ensureLiveVideo(video);             // never a stale/frozen frame
+        const f = grabFrame();
+        if (f) frames.push(f);
+        if (i < n - 1) await sleep(gap);
+    }
+    return frames;
+}
+
+// Build the POST body for a capture: a liveness head-turn burst for a live face (when
+// the server requires it), else a short still burst (sharpest frame wins server-side).
 async function captureBody() {
     await ensureLiveVideo(video);                 // never capture a stale/frozen frame
     if (liveness && faceCapture()) {
         const token_challenge = await getChallengeToken();
         if (token_challenge) return { frames: await captureBurst(), token_challenge };
     }
-    const img = grabFrame();
-    return img ? { image: img } : null;
+    const frames = await captureStillBurst();
+    return frames.length ? { frames } : null;
 }
 
 async function doStepUp() {

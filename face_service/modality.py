@@ -187,6 +187,14 @@ def user_modalities(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = Tru
     return out
 
 
+def is_fully_enrolled(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> bool:
+    """True when this user already holds every modality this deployment offers (face,
+    and palm when enabled) — so an add-a-modality invite would have nothing to add."""
+    have = set(user_modalities(user_id, face_cfg, palm_enabled))
+    available = {"face"} | ({"palm"} if palm_enabled else set())
+    return bool(have) and have >= available
+
+
 def invite_scope(user_id: str, face_cfg: FaceConfig, palm_enabled: bool,
                  requested=None):
     """Canonical invite modality-scope + step-up decision (shared by the admin
@@ -324,6 +332,29 @@ def best_palm_frame(images: list, face_cfg: FaceConfig):
         if det.sharpness > best_sharp:
             best_img, best_sharp = img, det.sharpness
     return best_img if best_img is not None else images[len(images) // 2]
+
+
+def best_enroll_frame(images: list, face_cfg: FaceConfig, palm_enabled: bool = True):
+    """From a client capture BURST, the best single frame to enrol/verify from — the
+    sharpest palm ROI if any frame holds a palm, else the middle frame (a face; the
+    client's freeze watchdog keeps it fresh). So no enrol/step-up ever hinges on one
+    soft still. Fail-soft: returns None only if nothing decodes."""
+    decoded = [im for im in images if im is not None]
+    if not decoded:
+        return None
+    if palm_enabled:
+        pcfg = _palm_cfg_for(face_cfg)
+        best_img, best_sharp = None, -1.0
+        for img in decoded:
+            try:
+                s = _palm_roi.detect(img, pcfg).sharpness
+            except Exception:
+                continue
+            if s > best_sharp:
+                best_img, best_sharp = img, s
+        if best_img is not None:
+            return best_img                     # sharpest palm across the burst
+    return decoded[len(decoded) // 2]           # no palm -> face capture; middle frame
 
 
 # --- verify (1:1) ----------------------------------------------------------

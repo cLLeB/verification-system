@@ -233,6 +233,11 @@ def portal_invites_create():
     name = (data.get("user_id") or data.get("name") or "").strip()
     if not name:
         return jsonify({"success": False, "message": "A person's name/ID is required."}), 400
+    face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+    if _modality.is_fully_enrolled(name, face_cfg, palm_enabled):
+        return jsonify({"success": False, "code": "already_enrolled",
+                        "message": f"'{name}' is already fully enrolled (face + palm). "
+                                   f"Delete them first if you want to re-enrol."}), 409
     info = _create_scoped_invite(name, g.portal_tenant,          # tenant fixed to session
                                  data.get("expires_in_hours"), _req_modalities(data))
     return jsonify({"success": True, **_invite_links([info])[0]})
@@ -254,9 +259,12 @@ def portal_invites_bulk():
         return jsonify({"success": False, "message": "No names found in the upload."}), 400
     requested = _req_modalities(data)
     hours = data.get("expires_in_hours")
-    batch = [_create_scoped_invite(n, g.portal_tenant, hours, requested) for n in names]
+    face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
+    skipped = [n for n in names if _modality.is_fully_enrolled(n, face_cfg, palm_enabled)]
+    to_mint = [n for n in names if n not in set(skipped)]
+    batch = [_create_scoped_invite(n, g.portal_tenant, hours, requested) for n in to_mint]
     return jsonify({"success": True, "tenant": g.portal_tenant, "count": len(batch),
-                    "invites": _invite_links(batch)})
+                    "invites": _invite_links(batch), "skipped": skipped})
 
 
 @portal_bp.post("/portal/api/invites/revoke")

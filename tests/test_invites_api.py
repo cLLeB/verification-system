@@ -19,6 +19,18 @@ def _wipe(client):
         client.post("/api/users/delete", json={"user_id": u})
 
 
+def test_invite_blocked_when_already_fully_enrolled(client, fresh_invites, monkeypatch):
+    """No invite for someone who already holds every modality — there's nothing to
+    add and a link would only refresh/burn. Admin gets a clear 409."""
+    from face_service import modality as _m
+    _login(client)
+    monkeypatch.setattr(_m, "is_fully_enrolled", lambda *a, **k: True)
+    r = client.post("/admin/api/invites", json={"user_id": "Already Complete"})
+    assert r.status_code == 409
+    body = r.get_json()
+    assert body["success"] is False and body["code"] == "already_enrolled"
+
+
 # --- admin management ------------------------------------------------------
 def test_admin_create_list_revoke(client, fresh_invites):
     _login(client)
