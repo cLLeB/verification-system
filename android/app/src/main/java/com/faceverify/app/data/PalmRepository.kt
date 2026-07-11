@@ -5,6 +5,7 @@ import android.util.Base64
 import com.faceverify.app.PalmConfig
 import com.faceverify.app.face.Decision
 import com.faceverify.app.face.Matcher
+import com.faceverify.app.palm.PalmClusters
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
