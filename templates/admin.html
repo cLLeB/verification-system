@@ -70,7 +70,7 @@
             <div class="card">
                 <h2>Invite people to self-enrol</h2>
                 <p class="muted">Send each person a private link. They open it on their own phone and
-                    enrol their face/palm under the name <b>you</b> assign — no admin password shared.
+                    enrol their face/print under the name <b>you</b> assign — no admin password shared.
                     Each link is single-use and expires. Links are shown <b>once</b> below — copy or
                     download them now; afterwards only their status is kept.</p>
                 <input id="inv-name" class="field" type="text" placeholder="Person's full name or ID (e.g. Kofi Mensah)">
@@ -149,11 +149,11 @@
                         (hybrid offline sync — devices may pull this tenant's embeddings)</label>
                 </div>
                 <div class="row">
-                    <label class="chk"><input id="ent-palm" type="checkbox" checked> Enable palm modality
-                        (users can enrol/verify by palm as well as face)</label>
-                    <select id="ent-policy" class="field" title="How face + palm combine for a user enrolled in both">
-                        <option value="or">Match policy: either (face OR palm)</option>
-                        <option value="fallback">Match policy: palm as fallback</option>
+                    <label class="chk"><input id="ent-palm" type="checkbox" checked> Enable print modality
+                        (users can enrol/verify by print as well as face)</label>
+                    <select id="ent-policy" class="field" title="How face + print combine for a user enrolled in both">
+                        <option value="or">Match policy: either (face OR print)</option>
+                        <option value="fallback">Match policy: print as fallback</option>
                         <option value="and">Match policy: require both (step-up)</option>
                     </select>
                 </div>
@@ -197,7 +197,7 @@
             </div>
             <div class="card">
                 <h2>Template protection <span class="muted">(revocable biometrics)</span></h2>
-                <p class="muted">Stored face/palm templates are kept in a <b>scrambled, revocable
+                <p class="muted">Stored face/print templates are kept in a <b>scrambled, revocable
                     form</b> &mdash; a copy taken from the database or an export can't be matched
                     anywhere else, and can be cancelled like a password. <b>Reissue</b> re-scrambles
                     everything: old copies stop working instantly, and enrolled people keep
@@ -275,6 +275,6 @@
     </section>
 </main>
 <canvas id="canvas" hidden></canvas>
-<script src="/static/admin.js?v=7"></script>
+<script src="/static/admin.js?v=8"></script>
 </body>
 </html>

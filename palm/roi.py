@@ -57,7 +57,7 @@ def _ensure(cfg: PalmConfig = CONFIG):
     if _landmarker is not None:
         return _landmarker
     if not available(cfg):
-        raise PalmError("Palm hand-detector is not available on this server.",
+        raise PalmError("Hand detector is not available on this server.",
                         code="palm_unavailable")
     with _lock:
         if _landmarker is None:
@@ -140,7 +140,7 @@ def _extract_roi(image: np.ndarray, pts: np.ndarray, roi_size: int
     cx, cy = float(center[0]), float(center[1])
     half = int(round(side / 2.0))
     if half <= 0:
-        raise PalmError("Palm is out of frame — center your open hand.", code="palm_too_small")
+        raise PalmError("Your hand is out of frame — center your open hand.", code="palm_too_small")
     # Warp ONLY the ROI region straight to a (2*half)² crop, instead of rotating the
     # whole frame (which is huge waste on multi-MP phone photos — a 3840×2160 shot
     # warped in full just to keep a ~few-hundred-px ROI). The rotation, INTER_LINEAR
@@ -154,7 +154,7 @@ def _extract_roi(image: np.ndarray, pts: np.ndarray, roi_size: int
     crop = cv2.warpAffine(image, M, (size, size), flags=cv2.INTER_LINEAR,
                           borderMode=cv2.BORDER_REFLECT_101)
     if crop.size == 0:
-        raise PalmError("Palm is out of frame — center your open hand.", code="palm_too_small")
+        raise PalmError("Your hand is out of frame — center your open hand.", code="palm_too_small")
     roi = cv2.resize(crop, (roi_size, roi_size), interpolation=cv2.INTER_AREA)
     return roi, size, (int(cx), int(cy))
 
@@ -218,10 +218,10 @@ def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmDetection:
     quality-pass / liveness — those are layered by ``quality_ok`` and the engine)."""
     dets = [d for d in _detect_raw(image, cfg) if d.hand_score >= cfg.min_hand_score]
     if not dets:
-        raise PalmError("No palm detected. Hold an open hand to the camera, in good light.",
+        raise PalmError("No hand detected. Hold an open hand to the camera, in good light.",
                         code="no_hand")
     if len(dets) > cfg.max_hands:
-        raise PalmError("More than one hand in view. Show one open palm at a time.",
+        raise PalmError("More than one hand in view. Show one open hand at a time.",
                         code="multiple_hands")
     return max(dets, key=lambda d: d.roi_px)
 
@@ -229,13 +229,13 @@ def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmDetection:
 def quality_ok(det: PalmDetection, cfg: PalmConfig = CONFIG) -> Optional[Tuple[str, str]]:
     """Capture-quality gate. Returns ``(code, message)`` on failure, else None."""
     if det.roi_px < cfg.min_roi_px:
-        return ("palm_too_small", "Palm too small — move your hand closer to the camera.")
+        return ("palm_too_small", "Hand too small — move your hand closer to the camera.")
     if det.sharpness < cfg.min_sharpness:
-        return ("palm_blurry", "Image is blurry — hold steady and keep your palm in focus.")
+        return ("palm_blurry", "Image is blurry — hold steady and keep your hand in focus.")
     if det.finger_spread < cfg.min_finger_spread:
-        return ("fingers_not_spread", "Spread your fingers and open your palm fully.")
+        return ("fingers_not_spread", "Spread your fingers and open your hand fully.")
     if cfg.require_palm_facing and not det.palm_facing:
-        return ("palm_not_facing", "Show the palm side of your hand, not the back.")
+        return ("palm_not_facing", "Show the inside of your hand, not the back.")
     return None
 
 
@@ -252,12 +252,12 @@ def enroll_quality_ok(det: PalmDetection, image: np.ndarray,
     frame_short = float(min(image.shape[:2])) if image is not None else 0.0
     if frame_short > 0 and det.roi_px < cfg.enroll_min_roi_frac * frame_short:
         return ("palm_enroll_too_far",
-                "Bring your palm closer — it should fill most of the frame to enrol.")
+                "Bring your hand closer — it should fill most of the frame to enrol.")
     gray_mean = float(cv2.cvtColor(det.roi, cv2.COLOR_BGR2GRAY).mean())
     if gray_mean < cfg.enroll_min_brightness:
         return ("palm_enroll_too_dark",
                 "Too dark to enrol — move near a window or add light, then try again.")
     if gray_mean > cfg.enroll_max_brightness:
         return ("palm_enroll_too_bright",
-                "Too bright / washed out to enrol — avoid direct glare on your palm.")
+                "Too bright / washed out to enrol — avoid direct glare on your hand.")
     return None

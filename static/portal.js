@@ -49,7 +49,7 @@ function renderEntitlement(e) {
         <div class="stat"><div class="n">${e.plan}</div><div class="l">plan</div></div>
         <div class="stat"><div class="n">${e.used}</div><div class="l">keys in use</div></div>
         <div class="stat"><div class="n">${e.max_keys || '∞'}</div><div class="l">max keys</div></div>
-        <div class="stat"><div class="n">${e.palm_enabled ? 'On' : 'Off'}</div><div class="l">palm</div></div>`;
+        <div class="stat"><div class="n">${e.palm_enabled ? 'On' : 'Off'}</div><div class="l">print</div></div>`;
     const policy = $('match-policy');
     if (policy && e.match_policy) policy.value = e.match_policy;
     $('disabled-note').classList.toggle('hidden', e.enabled);

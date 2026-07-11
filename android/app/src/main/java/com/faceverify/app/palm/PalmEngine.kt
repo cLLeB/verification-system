@@ -37,15 +37,15 @@ class PalmEngine private constructor(
      *  server's palm/roi.py enroll_quality_ok. */
     suspend fun embed(bitmap: Bitmap, forEnroll: Boolean = false): PalmSample = withContext(Dispatchers.Default) {
         val det = roi.detect(bitmap)
-            ?: return@withContext PalmSample(null, "no_hand", "No palm detected — show an open hand.")
+            ?: return@withContext PalmSample(null, "no_hand", "No hand detected — show an open hand.")
         if (det.handScore < PalmConfig.MIN_HAND_SCORE)
-            return@withContext PalmSample(null, "no_hand", "Hold an open palm to the camera.", det.handScore, det.roiPx)
+            return@withContext PalmSample(null, "no_hand", "Hold an open hand to the camera.", det.handScore, det.roiPx)
         if (det.roiPx < PalmConfig.MIN_ROI_PX)
             return@withContext PalmSample(null, "palm_too_small", "Move your hand closer.", det.handScore, det.roiPx)
         if (det.sharpness < PalmConfig.MIN_SHARPNESS)
-            return@withContext PalmSample(null, "palm_blurry", "Hold steady — keep your palm in focus.", det.handScore, det.roiPx)
+            return@withContext PalmSample(null, "palm_blurry", "Hold steady — keep your hand in focus.", det.handScore, det.roiPx)
         if (det.fingerSpread < PalmConfig.MIN_FINGER_SPREAD)
-            return@withContext PalmSample(null, "fingers_not_spread", "Spread your fingers and open your palm.", det.handScore, det.roiPx)
+            return@withContext PalmSample(null, "fingers_not_spread", "Spread your fingers and open your hand.", det.handScore, det.roiPx)
         if (forEnroll) {
             if (det.sharpness < PalmConfig.ENROLL_MIN_SHARPNESS)
                 return@withContext PalmSample(null, "palm_enroll_blurry",
@@ -54,14 +54,14 @@ class PalmEngine private constructor(
             val frameShort = minOf(bitmap.width, bitmap.height).toFloat()
             if (det.roiPx < PalmConfig.ENROLL_MIN_ROI_FRAC * frameShort)
                 return@withContext PalmSample(null, "palm_enroll_too_far",
-                    "Bring your palm closer — fill most of the frame to enrol.", det.handScore, det.roiPx)
+                    "Bring your hand closer — fill most of the frame to enrol.", det.handScore, det.roiPx)
             val bright = brightness(det.roi)
             if (bright < PalmConfig.ENROLL_MIN_BRIGHTNESS)
                 return@withContext PalmSample(null, "palm_enroll_too_dark",
                     "Too dark to enrol — face a window or add light.", det.handScore, det.roiPx)
             if (bright > PalmConfig.ENROLL_MAX_BRIGHTNESS)
                 return@withContext PalmSample(null, "palm_enroll_too_bright",
-                    "Too bright to enrol — avoid direct glare on your palm.", det.handScore, det.roiPx)
+                    "Too bright to enrol — avoid direct glare on your hand.", det.handScore, det.roiPx)
         }
         PalmSample(encode(det.roi), "", "ok", det.handScore, det.roiPx, det.handedness)
     }

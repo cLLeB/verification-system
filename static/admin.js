@@ -196,7 +196,7 @@ function invLinkRow(inv) {
     const div = document.createElement('div');
     div.className = 'item';
     div.innerHTML = `<div class="grow"><div>${inv.user_id}
-        <span class="pill">${(inv.modalities || []).join('+') || 'face+palm'}</span>
+        <span class="pill">${((inv.modalities || []).join('+') || 'face+palm').replace('palm', 'print')}</span>
         ${inv.requires_step_up ? '<span class="pill">step-up</span>' : ''}</div>
         <div class="sub"><code>${inv.link}</code></div></div>`;
     const b = document.createElement('button');
@@ -521,7 +521,7 @@ $('ent-save').onclick = async () => {
         palm_enabled: palmEl ? palmEl.checked : undefined,
         match_policy: policyEl ? policyEl.value : undefined }) });
     $('ent-msg').textContent = d.success
-        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')} · export ${d.allow_export ? 'ON' : 'off'} · palm ${d.palm_enabled ? 'ON' : 'off'} · policy ${d.match_policy}`
+        ? `Saved: ${tenant} · ${d.enabled ? 'enabled' : 'DISABLED'} · plan ${d.plan} · max ${d.max_keys} · roles ${d.allowed_roles.join('/')} · export ${d.allow_export ? 'ON' : 'off'} · print ${d.palm_enabled ? 'ON' : 'off'} · policy ${d.match_policy}`
         : (d.message || 'Failed');
 };
 $('ent-portal-set').onclick = async () => {

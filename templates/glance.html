@@ -112,7 +112,7 @@ async function tick() {
                     $('stat').textContent = `Identified via ${d.modality}.`;
                 } else if (Date.now() - lastSeen > 900) {
                     chip.classList.remove('show');
-                    $('stat').textContent = d.code === 'none' ? 'No face/palm in view.' : 'Scanning…';
+                    $('stat').textContent = d.code === 'none' ? 'No face/hand in view.' : 'Scanning…';
                 }
             }
         } finally { inflight = false; }

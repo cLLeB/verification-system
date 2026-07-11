@@ -87,7 +87,7 @@ def _ensure(cfg: PalmConfig):
         if _session is None:
             import onnxruntime as ort
             if not ensure_model(cfg):          # download from HF if configured + missing
-                raise PalmError("Palm model not installed (and no HF source configured).",
+                raise PalmError("Print model not installed (and no HF source configured).",
                                 code="palm_unavailable")
             sess = ort.InferenceSession(cfg.model_path, providers=list(cfg.providers))
             inp = sess.get_inputs()[0]
@@ -180,7 +180,7 @@ def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
     if cfg.liveness_enabled and _liveness.available():
         live = _liveness.real_score(det.roi, cfg)
         if live < cfg.liveness_threshold:
-            raise PalmError("Liveness check failed — use a live palm, not a photo or screen.",
+            raise PalmError("Liveness check failed — use a live hand, not a photo or screen.",
                             code="palm_liveness")
     emb = _embed_roi(det.roi, cfg)
     return PalmSample(embedding=emb, hand_score=det.hand_score, roi_px=det.roi_px,

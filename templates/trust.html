@@ -106,7 +106,7 @@
 
     <h2>What we store — and what we can never leak</h2>
     <ul>
-        <li><b>Never images.</b> A face or palm becomes a short mathematical template
+        <li><b>Never images.</b> A face or print becomes a short mathematical template
             (an embedding). Photos are discarded after processing.</li>
         <li><b>Templates are protected (cancelable).</b> Everything used for matching,
             sync, or export lives in a scrambled, revocable domain. A copy stolen from
@@ -140,7 +140,7 @@
     <p>Suites run the same code paths production serves — the real store, index,
         matcher, credential and liveness modules, not extracts. Protected-domain and
         credential suites use synthetic unit embeddings (the transform's accuracy
-        properties are independent of the data); face/palm suites run the live models
+        properties are independent of the data); face/print suites run the live models
         over local captures; PAD requires a physical attack set and is only published
         once measured. Cross-platform behaviour (Android) is pinned by golden-vector
         tests generated from the server code.</p>

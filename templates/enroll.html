@@ -67,14 +67,14 @@
 
             <div class="chips" aria-label="Enrolment progress">
                 <span class="chip" id="chip-face"><span class="tick">✓</span> Face</span>
-                <span class="chip" id="chip-palm"><span class="tick">✓</span> Palm</span>
+                <span class="chip" id="chip-palm"><span class="tick">✓</span> Print</span>
             </div>
 
             <section class="scanner" aria-label="Camera">
                 <video id="video" autoplay playsinline muted></video>
             </section>
 
-            <p class="hint" id="hint">Show your face — or your open palm — then tap Capture</p>
+            <p class="hint" id="hint">Show your face — or your open hand — then tap Capture</p>
             <div class="actions">
                 <button class="btn btn-primary" id="capture-btn" disabled>Capture</button>
                 <button class="btn btn-ghost" id="finish-btn" disabled>Finish</button>
@@ -92,6 +92,6 @@
     </main>
 
     <canvas id="canvas" hidden></canvas>
-    <script src="/static/enroll.js?v=5"></script>
+    <script src="/static/enroll.js?v=6"></script>
 </body>
 </html>

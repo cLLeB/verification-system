@@ -99,9 +99,9 @@ class ModalityRouter(
     private fun Outcome.toDecision() = Decision(success, userId, score, 0f)
 
     private fun noBiometric() = Outcome(Modality.NONE, false, null, -1f, "no_biometric_detected",
-        "No face or palm detected — show one clearly, in good light.")
+        "No face or hand detected — show one clearly, in good light.")
     private fun unavailable() = Outcome(Modality.PALM, false, null, -1f, "palm_unavailable",
-        "Palm recognition isn't installed on this device.")
+        "Print recognition isn't installed on this device.")
     private fun faceUnreadable() = Outcome(Modality.FACE, false, null, -1f, "low_quality",
         "Couldn't read the face — move closer, good light.")
     private fun palmBad(s: PalmSample) = Outcome(Modality.PALM, false, null, -1f, s.code, s.message)

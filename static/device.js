@@ -48,15 +48,15 @@
 
     if (!mobile) {
       return { action: "use-face",
-        text: "On a computer, face works best. For palm, a phone’s back camera is far sharper." };
+        text: "On a computer, face works best. For your hand, a phone’s back camera is far sharper." };
     }
     if (rear && facing !== "environment") {
       return { action: "switch-rear",
-        text: "Scanning a palm? Your back camera is sharper — tap to switch." };
+        text: "Scanning your hand? Your back camera is sharper — tap to switch." };
     }
     if (facing === "environment" && width && width < 640) {
       return { action: "use-face",
-        text: "This camera is low-resolution — face will be more reliable than palm." };
+        text: "This camera is low-resolution — face will be more reliable than your hand." };
     }
     return null; // phone on a decent rear camera: optimal for palm
   }

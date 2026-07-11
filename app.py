@@ -590,7 +590,7 @@ def admin_palm_calibrate():
     audit.log(_FP_TENANT, "palm_calibrate", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=rec is not None, detail=str(rec))
     return jsonify({"success": rec is not None, "tenant": tenant, "calibration": rec,
-                    "message": "Calibrated." if rec else "Not enough palm enrolments yet."})
+                    "message": "Calibrated." if rec else "Not enough print enrolments yet."})
 
 
 @app.route("/admin/api/tenants/portal-password", methods=["POST"])
@@ -900,7 +900,7 @@ def admin_invites_create():
     _fc, _pe = _invite_target(tenant)
     if _modality.is_fully_enrolled(name, _fc, _pe):
         return jsonify({"success": False, "code": "already_enrolled",
-                        "message": f"'{name}' is already fully enrolled (face + palm). "
+                        "message": f"'{name}' is already fully enrolled (face + print). "
                                    f"Delete them first if you want to re-enrol."}), 409
     info = _create_scoped_invite(name, tenant, data.get("expires_in_hours"),
                                  _req_modalities(data),
@@ -1366,7 +1366,7 @@ def api_invite_finish():
         return err
     if not rec.get("enrolled"):
         return jsonify({"success": False, "code": "nothing_enrolled",
-                        "message": "Capture your face or palm before finishing."}), 400
+                        "message": "Capture your face or hand before finishing."}), 400
     invites.consume(token)
     audit.log(rec["tenant"], "self_enroll_finish", actor=f"invite:{rec['invite_id']}",
               user_id=rec["user_id"], success=True, detail=f"modalities={rec.get('enrolled')}")

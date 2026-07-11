@@ -82,7 +82,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 glancePalm = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "palm")
                 refreshPeople()
                 ready = true
-                status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your palm" else "Enter a name, then show face or palm"
+                status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your hand" else "Enter a name, then show face or hand"
             } catch (e: Exception) {
                 engineError = e.message ?: "Failed to start the engine. Is the model in assets?"
             }
@@ -102,7 +102,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if (m == Mode.GLANCE) {
             status = if (glanceFace == null && glancePalm == null && people.isEmpty())
                 "No glance index yet — update it in Settings"
-            else "Glance: point at a face — or hold up an open palm"
+            else "Glance: point at a face — or hold up an open hand"
         }
     }
 
@@ -163,11 +163,11 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 status = when {
                     face != null -> "Move a little closer"
-                    palm != null -> "Show your face or open palm"
+                    palm != null -> "Show your face or open hand"
                     else -> "No face detected — move into the frame"
                 }
             } catch (_: Exception) {
-                status = "Hiccup — keep your face or palm in view"
+                status = "Hiccup — keep your face or hand in view"
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
                 processing.set(false)
@@ -226,9 +226,9 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         val dec = p.repo.identify(s.embedding)
         p.repo.maybeAdapt(dec, s.embedding, null)
         result = if (dec.granted)
-            ScanResult(true, "Access granted", "Welcome, ${dec.userId} (via palm)")
+            ScanResult(true, "Access granted", "Welcome, ${dec.userId} (via print)")
         else
-            ScanResult(false, "Access denied", "Palm not recognised")
+            ScanResult(false, "Access denied", "Print not recognised")
         livenessProgress = 0f
     }
 
@@ -236,7 +236,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
      *  Uses the STRICT anchor-quality gate: weak anchors degrade matching forever. */
     private suspend fun handlePalmEnroll(p: PalmEngine, bitmap: Bitmap) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
-        status = "Show your open palm — tap Capture"
+        status = "Show your open hand — tap Capture"
         if (!captureRequested.compareAndSet(true, false)) return
         val s = p.embed(bitmap, forEnroll = true)
         if (s.embedding == null) { status = s.message; return }
@@ -278,7 +278,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         val idNote = if (fromId) " (from ID — add a live capture for best accuracy)" else ""
         val handNote = if (r.hand >= 2) " (other hand)" else ""
         if (captured >= enrollTarget) {
-            val more = if (r.hand == 1) " — capture their OTHER palm too for either-hand verify, or you're done" else ""
+            val more = if (r.hand == 1) " — capture their OTHER hand too for either-hand verify, or you're done" else ""
             result = ScanResult(true, if (r.hand >= 2) "Other hand enrolled" else "Enrolled",
                 "${enrollName.trim()} is ready to verify$idNote$more")
             refreshPeople()
@@ -311,7 +311,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                             finishPalmEnroll(p.repo.enroll(enrollName, s.embedding, handedness = s.handedness),
                                 s.embedding, s.handedness); return@launch
                         }
-                        result = ScanResult(false, "No face or palm found", s.message); return@launch
+                        result = ScanResult(false, "No face or hand found", s.message); return@launch
                     }
                     result = ScanResult(false, "No face found", "No clear face in that photo"); return@launch
                 }
@@ -389,7 +389,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             liveness.reset(); livenessProgress = 0f
             status = "Card OK (${p.name ?: p.subject}, issuer ${p.issuer}) — " +
                 if ("face" in p.modalities) "now the person: turn your head slowly"
-                else "now the person's open palm"
+                else "now the person's open hand"
             return
         }
 
@@ -480,13 +480,13 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         glanceHit = null
-        status = "Glance: point at a face — or hold up an open palm"
+        status = "Glance: point at a face — or hold up an open hand"
     }
 
     fun glanceSummary(): String {
         val parts = mutableListOf<String>()
         glanceFace?.let { parts.add("face: ${it.count}") }
-        glancePalm?.takeIf { it.count > 0 }?.let { parts.add("palm: ${it.count}") }
+        glancePalm?.takeIf { it.count > 0 }?.let { parts.add("print: ${it.count}") }
         if (parts.isEmpty()) return "not loaded (falls back to locally enrolled people)"
         val newest = listOfNotNull(glanceFace?.generated, glancePalm?.generated).maxOrNull() ?: 0L
         return parts.joinToString(" · ") + " identities · updated " +
@@ -621,8 +621,8 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 val (f, pl) = com.faceverify.app.data.BundleImporter.apply(
                     parsed, engine.repo, palm?.repo)
                 val skipped = if (palm == null && parsed.palm.isNotEmpty())
-                    " (${parsed.palm.size} palm skipped — face-only build)" else ""
-                bundleMsg = "Imported $f face + $pl palm identities$skipped."
+                    " (${parsed.palm.size} print skipped — face-only build)" else ""
+                bundleMsg = "Imported $f face + $pl print identities$skipped."
                 refreshPeople()
             } catch (e: com.faceverify.app.data.BundleImporter.BundleException) {
                 bundleMsg = e.message ?: "Import failed."

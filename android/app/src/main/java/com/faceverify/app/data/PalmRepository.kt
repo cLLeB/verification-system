@@ -83,7 +83,7 @@ class PalmRepository(context: Context) {
         val dec = Matcher.decide(scoreAll(emb, snapshot().filter { it.first != id }),
             PalmConfig.MATCH_THRESHOLD, PalmConfig.IDENTIFY_MARGIN)
         if (dec.userId != null && dec.score >= PalmConfig.MATCH_THRESHOLD) {
-            return@withLock EnrollResult(false, "This palm is already enrolled as '${dec.userId}'.", "duplicate")
+            return@withLock EnrollResult(false, "This print is already enrolled as '${dec.userId}'.", "duplicate")
         }
 
         val cap = PalmConfig.SAMPLES_PER_USER * PalmConfig.MAX_HANDS_PER_USER
@@ -115,14 +115,14 @@ class PalmRepository(context: Context) {
 
         // Matches no enrolled hand -> a DIFFERENT hand.
         if (hands.size >= PalmConfig.MAX_HANDS_PER_USER) {
-            return@withLock EnrollResult(false, "'$id' already has both hands enrolled — no more palms can be added.", "hands_full")
+            return@withLock EnrollResult(false, "'$id' already has both hands enrolled — no more hands can be added.", "hands_full")
         }
         // No one has two right (or two left) hands: refuse a different hand on the SAME
         // side as one already enrolled.
         val sides = handSidesOf(id)
         if (PalmConfig.REJECT_SAME_SIDE_HAND && handedness.isNotEmpty() && handedness in sides) {
             return@withLock EnrollResult(false,
-                "'$id' already has a ${handedness.lowercase()} palm — a person has only one ${handedness.lowercase()} hand. Enrol the OTHER hand.",
+                "'$id' already has a ${handedness.lowercase()} hand — a person has only one ${handedness.lowercase()} hand. Enrol the OTHER hand.",
                 "same_hand_side")
         }
         if (!allowNewHand) {

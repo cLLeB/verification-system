@@ -111,15 +111,15 @@ function renderPhase() {
     if (inStepUp()) {
         setModeNote('Security check: this link adds a new biometric to an existing ' +
             "record. First confirm your identity with a biometric you've already " +
-            'enrolled — your face (front camera) OR your palm (rear camera).');
+            'enrolled — your face (front camera) OR your hand (rear camera).');
         captureBtn.textContent = 'Confirm identity';
-        setHint('Show your enrolled face or palm, then tap Confirm identity');
+        setHint('Show your enrolled face or hand, then tap Confirm identity');
     } else {
         setModeNote('');
         captureBtn.textContent = 'Capture';
         const label = allowed.length === 1
-            ? (allowed[0] === 'palm' ? 'your open palm' : 'your face')
-            : 'your face — or your open palm';
+            ? (allowed[0] === 'palm' ? 'your open hand' : 'your face')
+            : 'your face — or your open hand';
         setHint(`Show ${label}, then tap Capture`);
     }
 }
@@ -147,7 +147,7 @@ function swapCamera() {
     if (busy) return;
     facing = facing === 'user' ? 'environment' : 'user';
     startCamera();
-    setHint(facing === 'user' ? 'Front camera — best for face' : 'Back camera — best for palm');
+    setHint(facing === 'user' ? 'Front camera — best for face' : 'Back camera — best for hand');
 }
 
 function grabFrame() {
@@ -303,12 +303,13 @@ async function doEnroll() {
         enrolled = data.enrolled || enrolled;
         renderChips();
         const what = data.modality === 'palm'
-            ? (data.hand === 2 ? 'Other palm' : 'Palm') : 'Face';
+            ? (data.hand === 2 ? 'Other hand' : 'Print') : 'Face';
         const more = allowed.filter((m) => !enrolled.includes(m));
+        const nextLabel = more.length ? (more[0] === 'palm' ? 'hand' : more[0]) : '';
         const palmHint = data.modality === 'palm' && data.hand === 1
-            ? ' — you can also add your OTHER palm' : '';
+            ? ' — you can also add your OTHER hand' : '';
         setHint(more.length
-            ? `${what} captured ✓ — now your ${more[0]}, or tap Finish`
+            ? `${what} captured ✓ — now your ${nextLabel}, or tap Finish`
             : `${what} captured ✓${palmHint} — tap Finish`, 'ok');
     } else {
         setHint(data.message || 'No usable biometric detected — try again.', 'warn');

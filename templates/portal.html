@@ -36,10 +36,10 @@
                 <p id="disabled-note" class="err hidden">Your account is disabled — you can't
                     create keys until the provider re-activates it. Existing keys won't work either.</p>
                 <div class="row" id="policy-row">
-                    <label class="muted" for="match-policy">Face + palm match policy</label>
-                    <select id="match-policy" class="field" title="How face and palm combine for users enrolled in both">
-                        <option value="or">Either grants (face OR palm)</option>
-                        <option value="fallback">Palm as fallback (face preferred)</option>
+                    <label class="muted" for="match-policy">Face + print match policy</label>
+                    <select id="match-policy" class="field" title="How face and print combine for users enrolled in both">
+                        <option value="or">Either grants (face OR print)</option>
+                        <option value="fallback">Print as fallback (face preferred)</option>
                         <option value="and">Require both (step-up security)</option>
                     </select>
                     <button id="policy-save" class="btn ghost">Save policy</button>
@@ -76,7 +76,7 @@
 
             <div class="card" id="portal-protection">
                 <h2>Template protection <span class="muted">(revocable biometrics)</span></h2>
-                <p class="muted">Your people's stored face/palm templates are kept in a
+                <p class="muted">Your people's stored face/print templates are kept in a
                     <b>scrambled, revocable form</b> &mdash; a stolen copy can't be matched anywhere
                     else, and can be cancelled like a password. If you ever suspect a leak,
                     <b>reissue</b>: old copies stop working instantly and nobody has to
@@ -122,6 +122,6 @@
         </div>
     </section>
 </main>
-<script src="/static/portal.js?v=4"></script>
+<script src="/static/portal.js?v=5"></script>
 </body>
 </html>

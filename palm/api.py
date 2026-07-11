@@ -21,21 +21,21 @@ from .errors import PalmError
 from .profile import PALM_PROFILE
 
 _HINTS = {
-    "no_hand": "No palm detected — show an open hand to the camera in good light.",
-    "palm_too_small": "Palm too small — move your hand closer to the camera.",
-    "palm_blurry": "Image is blurry — hold steady and keep your palm in focus.",
-    "fingers_not_spread": "Spread your fingers and open your palm fully.",
-    "palm_not_facing": "Show the palm side of your hand, not the back.",
-    "multiple_hands": "More than one hand in view — show one open palm at a time.",
+    "no_hand": "No hand detected — show an open hand to the camera in good light.",
+    "palm_too_small": "Hand too small — move your hand closer to the camera.",
+    "palm_blurry": "Image is blurry — hold steady and keep your hand in focus.",
+    "fingers_not_spread": "Spread your fingers and open your hand fully.",
+    "palm_not_facing": "Show the inside of your hand, not the back.",
+    "multiple_hands": "More than one hand in view — show one open hand at a time.",
     "palm_enroll_blurry": "Enrolment needs a crisp shot — brace your arm, add light, let the camera focus.",
-    "palm_enroll_too_far": "Bring your palm closer — fill most of the frame to enrol.",
+    "palm_enroll_too_far": "Bring your hand closer — fill most of the frame to enrol.",
     "palm_enroll_too_dark": "Too dark to enrol — face a window or add light.",
-    "palm_enroll_too_bright": "Too bright to enrol — avoid direct glare on your palm.",
-    "palm_liveness": "Liveness failed — use a real, live palm (not a photo or screen).",
-    "palm_unavailable": "Palm recognition is not available on this server.",
-    "not_enrolled": "This user has no palm enrolment yet — enrol them first.",
-    "duplicate": "This palm is already enrolled under a different name.",
-    "inconsistent": "This capture doesn't match the earlier ones — use the same palm.",
+    "palm_enroll_too_bright": "Too bright to enrol — avoid direct glare on your hand.",
+    "palm_liveness": "Liveness failed — use a real, live hand (not a photo or screen).",
+    "palm_unavailable": "Print recognition is not available on this server.",
+    "not_enrolled": "This user has no print enrolment yet — enrol them first.",
+    "duplicate": "This print is already enrolled under a different name.",
+    "inconsistent": "This capture doesn't match the earlier ones — use the same hand.",
 }
 
 
@@ -88,7 +88,7 @@ def _dupe_check(emb, user_id: str, st: TemplateStore, cfg: PalmConfig):
         _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
     for uid, score in hits:
         if uid != user_id and score >= cfg.match_threshold:
-            return _fail(f"This palm is already enrolled as '{uid}'.", "duplicate",
+            return _fail(f"This print is already enrolled as '{uid}'.", "duplicate",
                          conflict_user_id=uid, score=round(score, 4))
     return None
 
@@ -114,7 +114,7 @@ def _identify_via_index(emb, st: TemplateStore, cfg: PalmConfig) -> dict:
     hits = _index_for(st, cfg).search(st.protect_probe(emb), top_k=5)
     hits = _matcher.merge_off_domain(hits, emb, st, top_k=5)
     if not hits:
-        return {"success": False, "code": "no_match", "message": "Palm not recognised.",
+        return {"success": False, "code": "no_match", "message": "Print not recognised.",
                 "modality": "palm", "user_id": None, "score": -1.0, "margin": 0.0,
                 "threshold": cfg.match_threshold, "candidates": []}
     top_id, top = hits[0]
@@ -123,7 +123,7 @@ def _identify_via_index(emb, st: TemplateStore, cfg: PalmConfig) -> dict:
     granted = top >= cfg.match_threshold and (len(hits) == 1 or margin >= cfg.identify_margin)
     return {"success": granted, "code": "match" if granted else "no_match",
             "modality": "palm",
-            "message": f"Identity confirmed for {top_id}." if granted else "Palm not recognised.",
+            "message": f"Identity confirmed for {top_id}." if granted else "Print not recognised.",
             "user_id": top_id if granted else None,
             "score": round(top, 4), "margin": round(margin, 4),
             "threshold": cfg.match_threshold, "identify_margin": cfg.identify_margin,
@@ -151,7 +151,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     if not user_id:
         return _fail("A name or ID is required.", "missing_user_id")
     if not _engine.available(cfg):
-        return _fail("Palm recognition is not available on this server.", "palm_unavailable")
+        return _fail("Print recognition is not available on this server.", "palm_unavailable")
     st = _store(cfg, store)
     try:
         sample = _engine.embed(image, cfg, for_enroll=True)   # strict anchor-quality gate
@@ -191,7 +191,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
 
     # Matches no enrolled hand -> a DIFFERENT hand.
     if len(hands) >= cfg.max_hands_per_user:
-        return _fail(f"'{user_id}' already has both hands enrolled — no more palms "
+        return _fail(f"'{user_id}' already has both hands enrolled — no more hands "
                      f"can be added to this name.", "hands_full", user_id=user_id)
     # No one has two right (or two left) hands: a different hand on the SAME side as an
     # already-enrolled one is not this person's other palm — refuse it outright.
@@ -199,7 +199,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     side = sample.handedness
     if cfg.reject_same_side_hand and side and side in sides:
         return _fail(
-            f"'{user_id}' already has a {side.lower()} palm enrolled — a person has only "
+            f"'{user_id}' already has a {side.lower()} hand enrolled — a person has only "
             f"one {side.lower()} hand. Enrol the OTHER hand, or use a different name if "
             f"this is someone else.", "same_hand_side", user_id=user_id, side=side)
     if not allow_new_hand:
@@ -220,11 +220,11 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
            store: Optional[TemplateStore] = None) -> dict:
     user_id = (user_id or "").strip()
     if not _engine.available(cfg):
-        return _fail("Palm recognition is not available on this server.", "palm_unavailable")
+        return _fail("Print recognition is not available on this server.", "palm_unavailable")
     st = _store(cfg, store)
     tmpl = st.load(user_id)
     if tmpl is None:
-        return _fail(f"User '{user_id}' has no palm enrolment.", "not_enrolled", user_id=user_id)
+        return _fail(f"User '{user_id}' has no print enrolment.", "not_enrolled", user_id=user_id)
     try:
         sample = _engine.embed(image, cfg)
     except PalmError as exc:
@@ -239,7 +239,7 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     if not dec.granted:
         # Left and right palms are different biometrics — the most common genuine
         # failure is presenting the hand that was never enrolled.
-        out["hint"] = ("Use the SAME hand you enrolled (left and right palms differ) — "
+        out["hint"] = ("Use the SAME hand you enrolled (left and right hands differ) — "
                        "or enrol both hands under your name.")
     return _maybe_adapt(out, sample.embedding, user_id, st, cfg)
 
@@ -247,7 +247,7 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
 def identify(image: np.ndarray, cfg: PalmConfig = CONFIG,
              store: Optional[TemplateStore] = None) -> dict:
     if not _engine.available(cfg):
-        return _fail("Palm recognition is not available on this server.", "palm_unavailable")
+        return _fail("Print recognition is not available on this server.", "palm_unavailable")
     st = _store(cfg, store)
     try:
         sample = _engine.embed(image, cfg)
@@ -288,4 +288,4 @@ def delete_user(user_id: str, cfg: PalmConfig = CONFIG,
     if ok:
         _index_for(st, cfg).remove_user(uid)
     return {"success": ok, "modality": "palm",
-            "message": f"Deleted palm for '{uid}'." if ok else f"User '{uid}' not found."}
+            "message": f"Deleted print for '{uid}'." if ok else f"User '{uid}' not found."}

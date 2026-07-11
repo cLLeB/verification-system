@@ -297,7 +297,7 @@ async function verify() {
         modality = d.modality || 'face';
     } catch (e) { /* default to face */ }
     if (modality === 'palm') return palmVerify();
-    if (modality === 'none') { reset('Show your face — or your open palm — clearly', 'warn'); return; }
+    if (modality === 'none') { reset('Show your face — or your open hand — clearly', 'warn'); return; }
 
     let ch;
     try { ch = await (await fetch('/api/challenge')).json(); }
@@ -334,7 +334,7 @@ async function verify() {
 // sink the attempt.
 async function palmVerify() {
     await ensureLiveVideo(video);
-    setHint('Hold your open palm steady…', 'info');
+    setHint('Hold your open hand steady…', 'info');
     statusText.textContent = 'Checking';
     await wait(450);
     const frames = [];
@@ -381,7 +381,7 @@ async function handle(data) {
         renderDots(n);
         const idNote = data.source === 'id_document'
             ? ' (from ID document — add a live capture for best accuracy)' : '';
-        const handLabel = data.hand === 2 ? "this person's other hand" : 'this palm';
+        const handLabel = data.hand === 2 ? "this person's other hand" : 'this hand';
         if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} for ${handLabel}${idNote} — tap Capture again`); return; }
         if (data.success) {
             const more = data.hand === 1
@@ -408,14 +408,15 @@ async function handle(data) {
     }
     if (data.success) {
         const via = data.matched_modality || data.modality;
-        const tag = (via === 'face' || via === 'palm') ? ` (via ${via})` : '';
+        const viaLabel = via === 'palm' ? 'print' : via;   // display-only relabel
+        const tag = (via === 'face' || via === 'palm') ? ` (via ${viaLabel})` : '';
         show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}` : '');
     } else if (data.code === 'no_biometric_detected') {
-        show('bad', ICON_BAD, 'Nothing detected', 'Show your face — or your open palm — clearly');
+        show('bad', ICON_BAD, 'Nothing detected', 'Show your face — or your open hand — clearly');
     } else if (data.code === 'step_up_required') {
         show('warn', ICON_BAD, 'One more step', data.message || 'Also present your other biometric');
     } else {
-        show('bad', ICON_BAD, 'Access denied', 'Face or palm not recognised');
+        show('bad', ICON_BAD, 'Access denied', 'Face or print not recognised');
     }
 }
 
@@ -438,8 +439,8 @@ function reset(msg, kind = '') {
     setHint(msg || defaultHint(), kind);
 }
 function defaultHint() {
-    return mode === 'enroll' ? 'Show your face or open palm, then tap Capture (3 times)'
-                             : 'Show your face — or your open palm — then tap Verify';
+    return mode === 'enroll' ? 'Show your face or open hand, then tap Capture (3 times)'
+                             : 'Show your face — or your open hand — then tap Verify';
 }
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
