@@ -410,11 +410,24 @@ async function handle(data) {
         const via = data.matched_modality || data.modality;
         const viaLabel = via === 'palm' ? 'print' : via;   // display-only relabel
         const tag = (via === 'face' || via === 'palm') ? ` (via ${viaLabel})` : '';
-        show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}` : '');
+        // Guardianship: a verified guardian sees who they may collect for.
+        const wards = (data.wards || []).map(w => w.beneficiary || w).join(', ');
+        const wardNote = wards ? ` — may collect for: ${wards}` : '';
+        show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}${wardNote}` : '');
     } else if (data.code === 'no_biometric_detected') {
         show('bad', ICON_BAD, 'Nothing detected', 'Show your face — or your open hand — clearly');
     } else if (data.code === 'step_up_required') {
         show('warn', ICON_BAD, 'One more step', data.message || 'Also present your other biometric');
+    } else if (data.code === 'access_denied') {
+        // Recognised, but an access policy denies right now — say so honestly.
+        show('warn', ICON_BAD, 'Not allowed right now',
+            data.message || 'You were recognised, but access is not permitted at this time.');
+    } else if (data.code === 'identity_expired') {
+        show('warn', ICON_BAD, 'Guest pass expired',
+            data.message || 'You were recognised, but this guest pass has expired — see the front desk.');
+    } else if (data.code === 'consent_withdrawn' || data.code === 'consent_missing') {
+        show('warn', ICON_BAD, 'Consent required',
+            data.message || 'Verification is paused for this record — see the operator.');
     } else {
         show('bad', ICON_BAD, 'Access denied', 'Face or print not recognised');
     }

@@ -278,10 +278,16 @@ def save_debug(img, tag, result=None):
 
 def _subject_gates(result: dict) -> dict:
     """First-party post-match gates (guest expiry -> consent -> access policy),
-    applied strictly AFTER the biometric decision — mirrors /v1."""
-    return _policies.apply(_FP_TENANT,
-                           _consent.gate(_FP_TENANT,
-                                         _guests.gate(_FP_TENANT, result)))
+    applied strictly AFTER the biometric decision — mirrors /v1. A granted
+    guardian's result also lists who they may collect for (kiosk shows it)."""
+    out = _policies.apply(_FP_TENANT,
+                          _consent.gate(_FP_TENANT,
+                                        _guests.gate(_FP_TENANT, result)))
+    if out.get("success") and out.get("user_id"):
+        wards = _guardians.wards_of(_FP_TENANT, out["user_id"])
+        if wards:
+            out["wards"] = wards
+    return out
 
 
 def sign(payload: dict) -> dict:
@@ -354,6 +360,15 @@ def api_glance():
     second = float(cands[1]["score"]) if len(cands) > 1 else -1.0
     uid = cands[0]["user_id"] if cands else out.get("user_id")
     granted = top >= floor and (len(cands) <= 1 or (top - second) >= _glance.GLANCE_MARGIN)
+    # Identifying someone IS processing their data: a withdrawn consent or an
+    # expired guest pass hides them from glance too (policies stay out of it —
+    # glance is an identification aid, not an access decision).
+    if granted and uid:
+        gated = _consent.gate(_FP_TENANT, _guests.gate(
+            _FP_TENANT, {"success": True, "user_id": uid}))
+        if not gated["success"]:
+            return jsonify({"success": False, "modality": mod, "user_id": None,
+                            "code": gated["code"], "score": round(top, 4)})
     return jsonify({"success": bool(granted), "modality": mod,
                     "user_id": uid if granted else None, "score": round(top, 4)})
 
@@ -1016,11 +1031,16 @@ def admin_export_bundle():
             protection[m] = {"scheme": _protect.SCHEME, "seedref": ref,
                              "seed": base64.b64encode(seed).decode("ascii"),
                              "epoch": st.store_epoch()}
+    def _clean(rows):
+        """Same bundle hygiene as /v1: no withdrawn users, no expired guests."""
+        return [r for r in rows
+                if _consent.status(tenant, r["user_id"]) != "withdrawn"
+                and not _guests.is_expired(tenant, r["user_id"])]
     try:
         payload = bundle.build_payload(
             tenant,
-            _modality.export_templates(face_cfg, "face", palm_enabled),
-            _modality.export_templates(face_cfg, "palm", palm_enabled),
+            _clean(_modality.export_templates(face_cfg, "face", palm_enabled)),
+            _clean(_modality.export_templates(face_cfg, "palm", palm_enabled)),
             protection=protection or None)
         out = bundle.pack(payload, data.get("passphrase") or "")
     except bundle.BundleError as exc:
@@ -1233,7 +1253,10 @@ def api_invite_info():
                     "step_up_modality": rec.get("step_up_modality"),
                     "step_up_satisfied": invites.is_step_up_satisfied(rec),
                     "active_liveness": CONFIG.active_liveness,
-                    "self_enroll_liveness": SELF_ENROLL_LIVENESS})
+                    "self_enroll_liveness": SELF_ENROLL_LIVENESS,
+                    # informed consent: the enrollee SEES what they agree to —
+                    # the recorded consent (method 'self') then refers to this text
+                    "consent_text": _consent.policy(rec["tenant"])["text"]})
 
 
 @app.route("/api/invite/stepup", methods=["POST"])
@@ -1753,10 +1776,13 @@ def admin_consent_withdraw():
     t = _admin_tenant(data)
     uid = (data.get("user_id") or "").strip()
     ok = _consent.withdraw(t, uid, by=g.get("admin_user", "admin"))
+    revoked_creds = credentials.revoke_for_user(t, uid) if ok else 0
     if ok:
         audit.log(t, "consent_withdraw", actor=g.get("admin_user", "admin"),
-                  user_id=uid, success=True)
-    return jsonify({"success": ok, "user_id": uid})
+                  user_id=uid, success=True,
+                  detail=f"{revoked_creds} credentials revoked")
+    return jsonify({"success": ok, "user_id": uid,
+                    "credentials_revoked": revoked_creds})
 
 
 # --- data-subject rights: the person's own "my data" surface ------------------
@@ -1867,7 +1893,9 @@ def subject_withdraw():
     if _consent.get(_FP_TENANT, uid) is None:      # no record yet -> create then withdraw
         _consent.record(_FP_TENANT, uid, method="self", actor=uid)
     _consent.withdraw(_FP_TENANT, uid, by=uid)
-    audit.log(_FP_TENANT, "consent_withdraw", actor="subject", user_id=uid, success=True)
+    revoked_creds = credentials.revoke_for_user(_FP_TENANT, uid)
+    audit.log(_FP_TENANT, "consent_withdraw", actor="subject", user_id=uid,
+              success=True, detail=f"{revoked_creds} credentials revoked")
     return jsonify({"success": True, "user_id": uid, "status": "withdrawn",
                     "message": "Consent withdrawn. Verification is blocked and your "
                                "data is queued for erasure."})

@@ -755,3 +755,14 @@ paths:
       summary: "Withdraw a person's consent - blocks verification (role: admin)"
       responses:
         "200": { description: "{ status: withdrawn }" }
+  /v1/service-state:
+    get:
+      summary: "Device mirror of the service gates (role: admin)"
+      description: >
+        One compact pull of everything a hybrid device needs to honour the
+        service gates offline - the policy document, guest expiries, consent
+        standing (withdrawn/consented + enforcement flags), and guardianship
+        links. Devices re-evaluate locally after each on-device match, in the
+        same order and with the same codes as the server.
+      responses:
+        "200": { description: "{ policies, guests, withdrawn, consented, enforce_withdrawal, require_consent, guardians, generated }" }

@@ -174,6 +174,11 @@ async function loadInvite() {
             modality: data.step_up_modality || (allowed.includes('face') ? null : 'palm'),
         };
         liveness = !!data.self_enroll_liveness && !!data.active_liveness;
+        // Informed consent: show the statement this enrolment records agreement to.
+        if (data.consent_text) {
+            $('consent-text').textContent = data.consent_text;
+            $('consent-box').classList.remove('hidden');
+        }
         applyScope();
         renderChips();
         renderPhase();

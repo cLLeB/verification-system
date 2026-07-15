@@ -47,6 +47,23 @@ class SyncPrefs(context: Context) {
 
     val configured: Boolean get() = serverUrl.isNotEmpty() && apiKey.isNotEmpty()
 
+    // --- device identity (from pairing — see /v1/devices/pair) ----------------
+    var deviceId: String
+        get() = prefs.getString("device_id", "") ?: ""
+        set(v) { prefs.edit().putString("device_id", v.trim()).apply() }
+
+    var deviceName: String
+        get() = prefs.getString("device_name", "") ?: ""
+        set(v) { prefs.edit().putString("device_name", v.trim()).apply() }
+
+    /** The device's OWN verify key (heartbeats + attribution). Separate from
+     *  [apiKey] — pairing never overwrites the admin sync key. */
+    var deviceKey: String
+        get() = prefs.getString("device_key", "") ?: ""
+        set(v) { prefs.edit().putString("device_key", v.trim()).apply() }
+
+    val paired: Boolean get() = deviceId.isNotEmpty() && deviceKey.isNotEmpty()
+
     /** Forget the watermark so the next pull re-downloads the whole dataset. */
     fun resetWatermark() { lastSeq = 0L }
 }

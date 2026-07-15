@@ -431,7 +431,12 @@ def _subject_gates(tenant: str, out: dict, subject_uid: Optional[str] = None) ->
     whose status is checked (proxy verification gates on the BENEFICIARY while
     the biometric result belongs to the guardian)."""
     if subject_uid is None:
-        return _policies.apply(tenant, _consent.gate(tenant, _guests.gate(tenant, out)))
+        out = _policies.apply(tenant, _consent.gate(tenant, _guests.gate(tenant, out)))
+        if out.get("success") and out.get("user_id"):
+            wards = _guardians.wards_of(tenant, out["user_id"])
+            if wards:                          # a guardian's grant lists their wards
+                out["wards"] = wards
+        return out
     if not out.get("success"):
         return out
     shadow = {"success": True, "user_id": subject_uid}
@@ -605,6 +610,11 @@ def sync_pull():
         last = seq
         if embs is None:
             out.append({"user_id": uid, "deleted": True})
+        elif (_consent.status(g.tenant, uid) == "withdrawn"
+                or _guests.is_expired(g.tenant, uid)):
+            # processing must stop on device mirrors too: ship withdrawn users
+            # (and long-gone guests) as deletions so the mirror drops them
+            out.append({"user_id": uid, "deleted": True})
         else:
             out.append({"user_id": uid, "deleted": False,
                         "embeddings": [[round(float(x), 6) for x in e] for e in embs]})
@@ -702,8 +712,8 @@ def export_bundle():
     try:
         payload = bundle.build_payload(
             g.tenant,
-            _modality.export_templates(cfg, "face", palm_enabled),
-            _modality.export_templates(cfg, "palm", palm_enabled),
+            _filter_subject_rows(g.tenant, _modality.export_templates(cfg, "face", palm_enabled)),
+            _filter_subject_rows(g.tenant, _modality.export_templates(cfg, "palm", palm_enabled)),
             protection=protection or None)
         out = bundle.pack(payload, data.get("passphrase") or "")
     except bundle.BundleError as exc:
@@ -792,6 +802,15 @@ def tenant_keys_rotate():
     audit.log(g.tenant, "issuer_key_rotate", actor=g.key_name, success=True,
               detail=f"new kid {rec['kid']}")
     return jsonify({"success": True, "active": rec})
+
+
+def _filter_subject_rows(tenant: str, rows: list) -> list:
+    """Bundle-export hygiene: drop consent-withdrawn users and expired guests —
+    an air-gapped device provisioned today must not carry people whose
+    processing has stopped."""
+    return [r for r in rows
+            if _consent.status(tenant, r["user_id"]) != "withdrawn"
+            and not _guests.is_expired(tenant, r["user_id"])]
 
 
 def _protection_block(store) -> dict:
@@ -1111,6 +1130,37 @@ def purge_tenant():
                     "credentials_revoked": revoked_creds})
 
 
+# --- device mirror of the service state (hybrid offline gates) -----------------
+@bp.get("/service-state")
+@require_scope("manage")
+def service_state():
+    """Everything a hybrid device needs to honour the service gates OFFLINE,
+    in one compact pull (fetched alongside /v1/sync/pull): the policy document,
+    guest expiries, consent standing, and guardianship links. The device
+    re-evaluates locally after each on-device match — same order, same codes."""
+    pol = _policies.get(g.tenant)
+    cpol = _consent.policy(g.tenant)
+    recs = _consent.list_for(g.tenant)
+    return jsonify({
+        "success": True, "generated": int(time.time()),
+        "policies": pol,
+        "guests": {r["user_id"]: r["expires"] for r in _guests.list_for(g.tenant)},
+        "withdrawn": sorted(r["user_id"] for r in recs if r.get("withdrawn_at")),
+        "consented": sorted(r["user_id"] for r in recs if not r.get("withdrawn_at")),
+        "enforce_withdrawal": cpol["enforce_withdrawal"],
+        "require_consent": cpol["require_consent"],
+        "guardians": _guardians_map(g.tenant),
+    })
+
+
+def _guardians_map(tenant) -> dict:
+    out = {}
+    for l in _guardians.list_for(tenant):
+        out.setdefault(l["beneficiary"], []).append(
+            {"guardian": l["guardian"], "relationship": l.get("relationship", "")})
+    return out
+
+
 # --- access policies (authorization on top of verification) --------------------
 @bp.get("/policies")
 @require_scope("manage")
@@ -1428,6 +1478,9 @@ def consent_withdraw():
         return _err("'user_id' is required.")
     if not _consent.withdraw(g.tenant, uid, by=g.key_name):
         return _err("No consent record for this user.", code="not_found", status=404)
+    # processing must stop everywhere: self-contained QR cards go with the consent
+    revoked_creds = _credreg.revoke_for_user(g.tenant, uid)
     audit.log(g.tenant, "consent_withdraw", actor=g.key_name, user_id=uid,
-              success=True)
-    return jsonify({"success": True, "user_id": uid, "status": "withdrawn"})
+              success=True, detail=f"{revoked_creds} credentials revoked")
+    return jsonify({"success": True, "user_id": uid, "status": "withdrawn",
+                    "credentials_revoked": revoked_creds})

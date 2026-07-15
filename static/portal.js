@@ -22,6 +22,11 @@ async function refreshSession() {
         loadProtection();
         loadCredentials();
         loadTrust();
+        loadPortalPolicies();
+        loadPortalGuests();
+        loadPortalDevices();
+        loadPortalGuardians();
+        loadPortalConsent();
     } else {
         show('login');
     }
@@ -272,6 +277,218 @@ if (ptrustAdd) ptrustAdd.onclick = async () => {
     if (d && !d.success) alert(d.message || 'Failed.');
     $('ptrust-issuer').value = '';
     loadTrust();
+};
+
+// --- access policies · guests · devices · guardians · consent ----------------
+const pFmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+
+async function loadPortalPolicies() {
+    const d = await api('/portal/api/policies');
+    if (!d.success) return;
+    $('ppol-mode').value = d.mode; $('ppol-default').value = d.default;
+    $('ppol-tz').value = d.tz_offset_minutes || '';
+    const rules = $('ppol-rules'); rules.innerHTML = '';
+    (d.rules || []).forEach(r => {
+        const row = document.createElement('div'); row.className = 'item';
+        const when = (r.days || []).length ? r.days.join(',') : 'every day';
+        const win = r.start ? ` ${r.start}–${r.end}` : '';
+        row.innerHTML = `<div class="grow"><div>${r.name}
+            <span class="pill">${r.effect}</span></div>
+            <div class="sub">${(r.subjects || []).join(', ')} · ${when}${win}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Delete';
+        b.onclick = async () => {
+            await api('/portal/api/policies/rule', { method: 'POST',
+                body: JSON.stringify({ delete: true, rule_id: r.rule_id }) });
+            loadPortalPolicies();
+        };
+        row.appendChild(b);
+        rules.appendChild(row);
+    });
+    if (!rules.children.length) rules.innerHTML = '<div class="muted">No rules yet.</div>';
+    const groups = $('ppol-groups'); groups.innerHTML = '';
+    Object.entries(d.groups || {}).forEach(([name, members]) => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>group:${name}</div>
+            <div class="sub">${members.join(', ') || '(empty)'}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Delete';
+        b.onclick = async () => {
+            await api('/portal/api/policies/group', { method: 'POST',
+                body: JSON.stringify({ delete: true, name }) });
+            loadPortalPolicies();
+        };
+        row.appendChild(b);
+        groups.appendChild(row);
+    });
+}
+$('ppol-save').onclick = async () => {
+    const d = await api('/portal/api/policies', { method: 'POST',
+        body: JSON.stringify({ mode: $('ppol-mode').value, default: $('ppol-default').value,
+            tz_offset_minutes: parseInt($('ppol-tz').value, 10) || 0 }) });
+    $('ppol-msg').textContent = d.success
+        ? `Saved — mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
+    loadPortalPolicies();
+};
+$('prule-add').onclick = async () => {
+    const d = await api('/portal/api/policies/rule', { method: 'POST',
+        body: JSON.stringify({ name: $('prule-name').value, effect: $('prule-effect').value,
+            subjects: $('prule-subjects').value || '*', days: $('prule-days').value,
+            start: $('prule-start').value || null, end: $('prule-end').value || null }) });
+    $('ppol-msg').textContent = d.success ? 'Rule added.' : (d.message || 'Failed.');
+    if (d.success) { $('prule-name').value = ''; loadPortalPolicies(); }
+};
+$('pgrp-save').onclick = async () => {
+    const d = await api('/portal/api/policies/group', { method: 'POST',
+        body: JSON.stringify({ name: $('pgrp-name').value, members: $('pgrp-members').value }) });
+    $('ppol-msg').textContent = d.success ? 'Group saved.' : (d.message || 'Failed.');
+    if (d.success) loadPortalPolicies();
+};
+
+async function loadPortalGuests() {
+    const d = await api('/portal/api/guests');
+    if (!d.success) return;
+    const list = $('pgst-list'); list.innerHTML = '';
+    (d.guests || []).forEach(gm => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>${gm.user_id}
+            <span class="pill">${gm.expired ? 'EXPIRED' : 'active'}</span></div>
+            <div class="sub">expires ${pFmt(gm.expires)}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Make permanent';
+        b.onclick = async () => {
+            await api('/portal/api/guests', { method: 'POST',
+                body: JSON.stringify({ user_id: gm.user_id, clear: true }) });
+            loadPortalGuests();
+        };
+        row.appendChild(b);
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No guest passes.</div>';
+}
+$('pgst-set').onclick = async () => {
+    const uid = ($('pgst-user').value || '').trim();
+    if (!uid) { alert('Enter the user id first.'); return; }
+    const d = await api('/portal/api/guests', { method: 'POST',
+        body: JSON.stringify({ user_id: uid,
+            expires_in_days: parseFloat($('pgst-days').value) || 0,
+            expires_in_hours: parseFloat($('pgst-hours').value) || 0 }) });
+    $('pgst-msg').textContent = d.success
+        ? `Pass set — ${uid} expires ${pFmt(d.expires)}.` : (d.message || 'Failed.');
+    if (d.success) { $('pgst-user').value = ''; loadPortalGuests(); }
+};
+
+async function loadPortalDevices() {
+    const d = await api('/portal/api/devices');
+    if (!d.success) return;
+    const list = $('pdev-list'); list.innerHTML = '';
+    (d.devices || []).forEach(dev => {
+        const row = document.createElement('div'); row.className = 'item';
+        const seen = dev.last_seen ? 'seen ' + pFmt(dev.last_seen) : 'never seen';
+        row.innerHTML = `<div class="grow"><div>${dev.name}
+            <span class="pill">${dev.disabled ? 'DISABLED' : 'active'}</span></div>
+            <div class="sub">${dev.device_id} · ${seen}</div></div>`;
+        if (!dev.disabled) {
+            const b = document.createElement('button');
+            b.className = 'del'; b.textContent = 'Disable';
+            b.onclick = async () => {
+                if (!confirm(`Disable '${dev.name}'? Its key is revoked immediately.`)) return;
+                await api('/portal/api/devices/disable', { method: 'POST',
+                    body: JSON.stringify({ device_id: dev.device_id }) });
+                loadPortalDevices();
+            };
+            row.appendChild(b);
+        }
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No devices paired.</div>';
+}
+$('pdev-pair').onclick = async () => {
+    const name = ($('pdev-name').value || '').trim();
+    if (!name) { alert('Name the device first.'); return; }
+    const d = await api('/portal/api/devices/pairing', { method: 'POST',
+        body: JSON.stringify({ name }) });
+    if (!d.success) { $('pdev-msg').textContent = d.message || 'Failed.'; return; }
+    const box = $('pdev-new');
+    box.classList.remove('hidden');
+    box.innerHTML = `<b>Pairing code for “${d.name}”</b> — enter it on the device within
+        15 minutes (single use, shown once):<br>
+        <code style="font-size:1.05rem">${d.pairing_code}</code>`;
+    $('pdev-name').value = '';
+    loadPortalDevices();
+};
+
+async function loadPortalGuardians() {
+    const d = await api('/portal/api/guardians');
+    if (!d.success) return;
+    const list = $('pgdn-list'); list.innerHTML = '';
+    (d.links || []).forEach(l => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>${l.beneficiary}
+            <span class="pill">← ${l.guardian}</span></div>
+            <div class="sub">${l.relationship || 'guardian'} · linked ${pFmt(l.created)}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Unlink';
+        b.onclick = async () => {
+            await api('/portal/api/guardians', { method: 'POST',
+                body: JSON.stringify({ unlink: true, beneficiary: l.beneficiary,
+                    guardian: l.guardian }) });
+            loadPortalGuardians();
+        };
+        row.appendChild(b);
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No guardianship links.</div>';
+}
+$('pgdn-link').onclick = async () => {
+    const d = await api('/portal/api/guardians', { method: 'POST',
+        body: JSON.stringify({ beneficiary: $('pgdn-beneficiary').value,
+            guardian: $('pgdn-guardian').value, relationship: $('pgdn-rel').value }) });
+    $('pgdn-msg').textContent = d.success
+        ? `Linked — ${d.guardian} may now verify for ${d.beneficiary}.`
+        : (d.message || 'Failed.');
+    if (d.success) { $('pgdn-beneficiary').value = ''; $('pgdn-guardian').value = ''; loadPortalGuardians(); }
+};
+
+async function loadPortalConsent() {
+    const d = await api('/portal/api/consent');
+    if (!d.success) return;
+    $('pcns-text').value = d.policy.text;
+    $('pcns-enforce').checked = !!d.policy.enforce_withdrawal;
+    $('pcns-require').checked = !!d.policy.require_consent;
+    const list = $('pcns-list'); list.innerHTML = '';
+    (d.records || []).forEach(r => {
+        const row = document.createElement('div'); row.className = 'item';
+        const withdrawn = !!r.withdrawn_at;
+        row.innerHTML = `<div class="grow"><div>${r.user_id}
+            <span class="pill">${withdrawn ? 'WITHDRAWN' : 'granted'}</span>
+            <span class="pill">v${r.version}</span></div>
+            <div class="sub">${r.method} · ${pFmt(r.granted_at)}
+            ${withdrawn ? ' · withdrawn ' + pFmt(r.withdrawn_at) : ''}</div></div>`;
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">Consent records appear as people enrol.</div>';
+    $('pcns-msg').textContent = `${d.granted} granted · ${d.withdrawn} withdrawn (statement v${d.policy.version}).`;
+}
+$('pcns-save').onclick = async () => {
+    const d = await api('/portal/api/consent/policy', { method: 'POST',
+        body: JSON.stringify({ text: $('pcns-text').value,
+            enforce_withdrawal: $('pcns-enforce').checked,
+            require_consent: $('pcns-require').checked }) });
+    $('pcns-msg').textContent = d.success ? `Saved (statement v${d.version}).` : (d.message || 'Failed.');
+    if (d.success) loadPortalConsent();
+};
+$('pcns-withdraw').onclick = async () => {
+    const uid = ($('pcns-user').value || '').trim();
+    if (!uid) { alert('Enter the user id first.'); return; }
+    if (!confirm(`Withdraw consent for '${uid}'? Their verification is blocked immediately `
+               + 'and their QR cards are revoked.')) return;
+    const d = await api('/portal/api/consent/withdraw', { method: 'POST',
+        body: JSON.stringify({ user_id: uid }) });
+    $('pcns-msg').textContent = d.success
+        ? `Consent withdrawn for ${uid} (${d.credentials_revoked} card(s) revoked).`
+        : 'No consent record found.';
+    loadPortalConsent();
 };
 
 refreshSession();

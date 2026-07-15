@@ -35,6 +35,17 @@ Notable changes, newest first. Dates are approximate milestones, not releases.
     strict mode; exportable receipts; and a public **`/my-data`** page where a
     person verifies THEMSELVES (full liveness) to see their record, download a
     report, and withdraw consent.
+- **Full-platform integration of the five subsystems** (same day): honest kiosk
+  result screens for the new codes (recognised-but-blocked is not "not
+  recognised"); the invite self-enrol page shows the consent statement being
+  agreed to; `/api/glance` and Android Glance suppress withdrawn/expired
+  people; consent withdrawal auto-revokes QR credentials and issuing refuses
+  withdrawn users; withdrawn users ship as deletions on sync pulls and are
+  excluded from glance indexes and provisioning bundles (expired guests too);
+  tenant portal gained self-service cards for all five; Android (hybrid) pairs
+  itself with a console code, heartbeats after sync, mirrors
+  **`GET /v1/service-state`**, and re-runs the same gates offline
+  (`ServiceState.kt`) including guardian "may collect for" notes.
 
 ### Fixed
 - **Enrolment camera freeze (production, all web surfaces)** — on iOS Safari (and any

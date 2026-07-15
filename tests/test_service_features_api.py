@@ -186,6 +186,31 @@ def test_short_consent_text_rejected(client, make_key):
     assert r.status_code == 400 and r.get_json()["code"] == "bad_consent_text"
 
 
+def test_service_state_mirror(client, make_key):
+    """The device-mirror payload carries every gate's data in one pull."""
+    admin = make_key("admin", tenant="t_state")
+    client.post("/v1/policies", headers=_h(admin),
+                json={"mode": "enforce", "default": "deny"})
+    client.post("/v1/guests", headers=_h(admin),
+                json={"user_id": "visitor", "expires_in_days": 1})
+    client.post("/v1/consent/record", headers=_h(admin), json={"user_id": "ama"})
+    client.post("/v1/consent/record", headers=_h(admin), json={"user_id": "kofi"})
+    client.post("/v1/consent/withdraw", headers=_h(admin), json={"user_id": "kofi"})
+    client.post("/v1/guardians", headers=_h(admin),
+                json={"beneficiary": "baby", "guardian": "ama"})
+
+    s = client.get("/v1/service-state", headers=_h(admin)).get_json()
+    assert s["success"]
+    assert s["policies"]["mode"] == "enforce" and s["policies"]["default"] == "deny"
+    assert "visitor" in s["guests"] and s["guests"]["visitor"] > time.time()
+    assert s["withdrawn"] == ["kofi"] and s["consented"] == ["ama"]
+    assert s["enforce_withdrawal"] is True
+    assert s["guardians"]["baby"][0]["guardian"] == "ama"
+    # devices hold verify keys — the mirror needs a manage key
+    verify = make_key("verify", tenant="t_state")
+    assert client.get("/v1/service-state", headers=_h(verify)).status_code == 403
+
+
 # --- the gates, end to end through /v1/verify (needs the model + debug images) -----
 def test_enrolled_guest_expiry_blocks_verify(client, make_key, enroll_images,
                                              probe_image):
@@ -229,6 +254,77 @@ def test_consent_withdrawal_blocks_verify_e2e(client, make_key, enroll_images,
     out = client.post("/v1/verify", headers=_h(admin),
                       json={"user_id": "ama", "image": probe_image}).get_json()
     assert out["success"] is False and out["code"] == "consent_withdrawn"
+
+
+def test_withdrawal_revokes_credentials_and_blocks_issuing(client, make_key,
+                                                           enroll_images):
+    admin = make_key("admin", tenant="t_couple1")
+    client.post("/v1/enroll", headers=_h(admin),
+                json={"user_id": "ama", "images": enroll_images[:1]})
+    issued = client.post("/v1/credentials", headers=_h(admin),
+                         json={"user_id": "ama"}).get_json()
+    assert issued["success"]
+
+    out = client.post("/v1/consent/withdraw", headers=_h(admin),
+                      json={"user_id": "ama"}).get_json()
+    assert out["credentials_revoked"] == 1
+    creds = client.get("/v1/credentials?user_id=ama", headers=_h(admin)).get_json()
+    assert all(c["revoked"] for c in creds["credentials"])
+
+    # no new card can be issued while consent is withdrawn
+    r = client.post("/v1/credentials", headers=_h(admin), json={"user_id": "ama"})
+    assert r.status_code == 400 and r.get_json()["code"] == "consent_withdrawn"
+
+
+def test_exports_exclude_withdrawn_users(client, make_key, enroll_images):
+    from face_service import tenants as _tenants
+    admin = make_key("admin", tenant="t_couple2")
+    _tenants.set_entitlement("t_couple2", allow_export=True)
+    # bulk import (guards off by design) lets one test image enrol two names
+    r = client.post("/v1/enroll/bulk", headers=_h(admin),
+                    json={"people": [{"user_id": "keep_me", "images": enroll_images[:1]},
+                                     {"user_id": "withdrew", "images": enroll_images[:1]}]}
+                    ).get_json()
+    assert r["enrolled"] == 2
+    out = client.post("/v1/consent/withdraw", headers=_h(admin),
+                      json={"user_id": "withdrew"}).get_json()
+    assert out["success"]
+
+    # glance index: the withdrawn user must not ship
+    idx = client.get("/v1/sync/index?modality=face", headers=_h(admin)).get_json()
+    assert "keep_me" in idx["users"] and "withdrew" not in idx["users"]
+    assert idx["skipped_withdrawn_or_expired"] >= 1
+
+    # sync pull: the withdrawn user arrives as a deletion (mirrors drop them)
+    pull = client.get("/v1/sync/pull?modality=face", headers=_h(admin)).get_json()
+    rows = {r["user_id"]: r for r in pull["templates"]}
+    assert rows["keep_me"]["deleted"] is False
+    assert rows["withdrew"]["deleted"] is True
+
+    # provisioning bundle: withdrawn user absent
+    b = client.post("/v1/export/bundle", headers=_h(admin),
+                    json={"passphrase": "test-passphrase-1"}).get_json()
+    if b.get("success"):                       # bundling needs the crypto lib
+        assert b["counts"]["face"] == 1
+
+
+def test_wards_ride_along_on_a_guardian_grant(client, make_key, enroll_images,
+                                              probe_image):
+    admin = make_key("admin", tenant="t_couple3")
+    client.post("/v1/enroll", headers=_h(admin),
+                json={"user_id": "mama", "images": enroll_images[:1]})
+    client.post("/v1/guardians", headers=_h(admin),
+                json={"beneficiary": "baby", "guardian": "mama"})
+    out = client.post("/v1/verify", headers=_h(admin),
+                      json={"user_id": "mama", "image": probe_image}).get_json()
+    assert out["success"]
+    assert [w["beneficiary"] for w in out["wards"]] == ["baby"]
+
+    # and the actual proxy collection works end to end
+    proxy = client.post("/v1/verify", headers=_h(admin),
+                        json={"on_behalf_of": "baby", "image": probe_image}).get_json()
+    assert proxy["success"] and proxy["code"] == "proxy_match"
+    assert proxy["proxy"]["guardian"] == "mama"
 
 
 def test_policy_enforce_blocks_verify_e2e(client, make_key, enroll_images,

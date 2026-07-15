@@ -337,7 +337,12 @@ POST /v1/devices/pair       {"pairing_code":"pc_..."}       # device-side; -> de
 POST /v1/devices/heartbeat  {"info":{"app":"2.1.0"}}        # with the DEVICE's key
 GET  /v1/devices                                            # fleet + last-seen
 POST /v1/devices/<device_id>/disable                        # cut it off (key revoked)
+GET  /v1/service-state      # offline mirror of ALL the gates (policies, guest
+                            # expiries, consent standing, guardian links) — hybrid
+                            # devices pull it with sync and re-evaluate locally
 ```
+The Android hybrid build pairs itself in **Settings → This device** (enter the
+code), then heartbeats after every sync so the console's last-seen is live.
 
 ## 5k. Guardianship (verify on someone's behalf)
 

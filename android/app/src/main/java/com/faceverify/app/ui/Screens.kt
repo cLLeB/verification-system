@@ -572,6 +572,32 @@ private fun SyncSection(vm: ScannerViewModel, ctx: android.content.Context) {
             Text("• $c", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+
+        Spacer(Modifier.height(20.dp))
+        Text("This device", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Pair this kiosk with a single-use code from the console: it gets its own " +
+                "identity and key, shows up with a live last-seen, and can be cut off " +
+                "remotely without touching any other device.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        InfoRow("Paired as", vm.deviceLabel())
+        Spacer(Modifier.height(8.dp))
+        var pairCode by remember { mutableStateOf("") }
+        OutlinedTextField(
+            value = pairCode, onValueChange = { pairCode = it },
+            label = { Text("Pairing code (pc_…)") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = { vm.pairDevice(pairCode); pairCode = "" }, enabled = !vm.pairBusy) {
+            Text("Pair this device")
+        }
+        if (vm.pairMsg.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(vm.pairMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 
     if (showPin) PinDialog(

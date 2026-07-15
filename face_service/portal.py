@@ -580,10 +580,15 @@ def portal_consent_withdraw():
     data = request.get_json(silent=True) or {}
     uid = (data.get("user_id") or "").strip()
     ok = _consent.withdraw(g.portal_tenant, uid, by="portal")
+    revoked_creds = 0
     if ok:
+        from . import credentials as _credreg
+        revoked_creds = _credreg.revoke_for_user(g.portal_tenant, uid)
         audit.log(g.portal_tenant, "consent_withdraw", actor="portal",
-                  user_id=uid, success=True)
-    return jsonify({"success": ok, "user_id": uid})
+                  user_id=uid, success=True,
+                  detail=f"{revoked_creds} credentials revoked")
+    return jsonify({"success": ok, "user_id": uid,
+                    "credentials_revoked": revoked_creds})
 
 
 # --- cross-org trust (accept another tenant's credentials) --------------------

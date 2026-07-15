@@ -176,6 +176,13 @@ def issue(tenant: Optional[str], face_cfg, palm_enabled: bool, user_id: str,
 
     if not 1 <= int(expiry_days) <= 3650:
         raise IssueError("bad_request", "'expiry_days' must be between 1 and 3650.")
+    # Consent gate: a withdrawn person's data must not be processed — and a
+    # self-contained QR card is the most portable processing there is.
+    from . import consent as _consent
+    if _consent.status(tenant, user_id) == "withdrawn":
+        raise IssueError("consent_withdrawn",
+                         f"'{user_id}' has withdrawn consent — no credential can "
+                         f"be issued until they re-consent (re-enrol).")
     requested = list(modalities or ["face", "palm"])
     cid = _cred.new_cid()
     templates, mods, skipped = [], [], []

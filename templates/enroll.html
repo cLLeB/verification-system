@@ -79,6 +79,15 @@
                 <button class="btn btn-primary" id="capture-btn" disabled>Capture</button>
                 <button class="btn btn-ghost" id="finish-btn" disabled>Finish</button>
             </div>
+
+            <!-- Informed consent: capturing records your agreement to this statement -->
+            <details class="consent hidden" id="consent-box"
+                     style="margin:14px 16px 0;font-size:.8rem;opacity:.85">
+                <summary>What you agree to by enrolling</summary>
+                <p id="consent-text" style="margin-top:8px;line-height:1.45"></p>
+                <p style="margin-top:6px">You can view your record or withdraw this consent at
+                    any time at <a href="/my-data" target="_blank">/my-data</a>.</p>
+            </details>
         </div>
 
         <!-- Completed -->
@@ -92,6 +101,6 @@
     </main>
 
     <canvas id="canvas" hidden></canvas>
-    <script src="/static/enroll.js?v=6"></script>
+    <script src="/static/enroll.js?v=7"></script>
 </body>
 </html>

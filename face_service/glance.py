@@ -41,11 +41,22 @@ GLANCE_TARGET_FAR = 0.005
 
 def build_payload(tenant: str, store, modality: str) -> dict:
     """The glance-index payload for one tenant store: per-user int8 centroids in
-    the store's protection domain + the calibrated 1:N operating point."""
+    the store's protection domain + the calibrated 1:N operating point.
+
+    Excluded rows: individually-reissued users (own domain — unscorable here),
+    consent-withdrawn users (identifying them IS processing; it must stop
+    everywhere, including on devices), and expired guests (they can't verify
+    anyway — no reason to ship their template)."""
+    from . import consent as _consent, guests as _guests
     users, rows = [], []
     off_domain = {u for u, _ in store.off_domain_users()}
+    skipped_subjects = 0
     for t in store.iter_templates():                    # matching-domain vectors
         if not t.embeddings or t.user_id in off_domain:
+            continue
+        if (_consent.status(tenant, t.user_id) == "withdrawn"
+                or _guests.is_expired(tenant, t.user_id)):
+            skipped_subjects += 1
             continue
         c = np.mean(np.stack(t.embeddings).astype(np.float32), axis=0)
         n = float(np.linalg.norm(c))
@@ -79,7 +90,8 @@ def build_payload(tenant: str, store, modality: str) -> dict:
                "threshold": round(threshold, 4), "margin": GLANCE_MARGIN,
                "floor": floor, "clamp_band": GLANCE_CLAMP_BAND,
                "seq": store.current_seq(), "generated": int(time.time()),
-               "skipped_off_domain": len(off_domain)}
+               "skipped_off_domain": len(off_domain),
+               "skipped_withdrawn_or_expired": skipped_subjects}
     if store.protection_enabled:
         from biometric.core import protect as _protect
         ref, seed = store.domain_seed()

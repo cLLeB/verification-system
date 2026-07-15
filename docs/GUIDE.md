@@ -137,6 +137,21 @@ per-user max), 100% accurate, ~40 ms at 100k identities. See [scaling](#17-scali
 | Idempotency keys | `face_service/idempotency.py` |
 | Metrics / health | `/metrics`, `/healthz`, `/readyz` in `app.py`, `face_service/metrics.py` |
 | Durable state on ephemeral hosts | `face_service/persistence.py` |
+| Access policies (who is allowed, **when**) | `face_service/policies.py` |
+| Guest passes (identities that expire) | `face_service/guests.py` |
+| Device registry (kiosk pairing, heartbeats, remote disable) | `face_service/devices.py` |
+| Guardianship (proxy verification, `on_behalf_of`) | `face_service/guardians.py` |
+| Consent records + `/my-data` data-subject page | `face_service/consent.py` |
+
+### Post-match service gates
+Every verify/identify result passes three gates strictly **after** the biometric
+decision — guest expiry → consent standing → access policy — so the matching
+pipeline is untouched and a gate can only narrow a granted match (codes:
+`identity_expired`, `consent_withdrawn`/`consent_missing`, `access_denied`).
+The same gates run on-device in the Android app from the `/v1/service-state`
+mirror pulled with sync, and withdrawn users are excluded from every export
+(sync pulls, glance indexes, provisioning bundles) and have their QR
+credentials auto-revoked.
 
 ### Multi-tenancy
 Each API key is scoped to a **tenant**; the store/index live under
@@ -331,7 +346,11 @@ The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v
   counts, dims, recent audit — not the raw template).
 - **Right to erasure:** `POST /v1/users/delete` (one or many) and `POST /v1/users/purge`
   (`confirm:true`, whole tenant).
-- **Consent:** obtain consent before enrolling people. (Operational responsibility.)
+- **Consent:** recorded automatically on every enrol path against the tenant's versioned
+  statement (`face_service/consent.py`), pinned to the SHA-256 of the exact text agreed.
+  Withdrawal blocks verification immediately, revokes issued QR credentials, and drops the
+  person from all exports. People self-serve at **`/my-data`** (verify-gated): view their
+  record, download a report, withdraw.
 - **Offline option:** the Android app holds `CAMERA` only — **no `INTERNET` permission**, so
   data physically cannot leave the device.
 
@@ -588,7 +607,8 @@ face/                Recognition core (engine, matcher, liveness, storage, index
 biometric/           Modality-agnostic core (store, index, matcher, crypto) + router + profiles
 palm/                Palm modality (MediaPipe Hands ROI + CCNet ONNX encoder + config)
 face_service/        Web API layer: v1 blueprint, auth/keys/admins, audit, usage, metrics,
-                     security, tenants, webhooks, idempotency, persistence, glance, credentials
+                     security, tenants, webhooks, idempotency, persistence, glance, credentials,
+                     policies, guests, devices, guardians, consent (post-match service gates)
 app.py               Flask host: phone client + admin console + /v1 + probes + /docs + /widget
 templates/, static/  Web UIs (phone, admin, docs, widget, trust) + shared theme.css + PWA
 sdk/                 python/ + js/ client SDKs

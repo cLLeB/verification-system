@@ -69,6 +69,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private val liveness = LivenessTracker()
     val enrollTarget = Config.SAMPLES_PER_USER
 
+    // Offline mirror of the service gates (policies / guests / consent /
+    // guardians). Null until first synced — all gates pass, exactly as before.
+    private var serviceState: com.faceverify.app.data.ServiceState? = null
+
     init {
         viewModelScope.launch {
             try {
@@ -78,6 +82,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                     if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
                 } catch (_: Exception) { null }
                 trustData = TrustStoreManager.load(getApplication())
+                serviceState = com.faceverify.app.data.ServiceState.load(getApplication())
                 glanceFace = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "face")
                 glancePalm = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "palm")
                 refreshPeople()
@@ -183,12 +188,29 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             val emb = engine.embed(bitmap, face) ?: return
             val dec = engine.repo.identify(emb)
             engine.repo.maybeAdapt(dec, emb, null)
-            result = if (dec.granted)
-                ScanResult(true, "Access granted", "Welcome, ${dec.userId}")
-            else
-                ScanResult(false, "Access denied", "Face not recognised")
+            result = grantedResult(dec.granted, dec.userId, "Face not recognised")
             liveness.reset(); livenessProgress = 0f
         }
+    }
+
+    /** Shared verify verdict: applies the offline service gates (guest expiry ->
+     *  consent -> access policy, mirroring the server) to a granted match, and
+     *  notes who a verified guardian may collect for. */
+    private fun grantedResult(granted: Boolean, userId: String?, denyMsg: String): ScanResult {
+        if (!granted || userId == null) return ScanResult(false, "Access denied", denyMsg)
+        val st = serviceState
+        val gate = st?.gate(userId)
+        if (gate != null) {
+            val title = when (gate.code) {
+                "access_denied" -> "Not allowed right now"
+                "identity_expired" -> "Guest pass expired"
+                else -> "Consent required"
+            }
+            return ScanResult(false, title, gate.message)
+        }
+        val wards = st?.wardsOf(userId) ?: emptyList()
+        val note = if (wards.isEmpty()) "" else " — may collect for: ${wards.joinToString(", ")}"
+        return ScanResult(true, "Access granted", "Welcome, $userId$note")
     }
 
     private suspend fun handleEnroll(bitmap: Bitmap, face: com.faceverify.app.face.DetectedFace, yaw: Float) {
@@ -225,10 +247,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if (s.embedding == null) { status = s.message; return }
         val dec = p.repo.identify(s.embedding)
         p.repo.maybeAdapt(dec, s.embedding, null)
-        result = if (dec.granted)
-            ScanResult(true, "Access granted", "Welcome, ${dec.userId} (via print)")
-        else
-            ScanResult(false, "Access denied", "Print not recognised")
+        result = grantedResult(dec.granted, dec.userId, "Print not recognised").let {
+            if (it.ok) it.copy(sub = it.sub.replaceFirst("Welcome, ${dec.userId}",
+                "Welcome, ${dec.userId} (via print)")) else it
+        }
         livenessProgress = 0f
     }
 
@@ -453,8 +475,15 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             dec.userId!! to dec.score else null
 
     private fun setGlance(hit: Pair<String, Float>?) {
-        glanceHit = hit?.let { "${it.first}  (${"%.2f".format(it.second)})" }
-        status = if (hit != null) "Identified" else "Seen — no confident match"
+        // Withdrawn consent / expired pass suppress identification here too —
+        // naming someone IS processing their data (mirrors /api/glance).
+        val visible = hit?.takeIf { serviceState?.hideFromGlance(it.first) != true }
+        glanceHit = visible?.let { "${it.first}  (${"%.2f".format(it.second)})" }
+        status = when {
+            visible != null -> "Identified"
+            hit != null -> "Seen — record paused (consent withdrawn or pass expired)"
+            else -> "Seen — no confident match"
+        }
     }
 
     private suspend fun handleGlanceFrame(bitmap: Bitmap) {
@@ -676,8 +705,37 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             val r = try { block() } catch (e: Exception) { null }
             syncMsg = r?.summary ?: "Sync unavailable."
             syncConflicts = r?.conflicts ?: emptyList()
-            if (r?.ok == true) refreshPeople()
+            if (r?.ok == true) {
+                refreshPeople()
+                // the service gates ride along with every successful sync, and a
+                // paired device announces itself (console last-seen); both best-effort
+                try {
+                    serviceState = com.faceverify.app.data.ServiceState.save(
+                        getApplication(), mgr()!!.pullServiceState())
+                } catch (_: Exception) {}
+                try { mgr()?.heartbeat("sync") } catch (_: Exception) {}
+            }
             syncBusy = false
+        }
+    }
+
+    // --- device pairing (this kiosk's own identity + key) ---------------------
+    var pairBusy by mutableStateOf(false); private set
+    var pairMsg by mutableStateOf(""); private set
+
+    fun deviceLabel(): String =
+        if (syncPrefs.paired) "'${syncPrefs.deviceName}' (${syncPrefs.deviceId})"
+        else "not paired"
+
+    fun pairDevice(code: String) {
+        if (syncPrefs.serverUrl.isEmpty()) { pairMsg = "Set the server URL first."; return }
+        if (code.isBlank()) { pairMsg = "Enter the pairing code from the console."; return }
+        if (pairBusy) return
+        pairBusy = true; pairMsg = "Pairing…"
+        viewModelScope.launch(Dispatchers.IO) {
+            val r = try { mgr()?.pairDevice(code) } catch (e: Exception) { null }
+            pairMsg = r?.summary ?: "Pairing unavailable."
+            pairBusy = false
         }
     }
 

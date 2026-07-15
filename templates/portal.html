@@ -108,6 +108,120 @@
                 <p id="pcred-msg" class="muted"></p>
             </div>
 
+            <div class="card" id="portal-policies">
+                <h2>Access policies <span class="muted">(who is allowed, when)</span></h2>
+                <p class="muted">Verification says <b>who</b>; a policy says whether they're
+                    <b>allowed right now</b> (schedules, groups, bans). <b>Advise</b> only
+                    reports; <b>Enforce</b> denies with <code>access_denied</code>. Off by
+                    default — nothing changes until you switch it on.</p>
+                <div class="row">
+                    <select id="ppol-mode" class="field">
+                        <option value="off">Mode: off</option>
+                        <option value="advise">Mode: advise (report only)</option>
+                        <option value="enforce">Mode: enforce (deny blocks)</option>
+                    </select>
+                    <select id="ppol-default" class="field">
+                        <option value="allow">No rule matches → allow</option>
+                        <option value="deny">No rule matches → deny</option>
+                    </select>
+                    <input id="ppol-tz" class="field" type="number" step="30" placeholder="TZ offset (min)">
+                    <button id="ppol-save" class="btn primary">Save</button>
+                </div>
+                <p class="muted" style="margin-top:12px">Add a rule (deny always beats allow):</p>
+                <div class="row">
+                    <input id="prule-name" class="field" type="text" placeholder="Rule name (e.g. Office hours)">
+                    <select id="prule-effect" class="field">
+                        <option value="allow">allow</option><option value="deny">deny</option>
+                    </select>
+                </div>
+                <input id="prule-subjects" class="field" type="text"
+                       placeholder="Who: * or names / group:staff (comma-separated)">
+                <div class="row">
+                    <input id="prule-days" class="field" type="text" placeholder="Days (mon,tue,… blank = all)">
+                    <input id="prule-start" class="field" type="text" placeholder="From HH:MM">
+                    <input id="prule-end" class="field" type="text" placeholder="To HH:MM">
+                    <button id="prule-add" class="btn primary">Add rule</button>
+                </div>
+                <div id="ppol-rules" class="list"></div>
+                <p class="muted" style="margin-top:12px">Groups (usable in rules as <code>group:name</code>):</p>
+                <div class="row">
+                    <input id="pgrp-name" class="field" type="text" placeholder="Group name">
+                    <input id="pgrp-members" class="field" type="text" placeholder="Members (comma-separated)">
+                    <button id="pgrp-save" class="btn ghost">Save group</button>
+                </div>
+                <div id="ppol-groups" class="list"></div>
+                <p id="ppol-msg" class="muted"></p>
+            </div>
+
+            <div class="card" id="portal-guests">
+                <h2>Guest passes <span class="muted">(identities that expire)</span></h2>
+                <p class="muted">Time-box a person: after expiry they stop verifying
+                    (<code>identity_expired</code>) until you extend the pass. QR cards issued
+                    to guests never outlive the pass.</p>
+                <div class="row">
+                    <input id="pgst-user" class="field" type="text" placeholder="User id (enrolled person)">
+                    <input id="pgst-days" class="field" type="number" min="0" step="0.5" placeholder="Days">
+                    <input id="pgst-hours" class="field" type="number" min="0" step="1" placeholder="+ hours">
+                    <button id="pgst-set" class="btn primary">Set pass</button>
+                </div>
+                <div id="pgst-list" class="list"></div>
+                <p id="pgst-msg" class="muted"></p>
+            </div>
+
+            <div class="card" id="portal-devices">
+                <h2>Devices <span class="muted">(your kiosk fleet)</span></h2>
+                <p class="muted">Give every kiosk its own identity: mint a <b>pairing code</b>
+                    (15 min, single use), enter it on the device, and it gets its own verify
+                    key. Disabling cuts one device off instantly.</p>
+                <div class="row">
+                    <input id="pdev-name" class="field" type="text" placeholder="Device name (e.g. Front gate kiosk)">
+                    <button id="pdev-pair" class="btn primary">Create pairing code</button>
+                </div>
+                <div id="pdev-new" class="newkey hidden"></div>
+                <div id="pdev-list" class="list"></div>
+                <p id="pdev-msg" class="muted"></p>
+            </div>
+
+            <div class="card" id="portal-guardians">
+                <h2>Guardians <span class="muted">(verify on someone's behalf)</span></h2>
+                <p class="muted">For people who can't present a biometric (children, elderly,
+                    patients): link a guardian — their own live verification then counts
+                    <b>for</b> the beneficiary. Your integration passes
+                    <code>on_behalf_of</code> to <code>/v1/verify</code>.</p>
+                <div class="row">
+                    <input id="pgdn-beneficiary" class="field" type="text" placeholder="Beneficiary (who is served)">
+                    <input id="pgdn-guardian" class="field" type="text" placeholder="Guardian (who verifies)">
+                </div>
+                <div class="row">
+                    <input id="pgdn-rel" class="field" type="text" placeholder="Relationship (e.g. mother)">
+                    <button id="pgdn-link" class="btn primary">Link guardian</button>
+                </div>
+                <div id="pgdn-list" class="list"></div>
+                <p id="pgdn-msg" class="muted"></p>
+            </div>
+
+            <div class="card" id="portal-consent">
+                <h2>Consent <span class="muted">(lawful basis &amp; withdrawal)</span></h2>
+                <p class="muted">Every enrolment records the person's consent against your
+                    statement below (versioned — history stays pinned to the text they saw).
+                    A <b>withdrawal</b> blocks their verification immediately and revokes
+                    their QR cards.</p>
+                <textarea id="pcns-text" class="field" rows="3" placeholder="Consent statement shown to enrollees"></textarea>
+                <div class="row">
+                    <label class="chk"><input id="pcns-enforce" type="checkbox" checked>
+                        Block verification after withdrawal</label>
+                    <label class="chk"><input id="pcns-require" type="checkbox">
+                        Require a consent record to verify</label>
+                    <button id="pcns-save" class="btn primary">Save</button>
+                </div>
+                <div class="row">
+                    <input id="pcns-user" class="field" type="text" placeholder="User id">
+                    <button id="pcns-withdraw" class="btn danger">Withdraw consent…</button>
+                </div>
+                <div id="pcns-list" class="list"></div>
+                <p id="pcns-msg" class="muted"></p>
+            </div>
+
             <div class="card" id="portal-trust">
                 <h2>Trusted organisations <span class="muted">(accept their cards)</span></h2>
                 <p class="muted">Add another organisation to accept the credentials <b>they</b>
@@ -122,6 +236,6 @@
         </div>
     </section>
 </main>
-<script src="/static/portal.js?v=5"></script>
+<script src="/static/portal.js?v=6"></script>
 </body>
 </html>

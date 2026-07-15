@@ -93,6 +93,45 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
         client().get("/v1/sync/index?modality=$modality")
     }
 
+    /** Fetch the service-state mirror (policies, guest expiries, consent
+     *  standing, guardianship links) so the on-device gates match the server's.
+     *  The caller persists it via ServiceState.save. */
+    suspend fun pullServiceState(): org.json.JSONObject = withContext(Dispatchers.IO) {
+        client().get("/v1/service-state")
+    }
+
+    /** Redeem a pairing code minted in the console/portal: this device gets its
+     *  own identity + verify key (stored separately from the sync key). The code
+     *  is the auth — no key is needed for this one call. */
+    suspend fun pairDevice(code: String): Result = withContext(Dispatchers.IO) {
+        try {
+            val resp = SyncClient(prefs.serverUrl, "").post(
+                "/v1/devices/pair", JSONObject().put("pairing_code", code.trim()))
+            prefs.deviceId = resp.getString("device_id")
+            prefs.deviceName = resp.optString("name", "")
+            prefs.deviceKey = resp.getString("api_key")
+            heartbeat("paired")
+            Result(true, "Paired as '${prefs.deviceName}' (${prefs.deviceId}).")
+        } catch (e: SyncClient.HttpError) {
+            Result(false, "Pairing failed (${e.code}): ${e.message}")
+        } catch (e: Exception) {
+            Result(false, "Pairing failed: ${e.message ?: "network error"}")
+        }
+    }
+
+    /** Best-effort device check-in with the DEVICE key (console shows last-seen).
+     *  Never fails a sync — a missed heartbeat is a dashboard gap, not an error. */
+    suspend fun heartbeat(event: String = "sync") : Unit = withContext(Dispatchers.IO) {
+        if (!prefs.paired) return@withContext
+        try {
+            SyncClient(prefs.serverUrl, prefs.deviceKey).post(
+                "/v1/devices/heartbeat",
+                JSONObject().put("info", JSONObject()
+                    .put("event", event)
+                    .put("app", com.faceverify.app.BuildConfig.VERSION_NAME)))
+        } catch (_: Exception) { /* best-effort */ }
+    }
+
     /** Push device templates up. [selected] = null pushes everyone. [onConflict] = how the
      *  server resolves a face that matches an existing, differently-named person. */
     suspend fun push(selected: Set<String>? = null, onConflict: String = "skip"): Result =

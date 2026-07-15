@@ -142,6 +142,92 @@ export class FaceVerifyClient {
   tenantKeys() { return this._call("GET", "/v1/tenant/keys"); }
   /** Rotate the issuer signing key. Previously signed items stay verifiable. */
   rotateTenantKeys() { return this._call("POST", "/v1/tenant/keys/rotate", { confirm: true }); }
+  // --- access policies (authorization on top of verification) ---------------
+  policies() { return this._call("GET", "/v1/policies"); }
+  /** mode: "off"|"advise"|"enforce"; defaultOutcome: "allow"|"deny". */
+  configurePolicies({ mode, defaultOutcome, tzOffsetMinutes } = {}) {
+    const body = {};
+    if (mode) body.mode = mode;
+    if (defaultOutcome) body.default = defaultOutcome;
+    if (tzOffsetMinutes != null) body.tz_offset_minutes = tzOffsetMinutes;
+    return this._call("POST", "/v1/policies", body);
+  }
+  /** subjects: "*", "user:<id>", "group:<name>"; start/end "HH:MM" (overnight wraps). */
+  addPolicyRule(name, effect, subjects, { days, start, end } = {}) {
+    const body = { name, effect, subjects };
+    if (days) body.days = days;
+    if (start && end) { body.start = start; body.end = end; }
+    return this._call("POST", "/v1/policies/rules", body);
+  }
+  setPolicyGroup(name, members) {
+    return this._call("POST", "/v1/policies/groups", { name, members });
+  }
+
+  // --- guest passes (identities that expire) ---------------------------------
+  /** After expiry, verifies return code:"identity_expired". */
+  setGuest(userId, { days = 0, hours = 0 } = {}) {
+    return this._call("POST", "/v1/guests",
+      { user_id: userId, expires_in_days: days, expires_in_hours: hours });
+  }
+  guests() { return this._call("GET", "/v1/guests"); }
+  clearGuest(userId) { return this._call("DELETE", `/v1/guests/${encodeURIComponent(userId)}`); }
+  purgeExpiredGuests(graceHours = 0) {
+    return this._call("POST", "/v1/guests/purge", { grace_hours: graceHours });
+  }
+
+  // --- device registry --------------------------------------------------------
+  /** Mint a single-use pairing code for a kiosk (returned ONCE). Admin key. */
+  createDevicePairing(name) { return this._call("POST", "/v1/devices/pairings", { name }); }
+  /** Device-side: redeem the code -> {device_id, api_key}. No key needed. */
+  pairDevice(pairingCode) { return this._call("POST", "/v1/devices/pair", { pairing_code: pairingCode }); }
+  /** Call with the DEVICE's own key. */
+  deviceHeartbeat(info = {}) { return this._call("POST", "/v1/devices/heartbeat", { info }); }
+  devices() { return this._call("GET", "/v1/devices"); }
+  /** Cut one device off immediately (its key is revoked). */
+  disableDevice(deviceId) {
+    return this._call("POST", `/v1/devices/${encodeURIComponent(deviceId)}/disable`);
+  }
+
+  // --- guardianship (proxy verification) ---------------------------------------
+  linkGuardian(beneficiary, guardian, relationship = "") {
+    return this._call("POST", "/v1/guardians", { beneficiary, guardian, relationship });
+  }
+  unlinkGuardian(beneficiary, guardian) {
+    return this._call("POST", "/v1/guardians/unlink", { beneficiary, guardian });
+  }
+  guardians({ beneficiary, guardian } = {}) {
+    const q = beneficiary ? `?beneficiary=${encodeURIComponent(beneficiary)}`
+      : guardian ? `?guardian=${encodeURIComponent(guardian)}` : "";
+    return this._call("GET", `/v1/guardians${q}`);
+  }
+  /** The guardian presents THEIR OWN biometric on behalf of the linked
+   *  beneficiary. success + code:"proxy_match" approves; r.proxy carries both
+   *  identities for your ledger. */
+  verifyProxy(beneficiary, image, guardian) {
+    const body = { on_behalf_of: beneficiary, image };
+    if (guardian) body.user_id = guardian;
+    return this._call("POST", "/v1/verify", body);
+  }
+
+  // --- consent & data-subject rights --------------------------------------------
+  consentSummary() { return this._call("GET", "/v1/consent"); }
+  setConsentPolicy({ text, enforceWithdrawal, requireConsent } = {}) {
+    const body = {};
+    if (text != null) body.text = text;
+    if (enforceWithdrawal != null) body.enforce_withdrawal = enforceWithdrawal;
+    if (requireConsent != null) body.require_consent = requireConsent;
+    return this._call("POST", "/v1/consent/policy", body);
+  }
+  consentReceipt(userId) { return this._call("GET", `/v1/consent/${encodeURIComponent(userId)}`); }
+  recordConsent(userId, method = "operator") {
+    return this._call("POST", "/v1/consent/record", { user_id: userId, method });
+  }
+  /** Blocks the person's verification immediately and revokes their QR cards. */
+  withdrawConsent(userId) { return this._call("POST", "/v1/consent/withdraw", { user_id: userId }); }
+
+  /** Offline mirror of the service gates for hybrid devices. Admin key. */
+  serviceState() { return this._call("GET", "/v1/service-state"); }
+
   usage() { return this._call("GET", "/v1/usage"); }
   health() { return this._call("GET", "/v1/health"); }
 }
