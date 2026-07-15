@@ -544,3 +544,214 @@ paths:
         - { name: tenant, in: path, required: true, schema: { type: string } }
       responses:
         "200": { description: "Updated trusted_issuers list" }
+  /v1/policies:
+    get:
+      summary: "Access-policy document: mode, default, groups, rules (role: admin)"
+      responses:
+        "200": { description: "{ mode, default, tz_offset_minutes, groups, rules }" }
+    post:
+      summary: "Configure policy mode/default/timezone (role: admin)"
+      description: >
+        mode: off (default - nothing changes) | advise (responses gain an
+        `access` block) | enforce (a policy deny flips the result to
+        success:false, code:access_denied). Policies run strictly AFTER the
+        biometric decision and can only narrow a granted match.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [off, advise, enforce] }
+                default: { type: string, enum: [allow, deny] }
+                tz_offset_minutes: { type: integer }
+      responses:
+        "200": { description: "The updated policy document" }
+  /v1/policies/rules:
+    post:
+      summary: "Add or replace an allow/deny rule (role: admin)"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rule_id: { type: string, description: "present = replace" }
+                name: { type: string }
+                effect: { type: string, enum: [allow, deny] }
+                subjects:
+                  type: array
+                  items: { type: string }
+                  description: "'*', 'user:<id>', 'group:<name>'"
+                days: { type: array, items: { type: string } }
+                start: { type: string, example: "08:00" }
+                end: { type: string, example: "18:00" }
+      responses:
+        "200": { description: "{ rule } - normalised, with rule_id" }
+        "400": { description: "bad_rule" }
+  /v1/policies/rules/{rule_id}:
+    delete:
+      summary: "Delete a rule (role: admin)"
+      parameters:
+        - { name: rule_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Deleted" }
+  /v1/policies/groups:
+    post:
+      summary: "Create/replace a user group for rules (role: admin)"
+      responses:
+        "200": { description: "{ groups }" }
+  /v1/policies/groups/{name}:
+    delete:
+      summary: "Delete a group (role: admin)"
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Deleted" }
+  /v1/guests:
+    get:
+      summary: "List guest (time-boxed) identities with countdowns (role: admin)"
+      responses:
+        "200": { description: "{ guests: [{user_id, expires, expired, ...}] }" }
+    post:
+      summary: "Time-box an identity - verifies stop at expiry (role: admin)"
+      description: >
+        After expiry a granted match returns success:false,
+        code:identity_expired. Re-post to extend/shorten. QR credentials issued
+        to a guest are capped to the pass. /v1/enroll also accepts
+        expires_in_days / expires_in_hours directly.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+                expires_in_days: { type: number }
+                expires_in_hours: { type: number }
+                expires_at: { type: number, description: "epoch (alternative)" }
+      responses:
+        "200": { description: "{ user_id, expires }" }
+  /v1/guests/{user_id}:
+    delete:
+      summary: "Remove the expiry - person becomes permanent again (role: admin)"
+      parameters:
+        - { name: user_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Cleared" }
+  /v1/guests/purge:
+    post:
+      summary: "ERASE expired guests - full delete path (role: delete)"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grace_hours: { type: number, description: "only guests expired longer than this" }
+      responses:
+        "200": { description: "{ purged: [...], credentials_revoked }" }
+  /v1/devices/pairings:
+    post:
+      summary: "Mint a single-use 15-min device pairing code (role: admin)"
+      responses:
+        "200": { description: "{ pairing_code (shown ONCE), device_id, expires }" }
+  /v1/devices/pair:
+    post:
+      summary: "Device-side: redeem a pairing code (the code IS the auth)"
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pairing_code]
+              properties:
+                pairing_code: { type: string }
+      responses:
+        "200": { description: "{ device_id, api_key (its OWN verify key, shown once), signing_secret }" }
+        "404": { description: "bad_pairing_code" }
+  /v1/devices/heartbeat:
+    post:
+      summary: "Device check-in with ITS OWN key (role: verify)"
+      description: The key identifies the device - no spoofable device_id parameter.
+      responses:
+        "200": { description: "{ device_id, name, last_seen }" }
+        "403": { description: "not_a_device | device_disabled" }
+  /v1/devices:
+    get:
+      summary: "The tenant's device fleet with last-seen (role: admin)"
+      responses:
+        "200": { description: "{ devices: [...] }" }
+  /v1/devices/{device_id}/disable:
+    post:
+      summary: "Disable one device - its key is revoked immediately (role: admin)"
+      parameters:
+        - { name: device_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ device }" }
+  /v1/guardians:
+    get:
+      summary: "Guardianship links (?beneficiary= or ?guardian= to filter) (role: admin)"
+      responses:
+        "200": { description: "{ links } | { guardians } | { wards }" }
+    post:
+      summary: "Link a guardian to a beneficiary (role: admin)"
+      description: >
+        Then POST /v1/verify with on_behalf_of=<beneficiary> and the GUARDIAN's
+        live capture: the guardian passes the full untouched pipeline (liveness
+        included) and the result asserts the collection for the beneficiary
+        (code proxy_match, proxy:{beneficiary, guardian, relationship}). The
+        beneficiary's guest/consent/policy standing still applies.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [beneficiary, guardian]
+              properties:
+                beneficiary: { type: string }
+                guardian: { type: string }
+                relationship: { type: string }
+      responses:
+        "200": { description: "The link" }
+  /v1/guardians/unlink:
+    post:
+      summary: "Remove a guardianship link (role: admin)"
+      responses:
+        "200": { description: "Unlinked" }
+  /v1/consent:
+    get:
+      summary: "Consent summary + statement for this tenant (role: admin)"
+      responses:
+        "200": { description: "{ total, granted, withdrawn, policy }" }
+  /v1/consent/policy:
+    post:
+      summary: "Set the consent statement / enforcement toggles (role: admin)"
+      description: >
+        Text changes bump the version; existing records stay pinned to the
+        SHA-256 of the exact text each person agreed to. enforce_withdrawal
+        (default true) flips granted verifies for withdrawn users to
+        consent_withdrawn; require_consent (default false) refuses users with
+        no record (consent_missing).
+      responses:
+        "200": { description: "The active policy" }
+  /v1/consent/{user_id}:
+    get:
+      summary: "Exportable consent receipt for one person (role: admin)"
+      parameters:
+        - { name: user_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ receipt }" }
+        "404": { description: "No record" }
+  /v1/consent/record:
+    post:
+      summary: "Manually record consent (paper/legacy) (role: admin)"
+      responses:
+        "200": { description: "The record" }
+  /v1/consent/withdraw:
+    post:
+      summary: "Withdraw a person's consent - blocks verification (role: admin)"
+      responses:
+        "200": { description: "{ status: withdrawn }" }

@@ -31,6 +31,7 @@
                 <button class="tab" data-tab="invites">Invites</button>
                 <button class="tab" data-tab="people">People</button>
                 <button class="tab" data-tab="keys">API Keys</button>
+                <button class="tab" data-tab="access">Access</button>
                 <button class="tab" data-tab="security">Security</button>
                 <button class="tab" data-tab="usage">Usage</button>
                 <button class="tab" data-tab="ops">Operators</button>
@@ -179,6 +180,148 @@
             </div>
         </div>
 
+        <!-- Access: policies, guests, devices, guardians, consent -->
+        <div class="panel hidden" id="tab-access">
+            <div class="card">
+                <h2>Access policies <span class="muted">(who is allowed, when)</span></h2>
+                <p class="muted">Verification says <b>who</b> someone is; a policy says whether
+                    they're <b>allowed right now</b> (schedules, groups, bans). <b>Advise</b> only
+                    reports; <b>Enforce</b> denies. Off by default — nothing changes until you
+                    switch it on.</p>
+                <div class="row">
+                    <input id="pol-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <button id="pol-load" class="btn ghost">Load</button>
+                </div>
+                <div class="row">
+                    <select id="pol-mode" class="field">
+                        <option value="off">Mode: off</option>
+                        <option value="advise">Mode: advise (report only)</option>
+                        <option value="enforce">Mode: enforce (deny blocks)</option>
+                    </select>
+                    <select id="pol-default" class="field">
+                        <option value="allow">No rule matches → allow</option>
+                        <option value="deny">No rule matches → deny</option>
+                    </select>
+                    <input id="pol-tz" class="field" type="number" step="30" placeholder="TZ offset (min)">
+                    <button id="pol-save" class="btn primary">Save</button>
+                </div>
+                <p class="muted" style="margin-top:12px">Add a rule (deny always beats allow):</p>
+                <div class="row">
+                    <input id="rule-name" class="field" type="text" placeholder="Rule name (e.g. Office hours)">
+                    <select id="rule-effect" class="field">
+                        <option value="allow">allow</option><option value="deny">deny</option>
+                    </select>
+                </div>
+                <input id="rule-subjects" class="field" type="text"
+                       placeholder="Who: * or names / group:staff (comma-separated)">
+                <div class="row">
+                    <input id="rule-days" class="field" type="text" placeholder="Days (mon,tue,… blank = all)">
+                    <input id="rule-start" class="field" type="text" placeholder="From HH:MM">
+                    <input id="rule-end" class="field" type="text" placeholder="To HH:MM">
+                    <button id="rule-add" class="btn primary">Add rule</button>
+                </div>
+                <div id="pol-rules" class="list"></div>
+                <p class="muted" style="margin-top:12px">Groups (usable in rules as <code>group:name</code>):</p>
+                <div class="row">
+                    <input id="grp-name" class="field" type="text" placeholder="Group name">
+                    <input id="grp-members" class="field" type="text" placeholder="Members (comma-separated)">
+                    <button id="grp-save" class="btn ghost">Save group</button>
+                </div>
+                <div id="pol-groups" class="list"></div>
+                <p id="pol-msg" class="muted"></p>
+            </div>
+
+            <div class="card">
+                <h2>Guest passes <span class="muted">(identities that expire)</span></h2>
+                <p class="muted">Time-box a person: after expiry they stop verifying
+                    (<code>identity_expired</code>) even though the enrolment still exists —
+                    extend the pass or purge them for good. QR cards issued to guests
+                    never outlive the pass.</p>
+                <div class="row">
+                    <input id="gst-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <button id="gst-load" class="btn ghost">Load</button>
+                </div>
+                <div class="row">
+                    <input id="gst-user" class="field" type="text" placeholder="User id (enrolled person)">
+                    <input id="gst-days" class="field" type="number" min="0" step="0.5" placeholder="Days">
+                    <input id="gst-hours" class="field" type="number" min="0" step="1" placeholder="+ hours">
+                    <button id="gst-set" class="btn primary">Set pass</button>
+                </div>
+                <div class="row">
+                    <button id="gst-purge" class="btn danger">Purge expired guests…</button>
+                </div>
+                <div id="gst-list" class="list"></div>
+                <p id="gst-msg" class="muted"></p>
+            </div>
+
+            <div class="card">
+                <h2>Devices <span class="muted">(kiosk fleet)</span></h2>
+                <p class="muted">Give every kiosk its own identity: mint a <b>pairing code</b>
+                    (15 min, single use), enter it on the device, and it receives its own
+                    verify key. Disable cuts one device off instantly — nobody else's key
+                    is touched.</p>
+                <div class="row">
+                    <input id="dev-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <button id="dev-load" class="btn ghost">Load</button>
+                </div>
+                <div class="row">
+                    <input id="dev-name" class="field" type="text" placeholder="Device name (e.g. Front gate kiosk)">
+                    <button id="dev-pair" class="btn primary">Create pairing code</button>
+                </div>
+                <div id="dev-new" class="newkey hidden"></div>
+                <div id="dev-list" class="list"></div>
+                <p id="dev-msg" class="muted"></p>
+            </div>
+
+            <div class="card">
+                <h2>Guardians <span class="muted">(verify on someone's behalf)</span></h2>
+                <p class="muted">For people who can't present a biometric (children, elderly,
+                    patients): link a guardian, and the guardian's own live verification counts
+                    <b>for</b> the beneficiary — both names land in the audit trail.
+                    Integrations pass <code>on_behalf_of</code> to <code>/v1/verify</code>.</p>
+                <div class="row">
+                    <input id="gdn-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <button id="gdn-load" class="btn ghost">Load</button>
+                </div>
+                <div class="row">
+                    <input id="gdn-beneficiary" class="field" type="text" placeholder="Beneficiary (who is served)">
+                    <input id="gdn-guardian" class="field" type="text" placeholder="Guardian (who verifies)">
+                </div>
+                <div class="row">
+                    <input id="gdn-rel" class="field" type="text" placeholder="Relationship (e.g. mother)">
+                    <button id="gdn-link" class="btn primary">Link guardian</button>
+                </div>
+                <div id="gdn-list" class="list"></div>
+                <p id="gdn-msg" class="muted"></p>
+            </div>
+
+            <div class="card">
+                <h2>Consent <span class="muted">(lawful basis &amp; withdrawal)</span></h2>
+                <p class="muted">Every enrolment records the person's consent against your
+                    statement below (versioned — history stays pinned to the text they saw).
+                    A <b>withdrawal</b> blocks their verification immediately. People can view
+                    their record and withdraw themselves at <code>/my-data</code>.</p>
+                <div class="row">
+                    <input id="cns-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
+                    <button id="cns-load" class="btn ghost">Load</button>
+                </div>
+                <textarea id="cns-text" class="field" rows="3" placeholder="Consent statement shown to enrollees"></textarea>
+                <div class="row">
+                    <label class="chk"><input id="cns-enforce" type="checkbox" checked>
+                        Block verification after withdrawal</label>
+                    <label class="chk"><input id="cns-require" type="checkbox">
+                        Require a consent record to verify</label>
+                    <button id="cns-save" class="btn primary">Save</button>
+                </div>
+                <div class="row">
+                    <input id="cns-user" class="field" type="text" placeholder="User id">
+                    <button id="cns-withdraw" class="btn danger">Withdraw consent…</button>
+                </div>
+                <div id="cns-list" class="list"></div>
+                <p id="cns-msg" class="muted"></p>
+            </div>
+        </div>
+
         <!-- Security -->
         <div class="panel hidden" id="tab-security">
             <div class="card">
@@ -275,6 +418,6 @@
     </section>
 </main>
 <canvas id="canvas" hidden></canvas>
-<script src="/static/admin.js?v=8"></script>
+<script src="/static/admin.js?v=9"></script>
 </body>
 </html>

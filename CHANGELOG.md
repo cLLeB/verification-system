@@ -3,6 +3,39 @@
 Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
+### Added
+- **Five new service subsystems** — all layered strictly AFTER the biometric
+  decision (the face/palm pipeline, thresholds and liveness are untouched; every
+  gate can only narrow an already-granted match, never widen one). Each ships
+  with its own module, `/v1` + admin-console + tenant-portal APIs, an Access tab
+  in the admin console, and unit + API tests (62 new tests):
+  - **Access policies** (`face_service/policies.py`) — authorization on top of
+    verification: per-tenant groups, allow/deny rules with day/time schedules
+    (overnight windows supported, tenant TZ offset), deny-over-allow precedence,
+    and `off`/`advise`/`enforce` modes (off by default — zero behaviour change).
+    Enforced denies return `access_denied` with the matched rule.
+  - **Guest passes** (`face_service/guests.py`) — time-boxed identities: after
+    expiry a granted match flips to `identity_expired`; passes are extendable;
+    expired guests are purgeable through the full delete path; issued QR
+    credentials are capped to the pass. `/v1/enroll` takes `expires_in_days`.
+  - **Device registry** (`face_service/devices.py`) — kiosks as first-class
+    citizens: single-use 15-minute pairing codes (stored hashed), each device
+    gets its OWN verify key, heartbeats with last-seen in the console, and
+    disable-revokes-the-key so one stolen kiosk is cut off without touching the
+    rest of the fleet.
+  - **Guardianship / proxy verification** (`face_service/guardians.py`) — an
+    audited link lets a guardian's own live verification count for a linked
+    beneficiary (children, elderly, patients): `/v1/verify` with
+    `on_behalf_of`; the beneficiary's guest/consent/policy standing still
+    applies; both identities land in the audit trail.
+  - **Consent & data-subject rights** (`face_service/consent.py`) — versioned
+    per-tenant consent statements; every enrol path auto-records consent
+    (operator / self / import) pinned to the exact text hash agreed; withdrawal
+    blocks verification (`consent_withdrawn`); optional `require_consent`
+    strict mode; exportable receipts; and a public **`/my-data`** page where a
+    person verifies THEMSELVES (full liveness) to see their record, download a
+    report, and withdraw consent.
+
 ### Fixed
 - **Enrolment camera freeze (production, all web surfaces)** — on iOS Safari (and any
   browser that pauses an inline, transformed `<video>` after a canvas capture) the

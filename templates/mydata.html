@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0f16">
+    <title>My data — what this system holds about you</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               background: #0d0f16; color: #eef1f9; min-height: 100vh;
+               display: flex; flex-direction: column; align-items: center; padding: 18px 14px; gap: 12px; }
+        h1 { font-size: 1.15rem; font-weight: 700; }
+        h2 { font-size: .95rem; font-weight: 700; margin-top: 6px; }
+        .sub { font-size: .82rem; color: #9aa3b8; text-align: center; max-width: 460px; }
+        .stage { position: relative; width: 100%; max-width: 460px; aspect-ratio: 4/3;
+                 border-radius: 16px; overflow: hidden; background: #000; border: 1px solid #232b3d; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        video.mirror { transform: scaleX(-1); }
+        .row { display: flex; gap: 10px; width: 100%; max-width: 460px; }
+        .btn { flex: 1; border: 0; border-radius: 10px; padding: 12px; font-size: .95rem; font-weight: 600;
+               cursor: pointer; background: #4c66f5; color: #fff; }
+        .btn.ghost { background: #1b2030; color: #dfe4f2; }
+        .btn.danger { background: #57202a; color: #ff9daa; border: 1px solid #83303f; }
+        .btn:disabled { opacity: .5; cursor: default; }
+        .hint { font-size: .85rem; color: #9aa3b8; text-align: center; min-height: 1.2em; max-width: 460px; }
+        .hint.warn { color: #ffb054; }
+        .hint.ok { color: #7ef0a6; }
+        .card { width: 100%; max-width: 460px; background: #131722; border: 1px solid #232b3d;
+                border-radius: 14px; padding: 14px 16px; font-size: .86rem; }
+        .card .kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0;
+                    border-bottom: 1px solid #1b2030; }
+        .card .kv:last-child { border-bottom: 0; }
+        .card .kv b { color: #cdd5e8; font-weight: 600; }
+        .muted { color: #6b7488; }
+        .status-granted { color: #7ef0a6; font-weight: 700; }
+        .status-withdrawn { color: #ff9daa; font-weight: 700; }
+        .events { max-height: 220px; overflow-y: auto; font-size: .78rem; }
+        .events div { padding: 3px 0; border-bottom: 1px solid #1b2030; color: #9aa3b8; }
+        .consent-text { font-size: .8rem; color: #9aa3b8; background: #10141f; border-radius: 8px;
+                        padding: 10px; margin-top: 6px; line-height: 1.4; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <h1>My data</h1>
+    <p class="sub">See exactly what this system holds about <b>you</b> — and withdraw your consent
+        if you wish. First, confirm it's really you (nobody can view anyone else's record).</p>
+
+    <!-- Phase 1: prove who you are -->
+    <div id="gate-area">
+        <div class="stage"><video id="video" autoplay playsinline muted class="mirror"></video></div>
+        <div class="row" style="margin-top:10px">
+            <button class="btn" id="verify-btn">It's me — verify</button>
+            <button class="btn ghost" id="flip-btn">Flip camera</button>
+        </div>
+        <p class="hint" id="hint">Show your face — or your open hand — then tap verify</p>
+    </div>
+
+    <!-- Phase 2: your record -->
+    <div id="data-area" class="hidden" style="width:100%;max-width:460px;display:flex;flex-direction:column;gap:10px">
+        <div class="card">
+            <h2 id="who"></h2>
+            <div class="kv"><b>Biometrics stored</b><span id="mods"></span></div>
+            <div class="kv"><b>What is stored</b><span class="muted">encrypted templates only — never photos</span></div>
+            <div class="kv"><b>Consent</b><span id="consent-status"></span></div>
+            <div class="kv"><b>Consent given</b><span id="consent-when" class="muted"></span></div>
+            <div class="kv"><b>Guest pass</b><span id="guest" class="muted"></span></div>
+            <div class="kv"><b>ID cards issued</b><span id="creds" class="muted"></span></div>
+            <div class="kv"><b>Guardians</b><span id="guardians" class="muted"></span></div>
+            <div class="kv"><b>You act for</b><span id="wards" class="muted"></span></div>
+            <div class="consent-text" id="consent-text"></div>
+        </div>
+        <div class="card">
+            <h2>Recent activity on your record</h2>
+            <div class="events" id="events"></div>
+        </div>
+        <div class="row">
+            <button class="btn ghost" id="download-btn">Download my report</button>
+            <button class="btn danger" id="withdraw-btn">Withdraw consent</button>
+        </div>
+        <p class="hint" id="hint2"></p>
+    </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const video = $('video');
+const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+let facing = 'user', stream = null, busy = false, session = null, report = null;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// --- Live-preview watchdog (same iOS camera-freeze fix as the other surfaces) ---
+function keepVideoAlive(v) {
+    if (!v || v._liveWatch) return; v._liveWatch = true;
+    const resume = () => { if (v.srcObject && v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } };
+    v.addEventListener('pause', resume);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
+    window.addEventListener('focus', resume); window.addEventListener('pageshow', resume);
+}
+function nextVideoFrame(v) {
+    return new Promise((resolve) => {
+        let done = false; const finish = () => { if (!done) { done = true; resolve(); } };
+        if (typeof v.requestVideoFrameCallback === 'function') {
+            try { v.requestVideoFrameCallback(() => finish()); } catch (e) { finish(); }
+        } else {
+            const t0 = v.currentTime, s = performance.now();
+            const tick = () => { (v.currentTime > t0 || performance.now() - s > 250) ? finish() : requestAnimationFrame(tick); };
+            requestAnimationFrame(tick);
+        }
+        setTimeout(finish, 350);
+    });
+}
+async function ensureLiveVideo(v) {
+    if (!v || !v.srcObject) return;
+    if (v.paused || v.ended) { const p = v.play(); if (p) { try { await p; } catch (e) {} } }
+    await nextVideoFrame(v);
+}
+
+function setHint(t, kind = '', el = 'hint') { const h = $(el); h.textContent = t; h.className = 'hint' + (kind ? ' ' + kind : ''); }
+
+async function startCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+        video.srcObject = stream;
+        try { await video.play(); } catch (e) {}
+        keepVideoAlive(video);
+        video.classList.toggle('mirror', facing === 'user');
+    } catch (e) { setHint('Camera unavailable — allow access and reload.', 'warn'); }
+}
+
+function grab() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = Math.min(720, vw), h = Math.round(w * vh / vw);
+    canvas.width = w; canvas.height = h; ctx.drawImage(video, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+// A face does the head-turn liveness burst; a palm a short steady burst. Mirrors the
+// main client's verify flow (server picks the path from the frames + token).
+async function verifyMe() {
+    if (busy) return; busy = true; $('verify-btn').disabled = true;
+    try {
+        await ensureLiveVideo(video);
+        const img0 = grab();
+        if (!img0) { setHint('Camera not ready — try again.', 'warn'); return; }
+        let modality = 'face';
+        try {
+            const d = await (await fetch('/api/detect', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: img0 }) })).json();
+            modality = d.modality || 'face';
+        } catch (e) {}
+        if (modality === 'none') { setHint('Show your face — or your open hand — clearly.', 'warn'); return; }
+        let body;
+        if (modality === 'palm') {
+            const frames = [];
+            setHint('Hold your open hand steady…');
+            for (let i = 0; i < 3; i++) { await ensureLiveVideo(video); const f = grab(); if (f) frames.push(f); await sleep(200); }
+            body = { frames };
+        } else {
+            let ch = null;
+            try { ch = await (await fetch('/api/challenge')).json(); } catch (e) {}
+            if (ch && ch.active) {
+                const frames = [];
+                for (let i = 0; i < 7; i++) {
+                    const f = grab(); if (f) frames.push(f);
+                    const frac = (i + 1) / 7;
+                    setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
+                          : frac < 0.85 ? 'Now turn your head RIGHT  ⟶' : 'Look at the camera');
+                    await sleep(280);
+                }
+                body = { frames, token: ch.token };
+            } else {
+                body = { image: img0 };
+            }
+        }
+        setHint('Checking…');
+        const r = await (await fetch('/api/subject/session', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+        if (!r.success) { setHint(r.message || 'Not recognised — try again.', 'warn'); return; }
+        session = r.session;
+        await loadData();
+    } catch (e) {
+        setHint('Network error — try again.', 'warn');
+    } finally { busy = false; $('verify-btn').disabled = false; }
+}
+
+const fmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+
+async function loadData() {
+    const r = await (await fetch('/api/subject/data', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session }) })).json();
+    if (!r.success) { setHint(r.message || 'Session expired — verify again.', 'warn'); return; }
+    report = r;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    $('gate-area').classList.add('hidden');
+    $('data-area').classList.remove('hidden');
+    $('who').textContent = 'Record for: ' + r.user_id;
+    const mods = Object.entries(r.modalities || {}).map(([m, d]) =>
+        `${m === 'palm' ? 'print' : m} (${(d.anchors || 0) + (d.adaptive || 0)} samples)`);
+    $('mods').textContent = mods.length ? mods.join(' · ') : 'none on file';
+    const c = r.consent;
+    if (c) {
+        $('consent-status').innerHTML = c.status === 'granted'
+            ? '<span class="status-granted">granted</span>'
+            : '<span class="status-withdrawn">withdrawn</span>';
+        $('consent-when').textContent = fmt(c.granted_at) + ' (' + c.method + ')';
+        if (c.status === 'withdrawn') $('withdraw-btn').disabled = true;
+    } else {
+        $('consent-status').innerHTML = '<span class="muted">no record</span>';
+        $('consent-when').textContent = '—';
+    }
+    $('guest').textContent = r.guest ? ('expires ' + fmt(r.guest.expires)) : 'not a guest (permanent)';
+    $('creds').textContent = (r.credentials || []).length
+        ? (r.credentials.length + ' (' + r.credentials.filter(x => !x.revoked).length + ' active)') : 'none';
+    $('guardians').textContent = (r.guardians || []).map(g => g.guardian).join(', ') || 'none';
+    $('wards').textContent = (r.wards || []).map(w => w.beneficiary).join(', ') || 'nobody';
+    $('consent-text').textContent = 'You agreed to: “' + (r.consent_text || '') + '”';
+    $('events').innerHTML = (r.events || []).map(e =>
+        `<div>${e.iso} · ${e.action} · ${e.success === false ? 'denied' : 'ok'}</div>`).join('')
+        || '<div>No recorded activity.</div>';
+}
+
+function downloadReport() {
+    if (!report) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'my-biometric-data-report.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+async function withdraw() {
+    if (!session) return;
+    if (!confirm('Withdraw consent? Verification stops working for you immediately, '
+               + 'and your biometric data becomes due for erasure. This is recorded.')) return;
+    const r = await (await fetch('/api/subject/withdraw', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session, confirm: true }) })).json();
+    if (r.success) {
+        $('consent-status').innerHTML = '<span class="status-withdrawn">withdrawn</span>';
+        $('withdraw-btn').disabled = true;
+        setHint(r.message, 'ok', 'hint2');
+    } else {
+        setHint(r.message || 'Could not withdraw — try again.', 'warn', 'hint2');
+    }
+}
+
+$('verify-btn').onclick = verifyMe;
+$('flip-btn').onclick = async () => { facing = facing === 'user' ? 'environment' : 'user'; await startCamera(); };
+$('download-btn').onclick = downloadReport;
+$('withdraw-btn').onclick = withdraw;
+startCamera();
+</script>
+</body>
+</html>

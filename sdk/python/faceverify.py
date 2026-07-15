@@ -270,6 +270,130 @@ class FaceVerifyClient:
         """Rotate the issuer signing key. Previously signed items stay verifiable."""
         return self._call("POST", "/v1/tenant/keys/rotate", {"confirm": True})
 
+    # --- access policies (authorization on top of verification) -------------
+    def policies(self) -> dict:
+        return self._call("GET", "/v1/policies")
+
+    def configure_policies(self, mode: Optional[str] = None, default: Optional[str] = None,
+                           tz_offset_minutes: Optional[int] = None) -> dict:
+        """mode: off|advise|enforce; default: allow|deny (when no rule matches)."""
+        body = {}
+        if mode is not None:
+            body["mode"] = mode
+        if default is not None:
+            body["default"] = default
+        if tz_offset_minutes is not None:
+            body["tz_offset_minutes"] = tz_offset_minutes
+        return self._call("POST", "/v1/policies", body)
+
+    def add_policy_rule(self, name: str, effect: str, subjects, days=None,
+                        start: Optional[str] = None, end: Optional[str] = None) -> dict:
+        """Add an allow/deny rule. subjects: '*', 'user:<id>', 'group:<name>'.
+        days: ['mon',...]; start/end: 'HH:MM' local (overnight windows wrap)."""
+        body = {"name": name, "effect": effect, "subjects": subjects}
+        if days:
+            body["days"] = days
+        if start and end:
+            body["start"], body["end"] = start, end
+        return self._call("POST", "/v1/policies/rules", body)
+
+    def set_policy_group(self, name: str, members: List[str]) -> dict:
+        return self._call("POST", "/v1/policies/groups", {"name": name, "members": members})
+
+    # --- guest passes (identities that expire) --------------------------------
+    def set_guest(self, user_id: str, days: float = 0, hours: float = 0) -> dict:
+        """Time-box an identity: after expiry, verifies return identity_expired."""
+        return self._call("POST", "/v1/guests",
+                          {"user_id": user_id, "expires_in_days": days,
+                           "expires_in_hours": hours})
+
+    def guests(self) -> dict:
+        return self._call("GET", "/v1/guests")
+
+    def clear_guest(self, user_id: str) -> dict:
+        return self._call("DELETE", f"/v1/guests/{urllib.parse.quote(user_id)}")
+
+    def purge_expired_guests(self, grace_hours: float = 0) -> dict:
+        """ERASE guests expired for longer than grace_hours (delete scope)."""
+        return self._call("POST", "/v1/guests/purge", {"grace_hours": grace_hours})
+
+    # --- device registry -------------------------------------------------------
+    def create_device_pairing(self, name: str) -> dict:
+        """Mint a single-use pairing code for a kiosk (returned ONCE)."""
+        return self._call("POST", "/v1/devices/pairings", {"name": name})
+
+    def pair_device(self, pairing_code: str) -> dict:
+        """Device-side: redeem the code -> {device_id, api_key} (no key needed)."""
+        return self._call("POST", "/v1/devices/pair", {"pairing_code": pairing_code})
+
+    def device_heartbeat(self, info: Optional[dict] = None) -> dict:
+        """Call with the DEVICE's own key."""
+        return self._call("POST", "/v1/devices/heartbeat", {"info": info or {}})
+
+    def devices(self) -> dict:
+        return self._call("GET", "/v1/devices")
+
+    def disable_device(self, device_id: str) -> dict:
+        """Cut one device off immediately (its key is revoked)."""
+        return self._call("POST", f"/v1/devices/{urllib.parse.quote(device_id)}/disable")
+
+    # --- guardianship (proxy verification) --------------------------------------
+    def link_guardian(self, beneficiary: str, guardian: str,
+                      relationship: str = "") -> dict:
+        return self._call("POST", "/v1/guardians",
+                          {"beneficiary": beneficiary, "guardian": guardian,
+                           "relationship": relationship})
+
+    def unlink_guardian(self, beneficiary: str, guardian: str) -> dict:
+        return self._call("POST", "/v1/guardians/unlink",
+                          {"beneficiary": beneficiary, "guardian": guardian})
+
+    def guardians(self, beneficiary: Optional[str] = None,
+                  guardian: Optional[str] = None) -> dict:
+        path = "/v1/guardians"
+        if beneficiary:
+            path += "?beneficiary=" + urllib.parse.quote(beneficiary)
+        elif guardian:
+            path += "?guardian=" + urllib.parse.quote(guardian)
+        return self._call("GET", path)
+
+    def verify_proxy(self, beneficiary: str, image: Image,
+                     guardian: Optional[str] = None) -> dict:
+        """The guardian presents THEIR OWN biometric on behalf of the linked
+        beneficiary. success + code 'proxy_match' approves the collection;
+        response.proxy carries both identities for your ledger."""
+        body = {"on_behalf_of": beneficiary, "image": _to_b64(image)}
+        if guardian:
+            body["user_id"] = guardian
+        return self._call("POST", "/v1/verify", body)
+
+    # --- consent & data-subject rights -------------------------------------------
+    def consent_summary(self) -> dict:
+        return self._call("GET", "/v1/consent")
+
+    def set_consent_policy(self, text: Optional[str] = None,
+                           enforce_withdrawal: Optional[bool] = None,
+                           require_consent: Optional[bool] = None) -> dict:
+        body = {}
+        if text is not None:
+            body["text"] = text
+        if enforce_withdrawal is not None:
+            body["enforce_withdrawal"] = enforce_withdrawal
+        if require_consent is not None:
+            body["require_consent"] = require_consent
+        return self._call("POST", "/v1/consent/policy", body)
+
+    def consent_receipt(self, user_id: str) -> dict:
+        return self._call("GET", "/v1/consent/" + urllib.parse.quote(user_id))
+
+    def record_consent(self, user_id: str, method: str = "operator") -> dict:
+        return self._call("POST", "/v1/consent/record",
+                          {"user_id": user_id, "method": method})
+
+    def withdraw_consent(self, user_id: str) -> dict:
+        """Blocks the person's verification immediately (when enforcement is on)."""
+        return self._call("POST", "/v1/consent/withdraw", {"user_id": user_id})
+
     def usage(self) -> dict:
         return self._call("GET", "/v1/usage")
 

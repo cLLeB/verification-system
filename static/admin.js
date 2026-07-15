@@ -14,6 +14,7 @@ function showConsole() {
     $('login').classList.add('hidden'); $('console').classList.remove('hidden');
     startCamera(); loadOverview(); loadPeople(); loadKeys(); loadTenants(); loadUsage(); loadOps();
     populateAuditTenants(); loadAudit(); secLoadKeys(); protLoad(); credLoad(); loadInvites();
+    loadAccessTab();
 }
 async function checkSession() {
     const d = await (await fetch('/admin/session')).json();
@@ -642,6 +643,245 @@ async function loadAudit() {
     });
     if (!list.children.length) list.innerHTML = '<div class="muted">No events yet.</div>';
 }
+
+// --- Access tab: policies · guests · devices · guardians · consent ----------
+const _fmtTs = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+const _tenantOf = (id) => ($(id).value || '').trim() || undefined;
+const _q = (t) => t ? ('?tenant=' + encodeURIComponent(t)) : '';
+
+// policies
+async function loadPolicies() {
+    const d = await api('/admin/api/policies' + _q(_tenantOf('pol-tenant')));
+    $('pol-mode').value = d.mode; $('pol-default').value = d.default;
+    $('pol-tz').value = d.tz_offset_minutes || '';
+    const rules = $('pol-rules'); rules.innerHTML = '';
+    (d.rules || []).forEach(r => {
+        const row = document.createElement('div'); row.className = 'item';
+        const when = (r.days || []).length ? r.days.join(',') : 'every day';
+        const window = r.start ? ` ${r.start}–${r.end}` : '';
+        row.innerHTML = `<div class="grow"><div>${r.name}
+            <span class="pill">${r.effect}</span></div>
+            <div class="sub">${(r.subjects || []).join(', ')} · ${when}${window}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Delete';
+        b.onclick = async () => {
+            await api('/admin/api/policies/rule/delete', { method: 'POST',
+                body: JSON.stringify({ tenant: _tenantOf('pol-tenant'), rule_id: r.rule_id }) });
+            loadPolicies();
+        };
+        row.appendChild(b);
+        rules.appendChild(row);
+    });
+    if (!rules.children.length) rules.innerHTML = '<div class="muted">No rules yet.</div>';
+    const groups = $('pol-groups'); groups.innerHTML = '';
+    Object.entries(d.groups || {}).forEach(([name, members]) => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>group:${name}</div>
+            <div class="sub">${members.join(', ') || '(empty)'}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Delete';
+        b.onclick = async () => {
+            await api('/admin/api/policies/group', { method: 'POST',
+                body: JSON.stringify({ tenant: _tenantOf('pol-tenant'), name, delete: true }) });
+            loadPolicies();
+        };
+        row.appendChild(b);
+        groups.appendChild(row);
+    });
+}
+$('pol-load').onclick = loadPolicies;
+$('pol-save').onclick = async () => {
+    const d = await api('/admin/api/policies', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('pol-tenant'),
+            mode: $('pol-mode').value, default: $('pol-default').value,
+            tz_offset_minutes: parseInt($('pol-tz').value, 10) || 0 }) });
+    $('pol-msg').textContent = d.success
+        ? `Saved — mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
+    loadPolicies();
+};
+$('rule-add').onclick = async () => {
+    const d = await api('/admin/api/policies/rule', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('pol-tenant'),
+            name: $('rule-name').value, effect: $('rule-effect').value,
+            subjects: $('rule-subjects').value || '*',
+            days: $('rule-days').value,
+            start: $('rule-start').value || null, end: $('rule-end').value || null }) });
+    $('pol-msg').textContent = d.success ? 'Rule added.' : (d.message || 'Failed.');
+    if (d.success) { $('rule-name').value = ''; loadPolicies(); }
+};
+$('grp-save').onclick = async () => {
+    const d = await api('/admin/api/policies/group', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('pol-tenant'),
+            name: $('grp-name').value, members: $('grp-members').value }) });
+    $('pol-msg').textContent = d.success ? 'Group saved.' : (d.message || 'Failed.');
+    if (d.success) loadPolicies();
+};
+
+// guests
+async function loadGuests() {
+    const d = await api('/admin/api/guests' + _q(_tenantOf('gst-tenant')));
+    const list = $('gst-list'); list.innerHTML = '';
+    (d.guests || []).forEach(gm => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>${gm.user_id}
+            <span class="pill">${gm.expired ? 'EXPIRED' : 'active'}</span></div>
+            <div class="sub">expires ${_fmtTs(gm.expires)} · set by ${gm.set_by || '—'}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Make permanent';
+        b.onclick = async () => {
+            await api('/admin/api/guests', { method: 'POST',
+                body: JSON.stringify({ tenant: _tenantOf('gst-tenant'),
+                    user_id: gm.user_id, clear: true }) });
+            loadGuests();
+        };
+        row.appendChild(b);
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No guest passes.</div>';
+}
+$('gst-load').onclick = loadGuests;
+$('gst-set').onclick = async () => {
+    const uid = ($('gst-user').value || '').trim();
+    if (!uid) { alert('Enter the user id first.'); return; }
+    const d = await api('/admin/api/guests', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('gst-tenant'), user_id: uid,
+            expires_in_days: parseFloat($('gst-days').value) || 0,
+            expires_in_hours: parseFloat($('gst-hours').value) || 0 }) });
+    $('gst-msg').textContent = d.success
+        ? `Pass set — ${uid} expires ${_fmtTs(d.expires)}.` : (d.message || 'Failed.');
+    if (d.success) { $('gst-user').value = ''; loadGuests(); }
+};
+$('gst-purge').onclick = async () => {
+    if (!confirm('Permanently ERASE every expired guest (biometrics + credentials)? '
+               + 'This cannot be undone.')) return;
+    const d = await api('/admin/api/guests/purge', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('gst-tenant') }) });
+    $('gst-msg').textContent = d.success
+        ? `Purged ${d.purged.length} guest(s); ${d.credentials_revoked} credential(s) revoked.`
+        : (d.message || 'Failed.');
+    loadGuests();
+};
+
+// devices
+async function loadDevices() {
+    const d = await api('/admin/api/devices' + _q(_tenantOf('dev-tenant')));
+    const list = $('dev-list'); list.innerHTML = '';
+    (d.devices || []).forEach(dev => {
+        const row = document.createElement('div'); row.className = 'item';
+        const seen = dev.last_seen ? 'seen ' + _fmtTs(dev.last_seen) : 'never seen';
+        const info = dev.info && dev.info.app ? ` · app ${dev.info.app}` : '';
+        row.innerHTML = `<div class="grow"><div>${dev.name}
+            <span class="pill">${dev.disabled ? 'DISABLED' : 'active'}</span></div>
+            <div class="sub">${dev.device_id} · ${seen}${info}</div></div>`;
+        if (!dev.disabled) {
+            const b = document.createElement('button');
+            b.className = 'del'; b.textContent = 'Disable';
+            b.onclick = async () => {
+                if (!confirm(`Disable '${dev.name}'? Its key is revoked immediately.`)) return;
+                await api('/admin/api/devices/disable', { method: 'POST',
+                    body: JSON.stringify({ tenant: _tenantOf('dev-tenant'),
+                        device_id: dev.device_id }) });
+                loadDevices();
+            };
+            row.appendChild(b);
+        }
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No devices paired.</div>';
+}
+$('dev-load').onclick = loadDevices;
+$('dev-pair').onclick = async () => {
+    const name = ($('dev-name').value || '').trim();
+    if (!name) { alert('Name the device first (e.g. Front gate kiosk).'); return; }
+    const d = await api('/admin/api/devices/pairing', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('dev-tenant'), name }) });
+    if (!d.success) { $('dev-msg').textContent = d.message || 'Failed.'; return; }
+    const box = $('dev-new');
+    box.classList.remove('hidden');
+    box.innerHTML = `<b>Pairing code for “${d.name}”</b> — enter it on the device within
+        15 minutes (single use, shown once):<br>
+        <code style="font-size:1.05rem">${d.pairing_code}</code><br>
+        <span class="muted">Device id: ${d.device_id}</span>`;
+    $('dev-name').value = '';
+    loadDevices();
+};
+
+// guardians
+async function loadGuardians() {
+    const d = await api('/admin/api/guardians' + _q(_tenantOf('gdn-tenant')));
+    const list = $('gdn-list'); list.innerHTML = '';
+    (d.links || []).forEach(l => {
+        const row = document.createElement('div'); row.className = 'item';
+        row.innerHTML = `<div class="grow"><div>${l.beneficiary}
+            <span class="pill">← ${l.guardian}</span></div>
+            <div class="sub">${l.relationship || 'guardian'} · linked ${_fmtTs(l.created)}
+            by ${l.created_by || '—'}</div></div>`;
+        const b = document.createElement('button');
+        b.className = 'del'; b.textContent = 'Unlink';
+        b.onclick = async () => {
+            await api('/admin/api/guardians', { method: 'POST',
+                body: JSON.stringify({ tenant: _tenantOf('gdn-tenant'), unlink: true,
+                    beneficiary: l.beneficiary, guardian: l.guardian }) });
+            loadGuardians();
+        };
+        row.appendChild(b);
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No guardianship links.</div>';
+}
+$('gdn-load').onclick = loadGuardians;
+$('gdn-link').onclick = async () => {
+    const d = await api('/admin/api/guardians', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('gdn-tenant'),
+            beneficiary: $('gdn-beneficiary').value, guardian: $('gdn-guardian').value,
+            relationship: $('gdn-rel').value }) });
+    $('gdn-msg').textContent = d.success
+        ? `Linked — ${d.guardian} may now verify for ${d.beneficiary}.`
+        : (d.message || 'Failed.');
+    if (d.success) { $('gdn-beneficiary').value = ''; $('gdn-guardian').value = ''; loadGuardians(); }
+};
+
+// consent
+async function loadConsent() {
+    const d = await api('/admin/api/consent' + _q(_tenantOf('cns-tenant')));
+    $('cns-text').value = d.policy.text;
+    $('cns-enforce').checked = !!d.policy.enforce_withdrawal;
+    $('cns-require').checked = !!d.policy.require_consent;
+    const list = $('cns-list'); list.innerHTML = '';
+    (d.records || []).forEach(r => {
+        const row = document.createElement('div'); row.className = 'item';
+        const withdrawn = !!r.withdrawn_at;
+        row.innerHTML = `<div class="grow"><div>${r.user_id}
+            <span class="pill">${withdrawn ? 'WITHDRAWN' : 'granted'}</span>
+            <span class="pill">v${r.version}</span></div>
+            <div class="sub">${r.method} · ${_fmtTs(r.granted_at)}
+            ${withdrawn ? ' · withdrawn ' + _fmtTs(r.withdrawn_at) : ''}</div></div>`;
+        list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<div class="muted">No consent records yet — they appear as people enrol.</div>';
+    $('cns-msg').textContent = `${d.granted} granted · ${d.withdrawn} withdrawn (statement v${d.policy.version}).`;
+}
+$('cns-load').onclick = loadConsent;
+$('cns-save').onclick = async () => {
+    const d = await api('/admin/api/consent/policy', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('cns-tenant'),
+            text: $('cns-text').value,
+            enforce_withdrawal: $('cns-enforce').checked,
+            require_consent: $('cns-require').checked }) });
+    $('cns-msg').textContent = d.success ? `Saved (statement v${d.version}).` : (d.message || 'Failed.');
+    if (d.success) loadConsent();
+};
+$('cns-withdraw').onclick = async () => {
+    const uid = ($('cns-user').value || '').trim();
+    if (!uid) { alert('Enter the user id first.'); return; }
+    if (!confirm(`Withdraw consent for '${uid}'? Their verification is blocked immediately.`)) return;
+    const d = await api('/admin/api/consent/withdraw', { method: 'POST',
+        body: JSON.stringify({ tenant: _tenantOf('cns-tenant'), user_id: uid }) });
+    $('cns-msg').textContent = d.success ? `Consent withdrawn for ${uid}.` : 'No consent record found.';
+    loadConsent();
+};
+
+function loadAccessTab() { loadPolicies(); loadGuests(); loadDevices(); loadGuardians(); loadConsent(); }
 
 renderDots();
 checkSession();

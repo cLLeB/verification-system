@@ -45,6 +45,8 @@ from biometric.core import protect as _protect
 from .auth import require_key, require_scope
 from . import audit, bundle, credentials as _credreg, issuer_keys, \
     modality as _modality, tenants, usage, webhooks
+from . import consent as _consent, devices as _devices, guardians as _guardians, \
+    guests as _guests, keys as _keys, policies as _policies
 from .idempotency import idempotent
 
 bp = Blueprint("v1", __name__, url_prefix="/v1")
@@ -248,13 +250,35 @@ def enroll():
                             "message": out.get("message")})
     ok = sum(1 for r in results if r.get("success"))
     id_sourced = sum(1 for r in results if r.get("source") == "id_document")
+    guest_expiry = None
+    if ok > 0:
+        # Lawful basis: an API enrol is operator-mediated consent, recorded
+        # against the tenant's current statement version.
+        _consent.record(g.tenant, user_id, method="operator", actor=g.key_name)
+        # Optional time-boxed identity: "expires_in_days"/"expires_in_hours"
+        # makes this person a guest whose verifications stop at expiry.
+        try:
+            days = float(data.get("expires_in_days") or 0)
+            hours = float(data.get("expires_in_hours") or 0)
+        except (TypeError, ValueError):
+            return _err("'expires_in_days'/'expires_in_hours' must be numbers.")
+        if days or hours:
+            try:
+                guest_expiry = _guests.set_ttl(g.tenant, user_id, days=days,
+                                               hours=hours, by=g.key_name)["expires"]
+            except ValueError as exc:
+                return _err(str(exc), code="bad_expiry")
     audit.log(g.tenant, "enroll", actor=g.key_name, user_id=user_id,
               success=ok > 0,
-              detail=f"{ok}/{len(images)} captures" + (f", {id_sourced} from ID" if id_sourced else ""))
+              detail=f"{ok}/{len(images)} captures" + (f", {id_sourced} from ID" if id_sourced else "")
+                     + (" (guest)" if guest_expiry else ""))
     webhooks.fire(g.tenant, "enroll", {"user_id": user_id, "enrolled": ok,
                                        "success": ok > 0, "request_id": getattr(g, "request_id", "")})
-    return jsonify({"success": ok > 0, "user_id": user_id, "enrolled": ok,
-                    "of": len(images), "results": results})
+    body = {"success": ok > 0, "user_id": user_id, "enrolled": ok,
+            "of": len(images), "results": results}
+    if guest_expiry:
+        body["guest_expires"] = guest_expiry
+    return jsonify(body)
 
 
 @bp.post("/enroll/bulk")
@@ -352,6 +376,10 @@ def enroll_bulk():
         if conflicts:
             entry["conflicts"] = conflicts       # a modality was skipped as a duplicate
         results.append(entry)
+    for entry in results:
+        if entry.get("success") and entry.get("user_id"):
+            _consent.record(g.tenant, entry["user_id"], method="import",
+                            actor=g.key_name)
     audit.log(g.tenant, "enroll_bulk", actor=g.key_name, success=ok > 0,
               detail=f"{ok}/{len(people)} people")
     return jsonify({"success": ok > 0, "people": len(people), "enrolled": ok, "results": results})
@@ -397,6 +425,29 @@ def _verify_dispatch(cfg, store, data, user_id):
                               settings["match_policy"], modality=modality_override)
 
 
+def _subject_gates(tenant: str, out: dict, subject_uid: Optional[str] = None) -> dict:
+    """Post-match service gates, applied strictly AFTER the biometric decision:
+    guest expiry -> consent standing -> access policy. ``subject_uid`` overrides
+    whose status is checked (proxy verification gates on the BENEFICIARY while
+    the biometric result belongs to the guardian)."""
+    if subject_uid is None:
+        return _policies.apply(tenant, _consent.gate(tenant, _guests.gate(tenant, out)))
+    if not out.get("success"):
+        return out
+    shadow = {"success": True, "user_id": subject_uid}
+    for gate in (_guests.gate, _consent.gate, _policies.apply):
+        gate(tenant, shadow)
+        if not shadow["success"]:
+            out["success"] = False
+            out["code"] = shadow["code"]
+            out["message"] = shadow["message"]
+            break
+    for k in ("guest", "access"):
+        if k in shadow:
+            out[k] = shadow[k]
+    return out
+
+
 @bp.post("/verify")
 @require_scope("verify")
 @usage.billable("verify")
@@ -406,10 +457,32 @@ def verify():
     if getattr(g, "sandbox", False):
         return jsonify(_sandbox("verify", data))
     uid = (data.get("user_id") or "").strip()
+
+    # Proxy verification (guardianship): the GUARDIAN presents their own
+    # biometric on behalf of a linked beneficiary. ``user_id`` (optional) is the
+    # claimed guardian; ``on_behalf_of`` names the beneficiary being served.
+    beneficiary = (data.get("on_behalf_of") or "").strip()
+    if beneficiary:
+        raw = _verify_dispatch(cfg, _store(cfg), data, uid)
+        out = _guardians.resolve_proxy(g.tenant, beneficiary, raw)
+        out = _subject_gates(g.tenant, out, subject_uid=beneficiary)
+        audit.log(g.tenant, "verify_proxy", actor=g.key_name,
+                  user_id=beneficiary, success=bool(out.get("success")),
+                  detail=f"guardian={out['proxy'].get('guardian')} "
+                         f"code={out.get('code')} score={out.get('score')}")
+        webhooks.fire(g.tenant, "verify", {"user_id": beneficiary,
+                                           "proxy": out.get("proxy"),
+                                           "success": bool(out.get("success")),
+                                           "score": out.get("score"),
+                                           "request_id": getattr(g, "request_id", "")})
+        return jsonify(_sign(out))
+
     out = _verify_dispatch(cfg, _store(cfg), data, uid)
+    out = _subject_gates(g.tenant, out)
     audit.log(g.tenant, "verify", actor=g.key_name, user_id=out.get("user_id") or uid,
               success=bool(out.get("success")),
-              detail=f"modality={out.get('modality')} score={out.get('score')}")
+              detail=f"modality={out.get('modality')} score={out.get('score')}"
+                     + (f" code={out.get('code')}" if not out.get("success") else ""))
     webhooks.fire(g.tenant, "verify", {"user_id": out.get("user_id") or uid,
                                        "success": bool(out.get("success")), "score": out.get("score"),
                                        "request_id": getattr(g, "request_id", "")})
@@ -424,7 +497,7 @@ def identify():
     data = request.get_json(silent=True) or {}
     if getattr(g, "sandbox", False):
         return jsonify(_sandbox("identify", data))
-    out = _verify_dispatch(cfg, _store(cfg), data, "")
+    out = _subject_gates(g.tenant, _verify_dispatch(cfg, _store(cfg), data, ""))
     audit.log(g.tenant, "identify", actor=g.key_name, user_id=out.get("user_id"),
               success=bool(out.get("success")),
               detail=f"modality={out.get('modality')} score={out.get('score')}")
@@ -470,6 +543,12 @@ def delete_user():
     # invalidate an already-issued card — revoke them, or a removed (e.g. fired)
     # person's QR keeps verifying.
     revoked_creds = sum(_credreg.revoke_for_user(g.tenant, uid) for uid in ids)
+    # A deleted person leaves no dangling service state: guest expiry, consent
+    # record (erasure completed), and guardianship authority all go with them.
+    for uid in ids:
+        _guests.clear(g.tenant, uid)
+        _consent.remove_user(g.tenant, uid)
+        _guardians.remove_user(g.tenant, uid)
     audit.log(g.tenant, "delete", actor=g.key_name, success=deleted > 0,
               detail=f"{deleted}/{len(ids)} users; {revoked_creds} credentials revoked")
     return jsonify({"success": deleted > 0, "deleted": deleted, "of": len(ids),
@@ -822,6 +901,8 @@ def credentials_issue():
         expiry_days = int(data.get("expiry_days") or _credential.DEFAULT_TTL_DAYS)
     except (TypeError, ValueError):
         return _err("'expiry_days' must be an integer.")
+    # a guest's QR card must not outlive their pass
+    expiry_days = _guests.expiry_cap_days(g.tenant, user_id, expiry_days)
     try:
         out = _credreg.issue(g.tenant, _cfg(), tenants.get(g.tenant)["palm_enabled"],
                              user_id, modalities=data.get("modalities"),
@@ -1019,7 +1100,334 @@ def purge_tenant():
     # revoke every issued credential — self-contained cards outlive the store copy
     revoked_creds = sum(_credreg.revoke(g.tenant, r["cid"])
                         for r in _credreg.list_for(g.tenant) if not r["revoked"])
+    # erase the per-person service state alongside the biometrics
+    _guests.remove_tenant(g.tenant)
+    _guardians.remove_tenant(g.tenant)
+    for uid in users:
+        _consent.remove_user(g.tenant, uid)
     audit.log(g.tenant, "purge", actor=g.key_name, success=True,
               detail=f"{len(users)} users; {revoked_creds} credentials revoked")
     return jsonify({"success": True, "purged": len(users),
                     "credentials_revoked": revoked_creds})
+
+
+# --- access policies (authorization on top of verification) --------------------
+@bp.get("/policies")
+@require_scope("manage")
+def policies_get():
+    return jsonify({"success": True, "tenant": g.tenant or "default",
+                    **_policies.get(g.tenant)})
+
+
+@bp.post("/policies")
+@require_scope("manage")
+def policies_configure():
+    data = request.get_json(silent=True) or {}
+    out = _policies.configure(g.tenant, mode=data.get("mode"),
+                              default=data.get("default"),
+                              tz_offset_minutes=data.get("tz_offset_minutes"))
+    audit.log(g.tenant, "policy_configure", actor=g.key_name, success=True,
+              detail=f"mode={out['mode']} default={out['default']}")
+    return jsonify({"success": True, **out})
+
+
+@bp.post("/policies/rules")
+@require_scope("manage")
+def policies_rule_upsert():
+    data = request.get_json(silent=True) or {}
+    try:
+        rule = _policies.upsert_rule(g.tenant, data)
+    except ValueError as exc:
+        return _err(str(exc), code="bad_rule")
+    audit.log(g.tenant, "policy_rule", actor=g.key_name, success=True,
+              detail=f"{rule['rule_id']} '{rule['name']}' {rule['effect']}")
+    return jsonify({"success": True, "rule": rule})
+
+
+@bp.delete("/policies/rules/<rule_id>")
+@require_scope("manage")
+def policies_rule_delete(rule_id):
+    ok = _policies.delete_rule(g.tenant, (rule_id or "").strip())
+    if not ok:
+        return _err("No such rule.", code="not_found", status=404)
+    audit.log(g.tenant, "policy_rule_delete", actor=g.key_name, success=True,
+              detail=rule_id)
+    return jsonify({"success": True, "rule_id": rule_id, "deleted": True})
+
+
+@bp.post("/policies/groups")
+@require_scope("manage")
+def policies_group_set():
+    data = request.get_json(silent=True) or {}
+    members = data.get("members")
+    if isinstance(members, str):
+        members = [m.strip() for m in members.split(",") if m.strip()]
+    try:
+        out = _policies.set_group(g.tenant, data.get("name"), members or [])
+    except ValueError as exc:
+        return _err(str(exc), code="bad_group")
+    return jsonify({"success": True, "groups": out["groups"]})
+
+
+@bp.delete("/policies/groups/<name>")
+@require_scope("manage")
+def policies_group_delete(name):
+    if not _policies.delete_group(g.tenant, (name or "").strip()):
+        return _err("No such group.", code="not_found", status=404)
+    return jsonify({"success": True, "group": name, "deleted": True})
+
+
+# --- guest (time-boxed) identities ---------------------------------------------
+@bp.get("/guests")
+@require_scope("manage")
+def guests_list():
+    return jsonify({"success": True, "guests": _guests.list_for(g.tenant)})
+
+
+@bp.post("/guests")
+@require_scope("manage")
+def guests_set():
+    """Time-box an identity: {user_id, expires_at | expires_in_days/-hours}.
+    Re-posting extends or shortens the pass."""
+    data = request.get_json(silent=True) or {}
+    uid = (data.get("user_id") or "").strip()
+    if not uid:
+        return _err("'user_id' is required.")
+    try:
+        if data.get("expires_at") is not None:
+            rec = _guests.set_expiry(g.tenant, uid, float(data["expires_at"]),
+                                     by=g.key_name)
+        else:
+            rec = _guests.set_ttl(g.tenant, uid,
+                                  days=float(data.get("expires_in_days") or 0),
+                                  hours=float(data.get("expires_in_hours") or 0),
+                                  by=g.key_name)
+    except (TypeError, ValueError) as exc:
+        return _err(str(exc), code="bad_expiry")
+    audit.log(g.tenant, "guest_set", actor=g.key_name, user_id=uid, success=True,
+              detail=f"expires={rec['expires']}")
+    return jsonify({"success": True, **rec})
+
+
+@bp.delete("/guests/<user_id>")
+@require_scope("manage")
+def guests_clear(user_id):
+    ok = _guests.clear(g.tenant, (user_id or "").strip())
+    if not ok:
+        return _err("Not a guest.", code="not_found", status=404)
+    audit.log(g.tenant, "guest_clear", actor=g.key_name, user_id=user_id, success=True)
+    return jsonify({"success": True, "user_id": user_id, "cleared": True})
+
+
+@bp.post("/guests/purge")
+@require_scope("delete")
+def guests_purge():
+    """Erase every guest expired for longer than ``grace_hours`` (default 0):
+    both modalities via the normal delete path, credentials revoked, service
+    state cleaned — the full offboarding a permanent delete gets."""
+    cfg = _cfg()
+    data = request.get_json(silent=True) or {}
+    try:
+        grace = max(0.0, float(data.get("grace_hours") or 0))
+    except (TypeError, ValueError):
+        return _err("'grace_hours' must be a number.")
+    palm_enabled = tenants.get(g.tenant)["palm_enabled"]
+    purged, creds = [], 0
+    for uid in _guests.due_for_purge(g.tenant, grace_hours=grace):
+        _modality.delete_user(uid, cfg, palm_enabled)
+        creds += _credreg.revoke_for_user(g.tenant, uid)
+        _guests.clear(g.tenant, uid)
+        _consent.remove_user(g.tenant, uid)
+        _guardians.remove_user(g.tenant, uid)
+        purged.append(uid)
+    audit.log(g.tenant, "guest_purge", actor=g.key_name, success=True,
+              detail=f"{len(purged)} purged; {creds} credentials revoked")
+    return jsonify({"success": True, "purged": purged,
+                    "credentials_revoked": creds})
+
+
+# --- device registry (kiosk fleet) -----------------------------------------------
+@bp.post("/devices/pairings")
+@require_scope("manage")
+def devices_pairing_create():
+    data = request.get_json(silent=True) or {}
+    try:
+        out = _devices.create_pairing(g.tenant, data.get("name"), by=g.key_name)
+    except ValueError as exc:
+        return _err(str(exc), code="bad_request")
+    audit.log(g.tenant, "device_pairing", actor=g.key_name, success=True,
+              detail=f"{out['device_id']} '{out['name']}'")
+    return jsonify({"success": True, **out})     # raw pairing code returned ONCE
+
+
+@bp.post("/devices/pair")
+def devices_pair():
+    """Redeem a pairing code (the code IS the auth — no API key yet; the
+    standard /v1 rate limit throttles guessing). Returns the device identity
+    plus its OWN verify key, each shown exactly once."""
+    data = request.get_json(silent=True) or {}
+    out = _devices.redeem(
+        (data.get("pairing_code") or "").strip(),
+        lambda name, tenant: _keys.create_key(name, tenant, "verify"))
+    if out is None:
+        return _err("Invalid, expired or already-used pairing code.",
+                    code="bad_pairing_code", status=404)
+    audit.log(out["tenant"], "device_paired", actor=out["name"],
+              success=True, detail=out["device_id"])
+    return jsonify({"success": True, **out})
+
+
+@bp.post("/devices/heartbeat")
+@require_scope("verify")
+def devices_heartbeat():
+    """A device checks in with ITS OWN key; the key identifies the device (no
+    spoofable device_id parameter). Body ``info`` is a small status map."""
+    dev = _devices.for_key(getattr(g, "key_id", ""))
+    if dev is None:
+        return _err("This key is not bound to a device — pair the device first.",
+                    code="not_a_device", status=403)
+    fresh = _devices.heartbeat(dev["device_id"], g.tenant,
+                               info=(request.get_json(silent=True) or {}).get("info"))
+    if fresh is None:
+        return _err("Device is disabled or unknown.", code="device_disabled", status=403)
+    return jsonify({"success": True, "device_id": fresh["device_id"],
+                    "name": fresh["name"], "last_seen": fresh["last_seen"]})
+
+
+@bp.get("/devices")
+@require_scope("manage")
+def devices_list():
+    return jsonify({"success": True, "devices": _devices.list_for(g.tenant)})
+
+
+@bp.post("/devices/<device_id>/disable")
+@require_scope("manage")
+def devices_disable(device_id):
+    dev = _devices.disable((device_id or "").strip(), g.tenant, _keys.revoke_key)
+    if dev is None:
+        return _err("No such device for this tenant.", code="not_found", status=404)
+    audit.log(g.tenant, "device_disable", actor=g.key_name, success=True,
+              detail=f"{dev['device_id']} '{dev['name']}' (key revoked)")
+    return jsonify({"success": True, "device": dev})
+
+
+@bp.post("/devices/<device_id>/rename")
+@require_scope("manage")
+def devices_rename(device_id):
+    data = request.get_json(silent=True) or {}
+    dev = _devices.rename((device_id or "").strip(), g.tenant, data.get("name"))
+    if dev is None:
+        return _err("No such device for this tenant (or empty name).",
+                    code="not_found", status=404)
+    return jsonify({"success": True, "device": dev})
+
+
+# --- guardianship (proxy verification links) --------------------------------------
+@bp.get("/guardians")
+@require_scope("manage")
+def guardians_list():
+    beneficiary = (request.args.get("beneficiary") or "").strip()
+    guardian = (request.args.get("guardian") or "").strip()
+    if beneficiary:
+        return jsonify({"success": True, "beneficiary": beneficiary,
+                        "guardians": _guardians.guardians_of(g.tenant, beneficiary)})
+    if guardian:
+        return jsonify({"success": True, "guardian": guardian,
+                        "wards": _guardians.wards_of(g.tenant, guardian)})
+    return jsonify({"success": True, "links": _guardians.list_for(g.tenant)})
+
+
+@bp.post("/guardians")
+@require_scope("manage")
+def guardians_link():
+    data = request.get_json(silent=True) or {}
+    try:
+        out = _guardians.link(g.tenant, data.get("beneficiary"),
+                              data.get("guardian"),
+                              relationship=data.get("relationship", ""),
+                              by=g.key_name)
+    except ValueError as exc:
+        return _err(str(exc), code="bad_link")
+    audit.log(g.tenant, "guardian_link", actor=g.key_name,
+              user_id=out["beneficiary"], success=True,
+              detail=f"guardian={out['guardian']} rel={out['relationship']}")
+    return jsonify({"success": True, **out})
+
+
+@bp.post("/guardians/unlink")
+@require_scope("manage")
+def guardians_unlink():
+    data = request.get_json(silent=True) or {}
+    ok = _guardians.unlink(g.tenant, data.get("beneficiary"), data.get("guardian"))
+    if not ok:
+        return _err("No such guardianship link.", code="not_found", status=404)
+    audit.log(g.tenant, "guardian_unlink", actor=g.key_name,
+              user_id=(data.get("beneficiary") or "").strip(), success=True,
+              detail=f"guardian={(data.get('guardian') or '').strip()}")
+    return jsonify({"success": True, "unlinked": True})
+
+
+# --- consent & data-subject rights -------------------------------------------------
+@bp.get("/consent")
+@require_scope("manage")
+def consent_summary():
+    return jsonify({"success": True, "tenant": g.tenant or "default",
+                    **_consent.summary(g.tenant)})
+
+
+@bp.post("/consent/policy")
+@require_scope("manage")
+def consent_policy_set():
+    data = request.get_json(silent=True) or {}
+    try:
+        out = _consent.set_policy(g.tenant, text=data.get("text"),
+                                  enforce_withdrawal=data.get("enforce_withdrawal"),
+                                  require_consent=data.get("require_consent"))
+    except ValueError as exc:
+        return _err(str(exc), code="bad_consent_text")
+    audit.log(g.tenant, "consent_policy", actor=g.key_name, success=True,
+              detail=f"v{out['version']} enforce={out['enforce_withdrawal']} "
+                     f"require={out['require_consent']}")
+    return jsonify({"success": True, **out})
+
+
+@bp.get("/consent/<user_id>")
+@require_scope("manage")
+def consent_receipt(user_id):
+    rec = _consent.receipt(g.tenant, (user_id or "").strip())
+    if rec is None:
+        return _err("No consent record for this user.", code="not_found", status=404)
+    return jsonify({"success": True, "receipt": rec})
+
+
+@bp.post("/consent/record")
+@require_scope("manage")
+def consent_record():
+    """Manually record consent (e.g. paper consent gathered offline, or a
+    legacy dataset being regularised)."""
+    data = request.get_json(silent=True) or {}
+    uid = (data.get("user_id") or "").strip()
+    if not uid:
+        return _err("'user_id' is required.")
+    method = data.get("method") if data.get("method") in _consent.METHODS else "operator"
+    rec = _consent.record(g.tenant, uid, method=method, actor=g.key_name)
+    audit.log(g.tenant, "consent_record", actor=g.key_name, user_id=uid,
+              success=True, detail=f"method={method} v{rec['version']}")
+    return jsonify({"success": True, **rec})
+
+
+@bp.post("/consent/withdraw")
+@require_scope("manage")
+def consent_withdraw():
+    """Honour a withdrawal: verification is blocked immediately (when
+    enforce_withdrawal is on) and the person's data is due for erasure via the
+    normal delete path."""
+    data = request.get_json(silent=True) or {}
+    uid = (data.get("user_id") or "").strip()
+    if not uid:
+        return _err("'user_id' is required.")
+    if not _consent.withdraw(g.tenant, uid, by=g.key_name):
+        return _err("No consent record for this user.", code="not_found", status=404)
+    audit.log(g.tenant, "consent_withdraw", actor=g.key_name, user_id=uid,
+              success=True)
+    return jsonify({"success": True, "user_id": uid, "status": "withdrawn"})

@@ -38,6 +38,8 @@ from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
 from face_service import admin, admins, audit, bundle, credentials, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import consent as _consent, devices as _devices, \
+    guardians as _guardians, guests as _guests, policies as _policies
 from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
@@ -272,6 +274,14 @@ def save_debug(img, tag, result=None):
             print(f"[DEBUG] {tag} {ts}: {slim}", flush=True)
     except Exception as exc:
         print(f"[DEBUG] save failed: {exc}", flush=True)
+
+
+def _subject_gates(result: dict) -> dict:
+    """First-party post-match gates (guest expiry -> consent -> access policy),
+    applied strictly AFTER the biometric decision — mirrors /v1."""
+    return _policies.apply(_FP_TENANT,
+                           _consent.gate(_FP_TENANT,
+                                         _guests.gate(_FP_TENANT, result)))
 
 
 def sign(payload: dict) -> dict:
@@ -627,6 +637,12 @@ def admin_tenant_offboard():
     tenants.remove(tenant)
     issuer_removed = issuer_keys.remove(tenant)
     creds_removed = credentials.remove_tenant(tenant)
+    # the new service registries go with the tenant (devices also lose their keys)
+    _policies.remove_tenant(tenant)
+    _guests.remove_tenant(tenant)
+    _guardians.remove_tenant(tenant)
+    _consent.remove_tenant(tenant)
+    _devices.remove_tenant(tenant, key_revoker=keys.revoke_key)
     audit.log(_FP_TENANT, "tenant_offboard", actor=g.get("admin_user", "admin"),
               user_id=tenant, success=True,
               detail=f"revoked {revoked} keys, {invites_revoked} invites; "
@@ -1346,6 +1362,9 @@ def _record_self_enroll(token, tenant, rec, result, img):
     mod = result.get("modality")
     if result.get("success") and mod in ("face", "palm"):
         invites.mark_progress(token, mod)          # progress, does NOT burn the token
+        # self-enrolment is the strongest consent form: the person acted themselves
+        _consent.record(tenant, rec["user_id"], method="self",
+                        actor=f"invite:{rec['invite_id']}")
     audit.log(tenant, "self_enroll", actor=f"invite:{rec['invite_id']}", user_id=rec["user_id"],
               success=bool(result.get("success")),
               detail=f"{mod}: {result.get('message', '')}")
@@ -1418,6 +1437,10 @@ def api_enroll():
                   or {"success": out.get("success"), "code": out.get("code"),
                       "message": out.get("message")})
     result["modality"] = out.get("modality")
+    if result.get("success"):
+        # operator-mediated consent, recorded against the current statement
+        _consent.record(_FP_TENANT, uid, method="operator",
+                        actor=g.get("admin_user", "admin"))
     audit.log(_FP_TENANT, "enroll", actor=g.get("admin_user", "admin"), user_id=uid,
               success=bool(result.get("success")),
               detail=f"{out.get('modality')}: {result.get('message', '')}")
@@ -1459,6 +1482,7 @@ def api_verify():
         else:                                   # face, active liveness off: single shot
             result = (_modality.verify(user_id, mid, CONFIG, palm_enabled=True) if user_id
                       else _modality.identify(mid, CONFIG, palm_enabled=True))
+        result = _subject_gates(result)
         audit.log(_FP_TENANT, "verify", actor="kiosk", user_id=result.get("user_id") or user_id,
                   success=bool(result.get("success")),
                   detail=f"modality={result.get('modality')} score={result.get('score')}")
@@ -1469,8 +1493,9 @@ def api_verify():
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    result = (_modality.verify(user_id, img, CONFIG, palm_enabled=True) if user_id
-              else _modality.identify(img, CONFIG, palm_enabled=True))
+    result = _subject_gates(
+        _modality.verify(user_id, img, CONFIG, palm_enabled=True) if user_id
+        else _modality.identify(img, CONFIG, palm_enabled=True))
     audit.log(_FP_TENANT, "verify", actor="kiosk", user_id=result.get("user_id") or user_id,
               success=bool(result.get("success")),
               detail=f"modality={result.get('modality')} score={result.get('score')}")
@@ -1488,7 +1513,7 @@ def api_identify():
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
-    result = _modality.identify(img, CONFIG, palm_enabled=True)
+    result = _subject_gates(_modality.identify(img, CONFIG, palm_enabled=True))
     save_debug(img, "identify", result)
     return jsonify(sign(result))
 
@@ -1508,10 +1533,344 @@ def api_delete_user():
     # revoke any card issued for this built-in user (issued under _FP_TENANT), so a
     # self-contained credential doesn't outlive the deletion
     revoked_creds = credentials.revoke_for_user(_FP_TENANT, uid)
+    # no dangling service state: guest expiry, consent (erasure done), guardianship
+    _guests.clear(_FP_TENANT, uid)
+    _consent.remove_user(_FP_TENANT, uid)
+    _guardians.remove_user(_FP_TENANT, uid)
     audit.log(_FP_TENANT, "delete", actor=g.get("admin_user", "admin"), user_id=uid,
               success=bool(out.get("success")),
               detail=f"{revoked_creds} credentials revoked" if revoked_creds else "")
     return jsonify({**out, "credentials_revoked": revoked_creds})
+
+
+# --- admin console APIs for the service subsystems ---------------------------
+# All take ?tenant= / {"tenant": ...} (default: the built-in first-party app),
+# mirroring the /v1 endpoints so the console can manage any tenant.
+def _admin_tenant(data=None) -> str:
+    src = data if data is not None else request.args
+    return (src.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
+
+
+@app.route("/admin/api/policies", methods=["GET"])
+@admin.require_admin
+def admin_policies_get():
+    t = _admin_tenant()
+    return jsonify({"success": True, "tenant": t, **_policies.get(t)})
+
+
+@app.route("/admin/api/policies", methods=["POST"])
+@admin.require_admin
+def admin_policies_configure():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    out = _policies.configure(t, mode=data.get("mode"), default=data.get("default"),
+                              tz_offset_minutes=data.get("tz_offset_minutes"))
+    audit.log(t, "policy_configure", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"mode={out['mode']} default={out['default']}")
+    return jsonify({"success": True, "tenant": t, **out})
+
+
+@app.route("/admin/api/policies/rule", methods=["POST"])
+@admin.require_admin
+def admin_policies_rule():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    try:
+        rule = _policies.upsert_rule(t, data.get("rule") or data)
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(t, "policy_rule", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"{rule['rule_id']} '{rule['name']}' {rule['effect']}")
+    return jsonify({"success": True, "rule": rule})
+
+
+@app.route("/admin/api/policies/rule/delete", methods=["POST"])
+@admin.require_admin
+def admin_policies_rule_delete():
+    data = request.get_json(silent=True) or {}
+    ok = _policies.delete_rule(_admin_tenant(data), (data.get("rule_id") or "").strip())
+    return jsonify({"success": ok})
+
+
+@app.route("/admin/api/policies/group", methods=["POST"])
+@admin.require_admin
+def admin_policies_group():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    members = data.get("members")
+    if isinstance(members, str):
+        members = [m.strip() for m in members.split(",") if m.strip()]
+    if data.get("delete"):
+        return jsonify({"success": _policies.delete_group(t, data.get("name") or "")})
+    try:
+        out = _policies.set_group(t, data.get("name"), members or [])
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    return jsonify({"success": True, "groups": out["groups"]})
+
+
+@app.route("/admin/api/guests", methods=["GET"])
+@admin.require_admin
+def admin_guests_list():
+    t = _admin_tenant()
+    return jsonify({"success": True, "tenant": t, "guests": _guests.list_for(t)})
+
+
+@app.route("/admin/api/guests", methods=["POST"])
+@admin.require_admin
+def admin_guests_set():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    uid = (data.get("user_id") or "").strip()
+    if not uid:
+        return jsonify({"success": False, "message": "user_id required."}), 400
+    try:
+        if data.get("clear"):
+            return jsonify({"success": _guests.clear(t, uid), "user_id": uid})
+        rec = _guests.set_ttl(t, uid, days=float(data.get("expires_in_days") or 0),
+                              hours=float(data.get("expires_in_hours") or 0),
+                              by=g.get("admin_user", "admin"))
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(t, "guest_set", actor=g.get("admin_user", "admin"), user_id=uid,
+              success=True, detail=f"expires={rec['expires']}")
+    return jsonify({"success": True, **rec})
+
+
+@app.route("/admin/api/guests/purge", methods=["POST"])
+@admin.require_admin
+def admin_guests_purge():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    face_cfg, palm_enabled = _invite_target(t)
+    purged, creds = [], 0
+    for uid in _guests.due_for_purge(t, grace_hours=float(data.get("grace_hours") or 0)):
+        _modality.delete_user(uid, face_cfg, palm_enabled)
+        creds += credentials.revoke_for_user(t, uid)
+        _guests.clear(t, uid)
+        _consent.remove_user(t, uid)
+        _guardians.remove_user(t, uid)
+        purged.append(uid)
+    audit.log(t, "guest_purge", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"{len(purged)} purged; {creds} credentials revoked")
+    return jsonify({"success": True, "purged": purged, "credentials_revoked": creds})
+
+
+@app.route("/admin/api/devices", methods=["GET"])
+@admin.require_admin
+def admin_devices_list():
+    t = _admin_tenant()
+    return jsonify({"success": True, "tenant": t, "devices": _devices.list_for(t)})
+
+
+@app.route("/admin/api/devices/pairing", methods=["POST"])
+@admin.require_admin
+def admin_devices_pairing():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    try:
+        out = _devices.create_pairing(t, data.get("name"), by=g.get("admin_user", "admin"))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(t, "device_pairing", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"{out['device_id']} '{out['name']}'")
+    return jsonify({"success": True, **out})     # raw pairing code returned ONCE
+
+
+@app.route("/admin/api/devices/disable", methods=["POST"])
+@admin.require_admin
+def admin_devices_disable():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    dev = _devices.disable((data.get("device_id") or "").strip(), t, keys.revoke_key)
+    if dev is None:
+        return jsonify({"success": False, "message": "No such device."}), 404
+    audit.log(t, "device_disable", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"{dev['device_id']} '{dev['name']}' (key revoked)")
+    return jsonify({"success": True, "device": dev})
+
+
+@app.route("/admin/api/guardians", methods=["GET"])
+@admin.require_admin
+def admin_guardians_list():
+    t = _admin_tenant()
+    return jsonify({"success": True, "tenant": t, "links": _guardians.list_for(t)})
+
+
+@app.route("/admin/api/guardians", methods=["POST"])
+@admin.require_admin
+def admin_guardians_link():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    try:
+        if data.get("unlink"):
+            ok = _guardians.unlink(t, data.get("beneficiary"), data.get("guardian"))
+            return jsonify({"success": ok})
+        out = _guardians.link(t, data.get("beneficiary"), data.get("guardian"),
+                              relationship=data.get("relationship", ""),
+                              by=g.get("admin_user", "admin"))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(t, "guardian_link", actor=g.get("admin_user", "admin"),
+              user_id=out["beneficiary"], success=True,
+              detail=f"guardian={out['guardian']} rel={out['relationship']}")
+    return jsonify({"success": True, **out})
+
+
+@app.route("/admin/api/consent", methods=["GET"])
+@admin.require_admin
+def admin_consent_summary():
+    t = _admin_tenant()
+    out = {"success": True, "tenant": t, **_consent.summary(t)}
+    uid = (request.args.get("user_id") or "").strip()
+    if uid:
+        out["receipt"] = _consent.receipt(t, uid)
+    else:
+        out["records"] = _consent.list_for(t)
+    return jsonify(out)
+
+
+@app.route("/admin/api/consent/policy", methods=["POST"])
+@admin.require_admin
+def admin_consent_policy():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    try:
+        out = _consent.set_policy(t, text=data.get("text"),
+                                  enforce_withdrawal=data.get("enforce_withdrawal"),
+                                  require_consent=data.get("require_consent"))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(t, "consent_policy", actor=g.get("admin_user", "admin"), success=True,
+              detail=f"v{out['version']}")
+    return jsonify({"success": True, "tenant": t, **out})
+
+
+@app.route("/admin/api/consent/withdraw", methods=["POST"])
+@admin.require_admin
+def admin_consent_withdraw():
+    data = request.get_json(silent=True) or {}
+    t = _admin_tenant(data)
+    uid = (data.get("user_id") or "").strip()
+    ok = _consent.withdraw(t, uid, by=g.get("admin_user", "admin"))
+    if ok:
+        audit.log(t, "consent_withdraw", actor=g.get("admin_user", "admin"),
+                  user_id=uid, success=True)
+    return jsonify({"success": ok, "user_id": uid})
+
+
+# --- data-subject rights: the person's own "my data" surface ------------------
+# The person authenticates with their own biometric (the untouched verify
+# pipeline — head-turn liveness included when enabled), gets a short-lived
+# signed session token, and can then read their record, download a consent
+# receipt, and withdraw consent. Nobody else's data is ever reachable: the
+# token binds to the user_id that VERIFIED.
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer as _Serializer
+
+_SUBJECT_TTL = 10 * 60
+_subject_serializer = _Serializer(
+    os.environ.get("FACE_SECRET_KEY") or secrets.token_urlsafe(32),
+    salt="face-subject")
+
+
+def _subject_uid() -> str | None:
+    token = (request.get_json(silent=True) or {}).get("session") \
+        or request.args.get("session", "")
+    try:
+        return _subject_serializer.loads(token, max_age=_SUBJECT_TTL).get("u")
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+@app.route("/my-data")
+def my_data_page():
+    return render_template("mydata.html")
+
+
+@app.route("/api/subject/session", methods=["POST"])
+def subject_session():
+    """Prove who you are (your own biometric, full liveness) -> a 10-minute
+    signed session for the data-subject endpoints. 1:N only — the person just
+    presents themselves; no name is typed, no name can be chosen."""
+    data = request.get_json(silent=True) or {}
+    frames = data.get("frames")
+    if frames:
+        imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
+        if not imgs:
+            return jsonify({"success": False, "message": "Failed to decode frames."})
+        mid = imgs[len(imgs) // 2]
+        routed = _modality.route(mid, CONFIG, palm_enabled=True, short_circuit=True)
+        if routed.modality == "palm":
+            best = _modality.best_palm_frame(imgs, CONFIG)
+            result = _modality.identify(best, CONFIG, palm_enabled=True)
+        elif CONFIG.active_liveness:
+            if not _active.valid_token(data.get("token", "")):
+                return jsonify({"success": False, "code": "liveness",
+                                "message": "Challenge expired — try again."})
+            result = engine.verify_live("", imgs, CONFIG)
+        else:
+            result = _modality.identify(mid, CONFIG, palm_enabled=True)
+    else:
+        img = decode_image(data.get("image", ""))
+        if img is None:
+            return jsonify({"success": False, "message": "'image' or 'frames' required."})
+        result = _modality.identify(img, CONFIG, palm_enabled=True)
+    # NOTE: deliberately NOT gated on guest expiry / withdrawal — an expired or
+    # withdrawn person must still be able to see their data and their standing.
+    if not result.get("success") or not result.get("user_id"):
+        audit.log(_FP_TENANT, "subject_session", actor="subject", success=False,
+                  detail=f"code={result.get('code')}")
+        return jsonify({"success": False, "code": result.get("code", "no_match"),
+                        "message": "We couldn't confirm who you are — try again."})
+    uid = result["user_id"]
+    audit.log(_FP_TENANT, "subject_session", actor="subject", user_id=uid, success=True)
+    return jsonify({"success": True, "user_id": uid,
+                    "session": _subject_serializer.dumps({"u": uid}),
+                    "expires_in": _SUBJECT_TTL})
+
+
+@app.route("/api/subject/data", methods=["POST"])
+def subject_data():
+    """Everything we hold about YOU: modalities + sample counts (never the
+    embeddings), consent standing + receipt, credentials, your audit trail."""
+    uid = _subject_uid()
+    if not uid:
+        return jsonify({"success": False, "code": "session_expired",
+                        "message": "Session expired — verify yourself again."}), 401
+    record = _modality.export_record(uid, CONFIG, True)
+    events = [e for e in audit.tail(_FP_TENANT, 1000) if e.get("user_id") == uid][:50]
+    audit.log(_FP_TENANT, "subject_access", actor="subject", user_id=uid, success=True)
+    return jsonify({"success": True, "user_id": uid,
+                    "modalities": record,
+                    "consent": _consent.receipt(_FP_TENANT, uid),
+                    "consent_text": _consent.policy(_FP_TENANT)["text"],
+                    "guest": _guests.get(_FP_TENANT, uid),
+                    "credentials": credentials.list_for(_FP_TENANT, uid),
+                    "guardians": _guardians.guardians_of(_FP_TENANT, uid),
+                    "wards": _guardians.wards_of(_FP_TENANT, uid),
+                    "events": events})
+
+
+@app.route("/api/subject/withdraw", methods=["POST"])
+def subject_withdraw():
+    """Withdraw consent (requires a live session + explicit confirm). Blocks
+    future verification immediately when enforcement is on; erasure follows
+    through the operator's delete path."""
+    data = request.get_json(silent=True) or {}
+    uid = _subject_uid()
+    if not uid:
+        return jsonify({"success": False, "code": "session_expired",
+                        "message": "Session expired — verify yourself again."}), 401
+    if data.get("confirm") is not True:
+        return jsonify({"success": False, "code": "confirm_required",
+                        "message": "Set 'confirm': true to withdraw consent."}), 400
+    if _consent.get(_FP_TENANT, uid) is None:      # no record yet -> create then withdraw
+        _consent.record(_FP_TENANT, uid, method="self", actor=uid)
+    _consent.withdraw(_FP_TENANT, uid, by=uid)
+    audit.log(_FP_TENANT, "consent_withdraw", actor="subject", user_id=uid, success=True)
+    return jsonify({"success": True, "user_id": uid, "status": "withdrawn",
+                    "message": "Consent withdrawn. Verification is blocked and your "
+                               "data is queued for erasure."})
 
 
 print(admin.startup_banner(), flush=True)

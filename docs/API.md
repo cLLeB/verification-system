@@ -292,6 +292,85 @@ with `{"purge":true}` to also delete what the invite enrolled. Admin:
 `POST /admin/api/invites {user_id, tenant?, modalities?}`. Pass `"issue_credential": true` to hand
 the enrollee their offline QR card (§5e) automatically when they tap Finish.
 
+## 5h. Access policies (allowed **when**, not just **who**)
+
+Verification answers *who is this*; policies answer *are they allowed right now*. Evaluated
+strictly **after** the biometric decision (the matching pipeline is untouched; a policy can only
+narrow a granted match). Per tenant: `mode` `off` (default) | `advise` (responses gain an
+`access` block, decision unchanged) | `enforce` (a deny flips the response to
+`success:false, code:"access_denied"`); a `default` outcome; named `groups`; and ordered rules
+(subjects `*` / `user:<id>` / `group:<name>`, optional weekdays + `HH:MM` windows — overnight
+wraps supported — and validity epochs). **Deny beats allow.**
+
+```bash
+POST /v1/policies             {"mode":"enforce","default":"deny","tz_offset_minutes":0}
+POST /v1/policies/rules       {"name":"Office hours","effect":"allow","subjects":["group:staff"],
+                               "days":["mon","tue","wed","thu","fri"],"start":"08:00","end":"18:00"}
+POST /v1/policies/groups      {"name":"staff","members":["ama","kofi"]}
+GET  /v1/policies             # the full document
+```
+
+## 5i. Guest passes (identities that expire)
+
+Time-box an identity: after expiry a granted match returns `success:false,
+code:"identity_expired"` (the enrolment itself is untouched until purged). QR credentials issued
+to a guest are capped to the pass. `POST /v1/enroll` accepts `expires_in_days`/`expires_in_hours`
+to enrol someone as a guest in one call.
+
+```bash
+POST   /v1/guests          {"user_id":"visitor","expires_in_days":3}   # set / extend / shorten
+GET    /v1/guests                                                      # list with countdowns
+DELETE /v1/guests/visitor                                              # make permanent again
+POST   /v1/guests/purge    {"grace_hours":24}    # ERASE expired guests (delete scope)
+```
+
+## 5j. Devices (kiosk fleet registry)
+
+Every kiosk gets its own identity and its **own verify key** — so one lost device is disabled
+without touching the rest. Pairing: admin mints a single-use, 15-minute code; the device redeems
+it once (the code is the auth) and stores the returned key. Disable revokes the device's key
+immediately.
+
+```bash
+POST /v1/devices/pairings   {"name":"Front gate kiosk"}     # -> pairing_code (shown ONCE)
+POST /v1/devices/pair       {"pairing_code":"pc_..."}       # device-side; -> device_id + api_key
+POST /v1/devices/heartbeat  {"info":{"app":"2.1.0"}}        # with the DEVICE's key
+GET  /v1/devices                                            # fleet + last-seen
+POST /v1/devices/<device_id>/disable                        # cut it off (key revoked)
+```
+
+## 5k. Guardianship (verify on someone's behalf)
+
+For people who can't present a biometric (children, elderly, patients): link a guardian, then the
+guardian's own **live** verification counts for the beneficiary. The guardian passes the full
+untouched pipeline (liveness included); the response and audit trail carry BOTH identities. The
+beneficiary's guest pass / consent / policy standing still applies.
+
+```bash
+POST /v1/guardians          {"beneficiary":"baby_ama","guardian":"mama_akos","relationship":"mother"}
+POST /v1/verify             {"on_behalf_of":"baby_ama", "image":"<guardian's live capture>"}
+# -> success:true, code:"proxy_match", proxy:{beneficiary, guardian, relationship}
+POST /v1/guardians/unlink   {"beneficiary":"baby_ama","guardian":"mama_akos"}
+GET  /v1/guardians?guardian=mama_akos        # everyone she may act for
+```
+
+## 5l. Consent & data-subject rights
+
+Every enrol path automatically records the person's consent against your tenant's **versioned**
+consent statement (the record pins the SHA-256 of the exact text agreed — later edits never
+rewrite history). Withdrawal blocks verification immediately (`consent_withdrawn`); optional
+`require_consent` refuses users with no record (`consent_missing`). People can self-serve at
+**`/my-data`**: they verify THEMSELVES (full liveness), see everything held about them, download
+a report, and withdraw.
+
+```bash
+POST /v1/consent/policy    {"text":"...", "enforce_withdrawal":true, "require_consent":false}
+GET  /v1/consent                          # summary + records
+GET  /v1/consent/<user_id>                # exportable consent receipt
+POST /v1/consent/record    {"user_id":"ama","method":"operator"}   # paper/legacy consent
+POST /v1/consent/withdraw  {"user_id":"ama"}
+```
+
 ## 6. Notes
 
 - Images: base64 JPEG/PNG (or a `data:` URL). The face should be reasonably frontal and fill a
@@ -355,6 +434,14 @@ the human `message` (and `hint` when present) to users.
 | `not_enrolled` | User has no template | Enrol them first. |
 | `match` / `no_match` | Verify/identify outcome | `success` reflects grant/deny. |
 | `enrolled` | Enrolment succeeded | — |
+| `access_denied` | Matched, but an **enforced access policy** denies right now (§5h) | Check the `access` block (rule, reason); adjust rules/schedule. |
+| `identity_expired` | Matched, but the person's **guest pass** has expired (§5i) | Extend the pass (`POST /v1/guests`) or purge them. |
+| `not_guardian` | Proxy verify: the person matched isn't a guardian of `on_behalf_of` (§5k) | Link them first (`POST /v1/guardians`). |
+| `proxy_match` | Proxy verify approved: guardian verified for the beneficiary (§5k) | `proxy` carries both identities for your ledger. |
+| `consent_withdrawn` | Matched, but the person withdrew consent (§5l) | Re-enrol through a consent-carrying flow, or erase their data. |
+| `consent_missing` | Tenant requires consent and none is on record (§5l) | `POST /v1/consent/record`, or re-enrol them. |
+| `bad_pairing_code` | Device pairing code invalid/expired/used (§5j) | Mint a fresh code; enter within 15 min. |
+| `not_a_device` / `device_disabled` | Heartbeat from a non-device key / disabled device (§5j) | Pair the device; re-pair to re-enable. |
 
 ### Palm + auto-router codes
 | `code` | Meaning | What to do |

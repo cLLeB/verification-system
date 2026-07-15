@@ -20,6 +20,8 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from face.config import load_config
 
 from . import audit, invites, issuer_keys, keys, modality as _modality, tenants
+from . import consent as _consent, devices as _devices, guardians as _guardians, \
+    guests as _guests, policies as _policies
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -400,6 +402,188 @@ def portal_credentials_revoke():
     audit.log(g.portal_tenant, "credential_revoke", actor="portal", success=True,
               detail=f"cid={cid}")
     return jsonify({"success": True, "credential_id": cid, "revoked": True})
+
+
+# --- access policies (this tenant's own authorization rules) -----------------
+@portal_bp.get("/portal/api/policies")
+@require_tenant
+def portal_policies_get():
+    return jsonify({"success": True, **_policies.get(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/policies")
+@require_tenant
+def portal_policies_configure():
+    data = request.get_json(silent=True) or {}
+    out = _policies.configure(g.portal_tenant, mode=data.get("mode"),
+                              default=data.get("default"),
+                              tz_offset_minutes=data.get("tz_offset_minutes"))
+    audit.log(g.portal_tenant, "policy_configure", actor="portal", success=True,
+              detail=f"mode={out['mode']} default={out['default']}")
+    return jsonify({"success": True, **out})
+
+
+@portal_bp.post("/portal/api/policies/rule")
+@require_tenant
+def portal_policies_rule():
+    data = request.get_json(silent=True) or {}
+    if data.get("delete"):
+        return jsonify({"success": _policies.delete_rule(
+            g.portal_tenant, (data.get("rule_id") or "").strip())})
+    try:
+        rule = _policies.upsert_rule(g.portal_tenant, data.get("rule") or data)
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(g.portal_tenant, "policy_rule", actor="portal", success=True,
+              detail=f"{rule['rule_id']} '{rule['name']}' {rule['effect']}")
+    return jsonify({"success": True, "rule": rule})
+
+
+@portal_bp.post("/portal/api/policies/group")
+@require_tenant
+def portal_policies_group():
+    data = request.get_json(silent=True) or {}
+    members = data.get("members")
+    if isinstance(members, str):
+        members = [m.strip() for m in members.split(",") if m.strip()]
+    if data.get("delete"):
+        return jsonify({"success": _policies.delete_group(g.portal_tenant,
+                                                          data.get("name") or "")})
+    try:
+        out = _policies.set_group(g.portal_tenant, data.get("name"), members or [])
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    return jsonify({"success": True, "groups": out["groups"]})
+
+
+# --- guest (time-boxed) identities --------------------------------------------
+@portal_bp.get("/portal/api/guests")
+@require_tenant
+def portal_guests():
+    return jsonify({"success": True, "guests": _guests.list_for(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/guests")
+@require_tenant
+def portal_guests_set():
+    data = request.get_json(silent=True) or {}
+    uid = (data.get("user_id") or "").strip()
+    if not uid:
+        return jsonify({"success": False, "message": "user_id required."}), 400
+    try:
+        if data.get("clear"):
+            return jsonify({"success": _guests.clear(g.portal_tenant, uid), "user_id": uid})
+        rec = _guests.set_ttl(g.portal_tenant, uid,
+                              days=float(data.get("expires_in_days") or 0),
+                              hours=float(data.get("expires_in_hours") or 0), by="portal")
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(g.portal_tenant, "guest_set", actor="portal", user_id=uid, success=True,
+              detail=f"expires={rec['expires']}")
+    return jsonify({"success": True, **rec})
+
+
+# --- device fleet ---------------------------------------------------------------
+@portal_bp.get("/portal/api/devices")
+@require_tenant
+def portal_devices():
+    return jsonify({"success": True, "devices": _devices.list_for(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/devices/pairing")
+@require_tenant
+def portal_devices_pairing():
+    gate = _enabled_or_402()
+    if gate:
+        return gate
+    data = request.get_json(silent=True) or {}
+    try:
+        out = _devices.create_pairing(g.portal_tenant, data.get("name"), by="portal")
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(g.portal_tenant, "device_pairing", actor="portal", success=True,
+              detail=f"{out['device_id']} '{out['name']}'")
+    return jsonify({"success": True, **out})     # raw pairing code ONCE
+
+
+@portal_bp.post("/portal/api/devices/disable")
+@require_tenant
+def portal_devices_disable():
+    data = request.get_json(silent=True) or {}
+    dev = _devices.disable((data.get("device_id") or "").strip(),
+                           g.portal_tenant, keys.revoke_key)
+    if dev is None:
+        return jsonify({"success": False, "message": "No such device."}), 404
+    audit.log(g.portal_tenant, "device_disable", actor="portal", success=True,
+              detail=f"{dev['device_id']} '{dev['name']}' (key revoked)")
+    return jsonify({"success": True, "device": dev})
+
+
+# --- guardianship ------------------------------------------------------------------
+@portal_bp.get("/portal/api/guardians")
+@require_tenant
+def portal_guardians():
+    return jsonify({"success": True, "links": _guardians.list_for(g.portal_tenant)})
+
+
+@portal_bp.post("/portal/api/guardians")
+@require_tenant
+def portal_guardians_link():
+    data = request.get_json(silent=True) or {}
+    try:
+        if data.get("unlink"):
+            ok = _guardians.unlink(g.portal_tenant, data.get("beneficiary"),
+                                   data.get("guardian"))
+            return jsonify({"success": ok})
+        out = _guardians.link(g.portal_tenant, data.get("beneficiary"),
+                              data.get("guardian"),
+                              relationship=data.get("relationship", ""), by="portal")
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(g.portal_tenant, "guardian_link", actor="portal",
+              user_id=out["beneficiary"], success=True,
+              detail=f"guardian={out['guardian']} rel={out['relationship']}")
+    return jsonify({"success": True, **out})
+
+
+# --- consent -------------------------------------------------------------------------
+@portal_bp.get("/portal/api/consent")
+@require_tenant
+def portal_consent():
+    out = {"success": True, **_consent.summary(g.portal_tenant)}
+    uid = (request.args.get("user_id") or "").strip()
+    if uid:
+        out["receipt"] = _consent.receipt(g.portal_tenant, uid)
+    else:
+        out["records"] = _consent.list_for(g.portal_tenant)
+    return jsonify(out)
+
+
+@portal_bp.post("/portal/api/consent/policy")
+@require_tenant
+def portal_consent_policy():
+    data = request.get_json(silent=True) or {}
+    try:
+        out = _consent.set_policy(g.portal_tenant, text=data.get("text"),
+                                  enforce_withdrawal=data.get("enforce_withdrawal"),
+                                  require_consent=data.get("require_consent"))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    audit.log(g.portal_tenant, "consent_policy", actor="portal", success=True,
+              detail=f"v{out['version']}")
+    return jsonify({"success": True, **out})
+
+
+@portal_bp.post("/portal/api/consent/withdraw")
+@require_tenant
+def portal_consent_withdraw():
+    data = request.get_json(silent=True) or {}
+    uid = (data.get("user_id") or "").strip()
+    ok = _consent.withdraw(g.portal_tenant, uid, by="portal")
+    if ok:
+        audit.log(g.portal_tenant, "consent_withdraw", actor="portal",
+                  user_id=uid, success=True)
+    return jsonify({"success": ok, "user_id": uid})
 
 
 # --- cross-org trust (accept another tenant's credentials) --------------------
