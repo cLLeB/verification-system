@@ -12,3 +12,7 @@ qrcode>=8.0                    # credential QR rendering (trust platform phase 2
 gunicorn>=21.0                  # production WSGI server (Linux/containers)
 waitress>=3.0                  # production WSGI server (Windows-friendly; see serve.py)
 huggingface_hub>=0.25          # optional: durable state sync on ephemeral hosts (HF Spaces)
+
+# security floors (pip-audit CVE remediation)
+werkzeug>=3.1.6
+urllib3>=2.6.3
