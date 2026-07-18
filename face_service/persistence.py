@@ -30,6 +30,10 @@ DATASET = os.environ.get("FACE_PERSIST_DATASET", "").strip()
 TOKEN = (os.environ.get("HF_TOKEN", "") or os.environ.get("FACE_PERSIST_TOKEN", "")).strip()
 DATA = os.environ.get("FACE_PERSIST_DIR", "/data")
 INTERVAL = int(os.environ.get("FACE_PERSIST_INTERVAL", "60"))
+# Pin the download to a revision (branch or, ideally, a commit SHA) so a tampered
+# repo can't silently swap state contents. Defaults to "main"; set to a commit for
+# stronger supply-chain integrity.
+REVISION = os.environ.get("FACE_PERSIST_REVISION", "main").strip() or "main"
 _IGNORE = ["*/index/*", "*.lock", "*/.cache/*", ".cache/*"]   # index rebuilds itself
 
 
@@ -44,7 +48,8 @@ def restore() -> None:
         return
     try:
         os.makedirs(DATA, exist_ok=True)
-        snapshot_download(repo_id=DATASET, repo_type="dataset", local_dir=DATA, token=TOKEN)
+        snapshot_download(repo_id=DATASET, repo_type="dataset", local_dir=DATA,
+                          token=TOKEN, revision=REVISION)
         print(f"[persist] restored state from {DATASET}", flush=True)
     except Exception as exc:
         print(f"[persist] no prior state to restore ({exc})", flush=True)

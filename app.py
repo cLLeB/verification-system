@@ -1908,4 +1908,10 @@ if __name__ == "__main__":
     print(f"[face] model_ready={MODEL_READY} liveness={CONFIG.liveness_enabled and LIVENESS_READY} "
           f"encrypted={ENCRYPTED_AT_REST} signing={bool(SIGNING_SECRET)} threshold={CONFIG.match_threshold}",
           flush=True)
-    app.run(host="0.0.0.0", port=5000, ssl_context="adhoc", debug=True)
+    # Safe-by-default dev entrypoint. The Werkzeug debugger is an RCE vector, so
+    # debug and external binding are strictly opt-in via env (production uses
+    # serve.py/gunicorn, not this block).
+    _debug = os.environ.get("FACE_DEBUG", "").strip().lower() in ("1", "true", "yes")
+    _host = os.environ.get("FACE_HOST", "127.0.0.1")
+    _port = int(os.environ.get("FACE_PORT", "5000"))
+    app.run(host=_host, port=_port, ssl_context="adhoc", debug=_debug)

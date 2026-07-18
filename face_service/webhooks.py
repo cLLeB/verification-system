@@ -14,22 +14,55 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
+import socket
 import threading
 import time
 import urllib.request
+from urllib.parse import urlparse
 
 from . import tenants
 
 
+def is_safe_url(url: str) -> bool:
+    """Reject SSRF targets: only http(s) to a public IP. Blocks loopback,
+    private, link-local (incl. cloud metadata 169.254.169.254), reserved,
+    multicast and unspecified addresses across every resolved A/AAAA record."""
+    try:
+        p = urlparse(url or "")
+    except ValueError:
+        return False
+    if p.scheme not in ("http", "https") or not p.hostname:
+        return False
+    port = p.port or (443 if p.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(p.hostname, port, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
 def _post(url: str, body: bytes, signature: str) -> None:
+    if not is_safe_url(url):
+        return                                # SSRF guard: refuse internal targets
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Content-Type": "application/json",
         "X-Face-Signature": signature,
         "User-Agent": "FaceVerify-Webhook/1",
     })
     try:
-        urllib.request.urlopen(req, timeout=5).close()
+        urllib.request.urlopen(req, timeout=5).close()  # noqa: S310 (scheme+IP vetted above)
     except Exception:
         pass                                  # best-effort; never affect the request
 
