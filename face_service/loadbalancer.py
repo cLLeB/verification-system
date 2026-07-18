@@ -29,7 +29,7 @@ _reg = Registry("FACE_LOADBALANCER_FILE", "loadbalancer.json")
 
 
 def _key(tenant: Optional[str], pool: str) -> str:
-    return f"{_reg.norm(tenant)}::{(pool or 'default').strip() or 'default'}"
+    return _reg.scoped(tenant, (pool or 'default').strip() or 'default')
 
 
 def add_backend(tenant: Optional[str], backend: str, weight: int = 1,

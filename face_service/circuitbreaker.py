@@ -33,7 +33,7 @@ _DEFAULTS = {"threshold": 5, "cooldown": 30, "half_open_max": 1}
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def configure(tenant: Optional[str], name: str, threshold: int = 5,

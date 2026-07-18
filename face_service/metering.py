@@ -17,6 +17,10 @@ Quantities are summed as-is (ints or floats). Dimension keys are optional; an ev
 none still contributes to the metric total. This keeps the model flexible while the
 rollups stay exact.
 
+Storage is nested (``tenant -> metric -> period``), which keeps tenants and metric/period
+labels in separate namespaces — no flat delimiter to collide across, and no fragile
+string-prefix scanning.
+
 Registry: ``metering.json`` (env ``FACE_METERING_FILE``).
 """
 
@@ -28,10 +32,6 @@ from typing import List, Optional
 from ._registry import Registry
 
 _reg = Registry("FACE_METERING_FILE", "metering.json")
-
-
-def _key(tenant: Optional[str], metric: str, period: str) -> str:
-    return f"{_reg.norm(tenant)}::{(metric or '').strip()}::{(period or '').strip()}"
 
 
 def record(tenant: Optional[str], metric: str, period: str, quantity: float = 1,
@@ -46,9 +46,9 @@ def record(tenant: Optional[str], metric: str, period: str, quantity: float = 1,
     dims = {str(k).strip(): str(v).strip()
             for k, v in (dimensions or {}).items() if str(k).strip()}
     with _reg.mutate() as data:
-        rec = data.setdefault(_key(tenant, metric, period),
-                              {"metric": metric, "period": period, "total": 0.0,
-                               "by_dim": {}})
+        rec = (data.setdefault(_reg.norm(tenant), {})
+                   .setdefault(metric, {})
+                   .setdefault(period, {"total": 0.0, "by_dim": {}}))
         rec["total"] += quantity
         for k, v in dims.items():
             slot = rec["by_dim"].setdefault(k, {})
@@ -56,30 +56,35 @@ def record(tenant: Optional[str], metric: str, period: str, quantity: float = 1,
     return {"metric": metric, "period": period, "quantity": quantity}
 
 
+def _rec(tenant: Optional[str], metric: str, period: str) -> Optional[dict]:
+    return ((_reg.load().get(_reg.norm(tenant)) or {}).get((metric or "").strip()) or {}
+            ).get((period or "").strip())
+
+
 def total(tenant: Optional[str], metric: str, period: str) -> float:
-    rec = _reg.load().get(_key(tenant, metric, period))
+    rec = _rec(tenant, metric, period)
     return round(rec["total"], 6) if rec else 0.0
 
 
 def breakdown(tenant: Optional[str], metric: str, period: str, dimension: str) -> dict:
-    rec = _reg.load().get(_key(tenant, metric, period))
+    rec = _rec(tenant, metric, period)
     if not rec:
         return {}
-    return {k: round(v, 6) for k, v in (rec["by_dim"].get((dimension or "").strip()) or {}).items()}
+    return {k: round(v, 6)
+            for k, v in (rec["by_dim"].get((dimension or "").strip()) or {}).items()}
 
 
 def periods(tenant: Optional[str], metric: str) -> List[str]:
-    prefix = f"{_reg.norm(tenant)}::{(metric or '').strip()}::"
-    out = [k[len(prefix):] for k in _reg.load() if k.startswith(prefix)]
-    return sorted(out)
+    metrics = (_reg.load().get(_reg.norm(tenant)) or {}).get((metric or "").strip()) or {}
+    return sorted(metrics.keys())
 
 
 def summary(tenant: Optional[str], period: str) -> dict:
     """All metric totals for a period (for an invoice run)."""
-    suffix = f"::{(period or '').strip()}"
-    prefix = f"{_reg.norm(tenant)}::"
+    period = (period or "").strip()
     out = defaultdict(float)
-    for k, rec in _reg.load().items():
-        if k.startswith(prefix) and k.endswith(suffix):
-            out[rec["metric"]] += rec["total"]
+    for metric, by_period in (_reg.load().get(_reg.norm(tenant)) or {}).items():
+        rec = by_period.get(period)
+        if rec:
+            out[metric] += rec["total"]
     return {m: round(v, 6) for m, v in sorted(out.items())}

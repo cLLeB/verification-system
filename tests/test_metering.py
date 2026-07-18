@@ -64,3 +64,11 @@ def test_validation():
         metering.record(T, "verify", "")
     with pytest.raises(ValueError):
         metering.record(T, "verify", "2026-07", quantity=-1)
+
+
+def test_no_cross_tenant_key_collision():
+    # tenant 'a::x' must never collide with tenant 'a' metric 'x' (M1 regression)
+    metering.record("a", "x", "2026-07", quantity=5)
+    metering.record("a::x", "verify", "2026-07", quantity=99)
+    assert metering.total("a", "x", "2026-07") == 5
+    assert metering.total("a::x", "verify", "2026-07") == 99

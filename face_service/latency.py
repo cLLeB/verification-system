@@ -45,7 +45,7 @@ def _bucket_upper(index: int) -> float:
 
 
 def _key(tenant: Optional[str], scope: str) -> str:
-    return f"{_reg.norm(tenant)}::{(scope or 'default').strip() or 'default'}"
+    return _reg.scoped(tenant, (scope or 'default').strip() or 'default')
 
 
 def record(tenant: Optional[str], ms: float, scope: str = "default") -> None:

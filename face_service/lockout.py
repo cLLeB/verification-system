@@ -32,7 +32,7 @@ _DEFAULTS = {"threshold": 5, "window": 300, "base_lock": 300, "max_lock": 3600}
 
 
 def _key(tenant: Optional[str], subject: str) -> str:
-    return f"{_reg.norm(tenant)}::{(subject or '').strip()}"
+    return _reg.scoped(tenant, (subject or '').strip())
 
 
 def configure(tenant: Optional[str], threshold: int = 5, window: int = 300,

@@ -39,7 +39,7 @@ def _bucket(ts: int) -> int:
 
 
 def _root(data: dict, tenant: Optional[str], scope: str) -> dict:
-    key = f"{_reg.norm(tenant)}::{(scope or 'default').strip() or 'default'}"
+    key = _reg.scoped(tenant, (scope or 'default').strip() or 'default')
     return data.setdefault(key, {"counts": [0] * 168, "min_ts": None, "max_ts": None})
 
 
@@ -59,7 +59,7 @@ def ingest(tenant: Optional[str], timestamps, scope: str = "default") -> dict:
 
 
 def _load(tenant: Optional[str], scope: str) -> Optional[dict]:
-    key = f"{_reg.norm(tenant)}::{(scope or 'default').strip() or 'default'}"
+    key = _reg.scoped(tenant, (scope or 'default').strip() or 'default')
     return _reg.load().get(key)
 
 

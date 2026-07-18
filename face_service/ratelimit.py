@@ -30,7 +30,7 @@ _reg = Registry("FACE_RATELIMIT_FILE", "ratelimit.json")
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def configure(tenant: Optional[str], name: str, rate: float, burst: float,

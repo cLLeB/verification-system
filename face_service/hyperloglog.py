@@ -33,7 +33,7 @@ _HASH_BITS = 64
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def _hash64(item: str) -> int:

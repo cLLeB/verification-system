@@ -36,7 +36,7 @@ _WARN, _ALERT = 0.1, 0.25
 
 
 def _key(tenant: Optional[str], scope: str) -> str:
-    return f"{_reg.norm(tenant)}::{(scope or 'default').strip() or 'default'}"
+    return _reg.scoped(tenant, (scope or 'default').strip() or 'default')
 
 
 def _hist(scores: List[float]) -> List[float]:

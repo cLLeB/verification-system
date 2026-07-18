@@ -39,7 +39,7 @@ def _optimal(capacity: int, error_rate: float):
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def create(tenant: Optional[str], name: str, capacity: int = 10000,

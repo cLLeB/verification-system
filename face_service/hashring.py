@@ -34,7 +34,7 @@ def _hash(s: str) -> int:
 
 
 def _key(tenant: Optional[str], ring: str) -> str:
-    return f"{_reg.norm(tenant)}::{(ring or 'default').strip() or 'default'}"
+    return _reg.scoped(tenant, (ring or 'default').strip() or 'default')
 
 
 def _load(tenant: Optional[str], ring: str) -> dict:

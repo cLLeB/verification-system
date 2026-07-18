@@ -29,7 +29,7 @@ _reg = Registry("FACE_RATECARDS_FILE", "ratecards.json")
 
 
 def _plan_key(tenant: Optional[str], plan: str) -> str:
-    return f"{_reg.norm(tenant)}::{(plan or '').strip()}"
+    return _reg.scoped(tenant, (plan or '').strip())
 
 
 def set_rate(tenant: Optional[str], plan: str, metric: str, unit_cents: int = 0,

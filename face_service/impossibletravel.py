@@ -49,7 +49,7 @@ def _valid(lat, lon) -> bool:
 
 
 def _key(tenant: Optional[str], subject: str) -> str:
-    return f"{_reg.norm(tenant)}::{(subject or '').strip()}"
+    return _reg.scoped(tenant, (subject or '').strip())
 
 
 def record(tenant: Optional[str], subject: str, lat: float, lon: float,

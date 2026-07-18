@@ -30,7 +30,7 @@ _reg = Registry("FACE_SLIDINGWINDOW_FILE", "slidingwindow.json")
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def _roll(rec: dict, window: int, now: int) -> None:

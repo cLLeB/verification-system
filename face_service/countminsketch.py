@@ -30,7 +30,7 @@ _reg = Registry("FACE_COUNTMINSKETCH_FILE", "countminsketch.json")
 
 
 def _key(tenant: Optional[str], name: str) -> str:
-    return f"{_reg.norm(tenant)}::{(name or '').strip()}"
+    return _reg.scoped(tenant, (name or '').strip())
 
 
 def _positions(item: str, width: int, depth: int) -> List[int]:

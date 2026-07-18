@@ -31,12 +31,12 @@ _reg = Registry("FACE_HOLIDAYS_FILE", "holidays.json")
 
 
 def _region(data: dict, tenant: Optional[str], region: str) -> dict:
-    key = f"{_reg.norm(tenant)}::{(region or 'default').strip() or 'default'}"
+    key = _reg.scoped(tenant, (region or 'default').strip() or 'default')
     return data.setdefault(key, {})
 
 
 def _region_load(tenant: Optional[str], region: str) -> dict:
-    key = f"{_reg.norm(tenant)}::{(region or 'default').strip() or 'default'}"
+    key = _reg.scoped(tenant, (region or 'default').strip() or 'default')
     return _reg.load().get(key, {})
 
 
