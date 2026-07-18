@@ -63,3 +63,11 @@ def test_get_by_id():
 def test_validation():
     with pytest.raises(ValueError):
         el.append(T, "")
+
+
+def test_prune_bounds_growth():
+    for t in range(1, 11):
+        el.append(T, "e", now=t)
+    assert el.prune(T, before=5)["removed"] == 4       # events at t=1..4 dropped
+    assert el.count(T) == 6
+    assert el.prune(T, max_events=2)["remaining"] == 2  # keep 2 newest

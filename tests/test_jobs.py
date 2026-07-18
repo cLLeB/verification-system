@@ -85,3 +85,24 @@ def test_validation():
         jobs.enqueue(T, "")
     with pytest.raises(ValueError):
         jobs.claim(T, "")
+
+
+def test_reap_does_not_burn_a_retry(tmp_path):
+    # a crashed worker's lease is reaped without counting as a real attempt (M4)
+    j = jobs.enqueue(T, "x", max_attempts=2, now=0)
+    jobs.claim(T, "w", lease_seconds=30, now=0)     # attempts -> 1
+    jobs.reap(T, now=100)                            # crash: give the attempt back
+    c = jobs.claim(T, "w2", now=100)
+    assert c["attempt"] == 1                         # not 2
+    # a real failure now still counts
+    jobs.fail(T, j["id"], "w2", now=100)
+    assert jobs.claim(T, "w3", now=200)["attempt"] == 2
+
+
+def test_purge_terminal_bounds_growth(tmp_path):
+    j = jobs.enqueue(T, "x", now=0)
+    jobs.claim(T, "w", now=0)
+    jobs.complete(T, j["id"], "w", now=1)
+    assert jobs.stats(T)["done"] == 1
+    assert jobs.purge_terminal(T, now=1)["count"] == 1
+    assert jobs.stats(T)["done"] == 0

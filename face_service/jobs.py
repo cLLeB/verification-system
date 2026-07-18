@@ -109,6 +109,7 @@ def fail(tenant: Optional[str], job_id: str, worker: str, error: str = "",
         job["lease_until"] = None
         if job["attempts"] >= job["max_attempts"]:
             job["state"] = "dead"
+            job["failed_at"] = now
             return {"ok": True, "state": "dead"}
         job["state"] = "queued"
         step = _BACKOFF[min(job["attempts"] - 1, len(_BACKOFF) - 1)]
@@ -126,8 +127,34 @@ def reap(tenant: Optional[str], now: Optional[int] = None) -> dict:
                 job["state"] = "queued"
                 job["worker"] = None
                 job["lease_until"] = None
+                # a crashed worker never delivered a verdict, so don't let its
+                # claim burn a real attempt (M4): give the attempt back.
+                if job["attempts"] > 0:
+                    job["attempts"] -= 1
                 reaped.append(job["id"])
     return {"reaped": sorted(reaped), "count": len(reaped)}
+
+
+def purge_terminal(tenant: Optional[str], keep_dead: bool = True,
+                   now: Optional[int] = None, older_than: int = 0) -> dict:
+    """Drop finished jobs to bound store growth (M3).
+
+    Removes ``done`` jobs (and ``dead`` too when ``keep_dead`` is False) that
+    completed/failed at least ``older_than`` seconds ago. Dead-letters are kept by
+    default so failures remain inspectable.
+    """
+    now = int(now if now is not None else time.time())
+    removed = []
+    with _reg.mutate() as data:
+        q = _q(data, tenant)
+        for jid in list(q.keys()):
+            job = q[jid]
+            terminal = job["state"] == "done" or (job["state"] == "dead" and not keep_dead)
+            stamp = job.get("completed") or job.get("failed_at") or 0
+            if terminal and now - stamp >= int(older_than):
+                del q[jid]
+                removed.append(jid)
+    return {"removed": sorted(removed), "count": len(removed)}
 
 
 def stats(tenant: Optional[str]) -> dict:

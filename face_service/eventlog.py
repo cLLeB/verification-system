@@ -93,3 +93,19 @@ def count(tenant: Optional[str], event_type: Optional[str] = None,
     actor = (actor or "").strip() or None
     events = (_reg.load().get(_reg.norm(tenant)) or {"events": []})["events"]
     return sum(1 for e in events if _matches(e, event_type, actor, since, until))
+
+
+def prune(tenant: Optional[str], before: Optional[int] = None,
+          max_events: Optional[int] = None) -> dict:
+    """Bound the log's size (M3). Drops events older than ``before`` and/or keeps
+    only the most recent ``max_events``. Returns how many were removed."""
+    with _reg.mutate() as data:
+        root = _root(data, tenant)
+        events = root["events"]
+        original = len(events)
+        if before is not None:
+            events = [e for e in events if e["at"] >= int(before)]
+        if max_events is not None and len(events) > int(max_events):
+            events = sorted(events, key=lambda e: e["seq"])[-int(max_events):]
+        root["events"] = events
+        return {"removed": original - len(events), "remaining": len(events)}
