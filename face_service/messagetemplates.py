@@ -23,7 +23,6 @@ Registry: ``messagetemplates.json`` (env ``FACE_MSGTEMPLATES_FILE``).
 from __future__ import annotations
 
 import re
-import string
 from typing import List, Optional
 
 from ._registry import Registry
@@ -34,9 +33,6 @@ _PLACEHOLDER = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 _DEFAULT_LOCALE = "default"
 
 
-class _SafeDict(dict):
-    def __missing__(self, key):        # leave unknown placeholders intact
-        return "{" + key + "}"
 
 
 def _norm_locale(locale: Optional[str]) -> str:
@@ -66,22 +62,34 @@ def _fallback_chain(locale: str) -> List[str]:
     return chain
 
 
+def _render_body(body: str, variables: dict) -> str:
+    """Substitute only bare ``{name}`` placeholders from a flat variables dict.
+
+    Uses a strict identifier regex, so attribute/index access (``{x.attr}``,
+    ``{x[0]}``) and format specs are NOT honoured — closing the format-string
+    injection surface that ``str.format``/``string.Formatter`` would open. A
+    missing variable is left as its literal ``{name}``.
+    """
+    def repl(m):
+        name = m.group(1)
+        return str(variables[name]) if name in variables else "{" + name + "}"
+    return _PLACEHOLDER.sub(repl, body)
+
+
 def render(tenant: Optional[str], key: str, variables: Optional[dict] = None,
            locale: str = _DEFAULT_LOCALE) -> dict:
     templates = (_reg.load().get(_reg.norm(tenant)) or {}).get((key or "").strip(), {})
     if not templates:
         return {"found": False}
+    variables = variables or {}
     for candidate in _fallback_chain(locale):
         if candidate in templates:
-            body = templates[candidate]
-            text = string.Formatter().vformat(
-                body, (), _SafeDict((variables or {})))
+            text = _render_body(templates[candidate], variables)
             return {"found": True, "text": text, "locale": candidate,
                     "requested": _norm_locale(locale)}
     # a key exists but none of the fallback locales matched: use any stored one
     any_loc, body = next(iter(templates.items()))
-    text = string.Formatter().vformat(body, (), _SafeDict((variables or {})))
-    return {"found": True, "text": text, "locale": any_loc,
+    return {"found": True, "text": _render_body(body, variables), "locale": any_loc,
             "requested": _norm_locale(locale)}
 
 

@@ -75,3 +75,16 @@ def test_validation():
         mt.set_template(T, "", "body")
     with pytest.raises(ValueError):
         mt.set_template(T, "x", None)
+
+
+def test_no_format_string_attribute_injection():
+    # a malicious template author cannot traverse object attributes (M2 regression)
+    mt.set_template(T, "evil", "oops {user.__class__.__name__}")
+    out = mt.render(T, "evil", {"user": "ama"})
+    # the attribute-access placeholder is left literal, not resolved to 'str'
+    assert out["text"] == "oops {user.__class__.__name__}"
+
+
+def test_no_index_injection():
+    mt.set_template(T, "idx", "x {a[0]} y")
+    assert mt.render(T, "idx", {"a": [1, 2]})["text"] == "x {a[0]} y"
