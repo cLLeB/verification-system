@@ -212,6 +212,17 @@ if os.environ.get("FACE_LIVENESS", "0") == "0":
 # Active head-turn challenge liveness on verify — ON by default.
 if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
     CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
+# The 3D-68 landmark model exists solely to give head pose to that challenge
+# (engine.detect_pose -> liveness_active). With the challenge off it is dead
+# weight — and expensive weight: 137 MB on disk but ~329 MB resident once
+# onnxruntime has its arenas. Dropping it roughly halves the service's memory,
+# which is the difference between fitting a 512 MB host and being OOM-killed.
+# Matching and palm are unaffected; only the face head-turn check needs pose.
+if not CONFIG.active_liveness and "landmark_3d_68" in CONFIG.modules:
+    CONFIG = dataclasses.replace(
+        CONFIG, modules=tuple(m for m in CONFIG.modules if m != "landmark_3d_68"))
+    print("[face] active liveness off -> skipping the 3D landmark model "
+          "(~329 MB saved)", flush=True)
 # Optional age/gender estimation (loads the small genderage model; surfaced on /v1/embed).
 if os.environ.get("FACE_ATTRIBUTES", "0") == "1":
     CONFIG = dataclasses.replace(CONFIG, attributes=True)
