@@ -74,6 +74,31 @@ def test_size_budget_stops_writing(field, monkeypatch):
     assert field.events(0) == []                 # over budget -> nothing recorded
 
 
+def test_stamps_are_strictly_increasing(field):
+    """Two captures in the same millisecond must not share a stamp: the export
+    cursor pages with `ts > since`, so a duplicate straddling a batch boundary
+    would be skipped for ever."""
+    for _ in range(25):
+        field.record("verify", _frame(), {"success": True})
+    stamps = [e["ts"] for e in field.events(0)]
+    assert len(set(stamps)) == len(stamps)
+    assert stamps == sorted(stamps)
+
+
+def test_archive_never_skips_on_a_batch_boundary(field):
+    """Page through one event at a time; every event must come back exactly once."""
+    for _ in range(6):
+        field.record("verify", _frame(), {"success": True})
+    seen, cursor = [], 0
+    while True:
+        _, meta = field.archive(cursor, limit=1)
+        if meta["count"] == 0:
+            break
+        seen.append(meta["cursor"])
+        cursor = meta["cursor"]
+    assert len(seen) == 6 and len(set(seen)) == 6
+
+
 def test_archive_is_incremental(field):
     for _ in range(4):
         field.record("verify", _frame(), {"success": True, "user_id": "u"})

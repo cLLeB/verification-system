@@ -65,6 +65,11 @@ _SALT = (os.environ.get("FACE_SECRET_KEY") or secrets.token_hex(16)).encode()
 _lock = threading.Lock()
 _bytes = -1.0                       # lazy total-size cache; -1 = not scanned yet
 _full_warned = False
+# Last stamp handed out. The export cursor pages with ``ts > since``, so two events
+# sharing a millisecond would make the second one unreachable once a batch boundary
+# landed between them — a silent hole in the pulled data. Stamps are therefore
+# forced strictly increasing rather than merely "now in ms".
+_last_stamp = 0
 
 
 def enabled() -> bool:
@@ -189,10 +194,12 @@ def record(event: str, images, result: dict, *, tenant: str = "first_party",
             return
         kept = frames if KEEP_FRAMES else frames[-1:]
         now = time.time()
-        stamp = int(now * 1000)
         day = time.strftime("%Y-%m-%d", time.gmtime(now))
         result = result or {}
         with _lock:
+            global _last_stamp
+            stamp = max(int(now * 1000), _last_stamp + 1)   # strictly increasing
+            _last_stamp = stamp
             paths = _save_images(kept, event, day, stamp)
             if not paths:                       # over budget / unencodable — skip
                 return

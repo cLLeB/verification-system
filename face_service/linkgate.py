@@ -40,9 +40,17 @@ _MAX_AGE = 30 * 24 * 3600                    # 30 days: a tester enrols once, re
 
 TOKEN = os.environ.get("FACE_LINK_TOKEN", "").strip()
 
-# Paths that must answer even without the link secret.
+# Paths that must answer even without the link secret, because they carry their
+# own credential and are reached by tools rather than browsers:
+#   /healthz,/readyz  the host's probes (a gated 404 reads as "unhealthy" and gets
+#                     the service killed)
+#   /v1/              the integration API — authenticated per request by API key
+#   /api/analytics/   the data-pull surface — gated on FACE_ANALYTICS_TOKEN, and
+#                     404s outright when that secret is unset, so opening it here
+#                     grants nothing. Without this the pull tooling cannot reach a
+#                     link-gated deployment at all.
 _OPEN_EXACT = ("/healthz", "/readyz")
-_OPEN_PREFIX = ("/v1/",)
+_OPEN_PREFIX = ("/v1/", "/api/analytics/")
 
 
 def enabled() -> bool:

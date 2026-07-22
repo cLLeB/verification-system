@@ -56,6 +56,20 @@ def test_probes_and_integration_api_stay_reachable(client, gated):
     assert client.get("/v1/users").status_code == 401
 
 
+def test_analytics_pull_surface_is_reachable(client, gated, monkeypatch):
+    """The data pull must work against a gated deployment — it authenticates with
+    the analytics token, and a browser cookie it will never have."""
+    import app
+    monkeypatch.setattr(app, "ANALYTICS_TOKEN", "sekret")
+    # reached, and answering on its OWN auth (403) rather than the gate's 404
+    assert client.get("/api/analytics/field/manifest").status_code == 403
+    r = client.get("/api/analytics/field/manifest", headers={"X-Analytics-Token": "sekret"})
+    assert r.status_code == 200 and r.get_json()["success"]
+    # and still invisible when the analytics secret isn't configured at all
+    monkeypatch.setattr(app, "ANALYTICS_TOKEN", "")
+    assert client.get("/api/analytics/field/manifest").status_code == 404
+
+
 def test_gate_runs_before_enrolment(client, gated):
     """Open enrolment is only open to someone holding the link."""
     assert client.post("/api/enroll", json={"user_id": "x"}).status_code == 404
