@@ -38,7 +38,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, bundle, credentials, fielddata, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, bundle, credentials, fielddata, invites, issuer_keys, keys, linkgate, metrics, persistence, security, tenants, usage, webhooks
 from face_service import consent as _consent, devices as _devices, \
     guardians as _guardians, guests as _guests, policies as _policies
 from face_service import modality as _modality
@@ -74,6 +74,12 @@ _API_PREFIXES = ("/api/", "/v1/", "/admin/")
 def _before():
     request._t0 = time.time()
     g.request_id = uuid.uuid4().hex[:12]
+    # Private-link gate (no-op unless FACE_LINK_TOKEN is set): the site answers only
+    # to someone holding the invite link. Runs first — an uninvited request never
+    # reaches a route.
+    gated = linkgate.check()
+    if gated is not None:
+        return gated
     # CORS preflight for the integration API — answer directly.
     if request.method == "OPTIONS" and request.path.startswith("/v1/"):
         return make_response("", 204)
@@ -1230,6 +1236,7 @@ def health():
                     # pilot switches — so a glance at /api/health confirms the
                     # deployment is capturing data and open for walk-up enrolment
                     "open_enroll": OPEN_ENROLL,
+                    "link_gated": linkgate.enabled(),
                     "field_data": fielddata.enabled(),
                     "analytics": bool(ANALYTICS_TOKEN),
                     "persisted": persistence.enabled()})

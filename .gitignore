@@ -112,3 +112,7 @@ collect/
 # data — never commit). Server-side folder AND the local pull output.
 fielddata/
 _fielddata/
+
+# Disaster-recovery copy of the live deployment's state dataset: templates AND
+# their encryption key material. Never commit.
+_backup_prod/
