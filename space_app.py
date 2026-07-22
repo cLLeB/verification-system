@@ -30,6 +30,52 @@ PORT = int(os.environ.get("PORT", "7860"))
 THREADS = int(os.environ.get("WEB_THREADS", "8"))
 
 
+def writable_state_dir() -> str:
+    """A directory this Space may actually write to.
+
+    The container images use /data (the Dockerfile creates and chowns it), but a
+    Gradio Space has no such path and cannot create it — the app dies on the first
+    store access with EACCES. Honour FACE_PERSIST_DIR when it works, else fall back
+    to somewhere under $HOME, so a fresh Space boots without hand-set paths."""
+    for candidate in (os.environ.get("FACE_PERSIST_DIR"),
+                      os.path.join(os.path.expanduser("~"), "data"),
+                      "/tmp/facedata"):
+        if not candidate:
+            continue
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            probe = os.path.join(candidate, ".writetest")
+            with open(probe, "w") as fh:
+                fh.write("ok")
+            os.remove(probe)
+            return candidate
+        except OSError:
+            continue
+    raise SystemExit("no writable state directory")
+
+
+def apply_state_paths(root: str) -> None:
+    """Point every state file at ``root`` unless it was set explicitly elsewhere."""
+    defaults = {
+        "FACE_PERSIST_DIR": root,
+        "FACE_DB_PATH": os.path.join(root, "face_db"),
+        "FACE_KEYS_FILE": os.path.join(root, "apikeys.json"),
+        "FACE_ADMINS_FILE": os.path.join(root, "admins.json"),
+        "FACE_TENANTS_FILE": os.path.join(root, "tenants.json"),
+        "FACE_INVITES_FILE": os.path.join(root, "invites.json"),
+        "FACE_USAGE_FILE": os.path.join(root, "usage.json"),
+        "FACE_AUDIT_DIR": os.path.join(root, "audit_logs"),
+        "BIO_ISSUER_KEY_DIR": os.path.join(root, "issuer"),
+        "BIO_CREDENTIALS_DIR": os.path.join(root, "credentials"),
+    }
+    for key, value in defaults.items():
+        current = os.environ.get(key, "")
+        # Replace anything pointing into an unwritable /data as well as the unset case.
+        if not current or current == "/data" or current.startswith("/data/"):
+            os.environ[key] = value
+    print(f"[space] state root: {root}", flush=True)
+
+
 def bootstrap() -> None:
     """Fetch the model files the container would have baked in. Fails soft: a
     modality whose model is missing reports unavailable rather than crashing, so a
@@ -59,6 +105,7 @@ def bootstrap() -> None:
 
 
 def main() -> int:
+    apply_state_paths(writable_state_dir())   # BEFORE anything reads the env
     bootstrap()
     from app import app as flask_app        # imports AFTER the models are on disk
     from waitress import serve
