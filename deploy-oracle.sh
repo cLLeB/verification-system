@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot bootstrap for a fresh Oracle Cloud "Always Free" box (Ubuntu 22.04).
+# One-shot bootstrap for a fresh Oracle Cloud "Always Free" box (Ubuntu 22.04 or 24.04).
 #
 #   curl -fsSL https://raw.githubusercontent.com/cLLeB/verification-system/main/deploy-oracle.sh | bash -s -- <domain-or-blank>
 # or, once the repo is cloned:
@@ -9,9 +9,9 @@
 # step people miss, and the symptom is a port that times out with no error), then
 # brings up the app behind Caddy. Re-runnable.
 #
-# Shape: VM.Standard.A1.Flex (Ampere ARM) is the one worth taking — up to 4 cores
-# and 24 GB, free forever, never sleeps. The app needs ~650 MB resident, so even a
-# 1-core/6 GB slice is comfortable.
+# Shape: VM.Standard.A1.Flex (Ampere ARM) is the one worth taking — up to 2 cores
+# and 12 GB (halved from 4/24 on 15 June 2026), free forever, never sleeps. The app
+# needs ~650 MB resident, so even a 1-core/6 GB slice is comfortable.
 #
 # Secrets are read from .env, which this script creates from .env.example on first
 # run and then STOPS so you can paste the real values in.

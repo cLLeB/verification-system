@@ -557,7 +557,11 @@ Any container host works (Hetzner, DigitalOcean, EC2, Fly.io, Cloud Run min-inst
 
 **Oracle Cloud "Always Free" (free forever):**
 1. Compute → Instances → Create. Shape **VM.Standard.A1.Flex** (Ampere ARM), ~2 OCPU / 8 GB
-   (Always Free allows up to 4/24). Image **Ubuntu 22.04**. Add your SSH key. (Multi-arch; all deps have ARM wheels.)
+   (Always Free allows up to **2 OCPU / 12 GB** — halved from 4/24 on 15 June 2026, with no
+   announcement; instances over the limit get shut down). Image **Ubuntu 24.04**. Add your SSH key.
+   ARM note: `mediapipe` publishes no linux-aarch64 wheel after 0.10.18 and no sdist, so
+   `requirements-service.txt` pins it per-architecture — without that pin the build fails on
+   Ampere and the palm modality disappears with it.
 2. Open the firewall (two layers): VCN → Security List → Ingress TCP **80**/**443** from `0.0.0.0/0`;
    on the box: `sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`.
 3. Install Docker: `curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER` (re-login).
