@@ -299,6 +299,7 @@ def main() -> int:
 
     deadline = time.time() + a.max_hours * 3600
     attempt = 0
+    backoff = 0                                   # grows only when Oracle says 429
     log(f"retrying every {a.interval}s for up to {a.max_hours}h — Ctrl+C to stop")
     while time.time() < deadline:
         ocpus, memory = sizes[attempt % len(sizes)]
@@ -314,7 +315,18 @@ def main() -> int:
             print("  cd verification-system && ./deploy-oracle.sh <your-domain>\n")
             return 0
         except oci.exceptions.ServiceError as exc:
+            if exc.status == 429:
+                # Being told to slow down. Back off hard rather than keep the
+                # cadence — hammering through a throttle is how polite retrying
+                # turns into abuse.
+                backoff = min(backoff * 2 if backoff else a.interval * 2, 1800)
+                retry_after = int(getattr(exc, "headers", {}).get("retry-after", 0) or 0)
+                wait = max(backoff, retry_after)
+                log(f"attempt {attempt}: RATE LIMITED by Oracle — backing off {wait}s")
+                time.sleep(wait)
+                continue
             if is_capacity(exc) or exc.status in _TRANSIENT_STATUS:
+                backoff = 0                       # capacity errors are not our fault
                 log(f"attempt {attempt} ({ocpus}/{memory}): no capacity — waiting")
             else:
                 # A real error (bad auth, bad OCID, quota). Looping hides it.
