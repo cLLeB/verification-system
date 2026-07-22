@@ -27,6 +27,11 @@ class PalmConfig:
     # MediaPipe Tasks hand-landmarker model (required for palm ROI). Bundled in
     # palm/models/; override with PALM_HAND_MODEL.
     hand_model_path: str = os.path.join(os.path.dirname(__file__), "models", "hand_landmarker.task")
+    # Where to fetch the hand model if it isn't on disk. Needed on hosts with no
+    # image build step (the Dockerfile bakes it in; a Space cannot), otherwise palm
+    # silently disappears. Empty repo = no download, unchanged behaviour.
+    hand_model_hf_repo: str = ""             # e.g. "your-org/palm-ccnet-onnx"
+    hand_model_hf_file: str = "hand_landmarker.task"
     providers: Tuple[str, ...] = ("CPUExecutionProvider",)
     # Embedding dimension the exported model outputs. MUST match the ONNX output
     # width; the engine validates this on load. Cosine matching is scale-free, so
@@ -164,6 +169,12 @@ def load_config() -> PalmConfig:
             cfg = replace(cfg, liveness_threshold=float(env_live))
         except ValueError:
             pass
+    env_hand_repo = os.environ.get("PALM_HAND_MODEL_HF_REPO")
+    if env_hand_repo:
+        cfg = replace(cfg, hand_model_hf_repo=env_hand_repo)
+    env_hand_file = os.environ.get("PALM_HAND_MODEL_HF_FILE")
+    if env_hand_file:
+        cfg = replace(cfg, hand_model_hf_file=env_hand_file)
     # Adaptive enrolment folds confident live matches back into the template. That
     # tracks a person as they change — but a false accept becomes permanent, so
     # PALM_ADAPTIVE=0 freezes templates while chasing cross-identity confusions.

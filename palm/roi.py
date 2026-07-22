@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import os
+import shutil
 import threading
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -41,6 +42,37 @@ _INDEX_TIP = 8
 _PINKY_TIP = 20
 
 
+_fetch_tried = False
+
+
+def ensure_hand_model(cfg: PalmConfig = CONFIG) -> bool:
+    """Make sure the MediaPipe hand-landmarker file is on disk, downloading it once
+    from the configured Hugging Face repo if not.
+
+    Mirrors ``engine.ensure_model`` for the CCNet encoder. It matters on hosts with
+    no image build step — the Dockerfile bakes this file in, but a Space installs
+    from requirements only, and without the file palm ROI reports unavailable and
+    the whole palm modality quietly disappears. Fails soft and only ever tries once
+    per process, so a network problem costs one attempt, not one per request."""
+    global _fetch_tried
+    if os.path.exists(cfg.hand_model_path):
+        return True
+    if not cfg.hand_model_hf_repo or _fetch_tried:
+        return False
+    _fetch_tried = True
+    try:
+        from huggingface_hub import hf_hub_download
+        os.makedirs(os.path.dirname(cfg.hand_model_path), exist_ok=True)
+        src = hf_hub_download(repo_id=cfg.hand_model_hf_repo,
+                              filename=cfg.hand_model_hf_file)
+        shutil.copyfile(src, cfg.hand_model_path)
+        print(f"[palm] fetched hand model from {cfg.hand_model_hf_repo}", flush=True)
+        return True
+    except Exception as exc:
+        print(f"[palm] hand model download failed: {exc}", flush=True)
+        return False
+
+
 def available(cfg: PalmConfig = CONFIG) -> bool:
     """True only if the MediaPipe Tasks HandLandmarker is importable AND its model
     file is present. Returns False — rather than crashing — otherwise, so the router
@@ -49,7 +81,7 @@ def available(cfg: PalmConfig = CONFIG) -> bool:
         from mediapipe.tasks.python.vision import HandLandmarker  # noqa: F401
     except Exception:
         return False
-    return os.path.exists(cfg.hand_model_path)
+    return ensure_hand_model(cfg)
 
 
 def _ensure(cfg: PalmConfig = CONFIG):
