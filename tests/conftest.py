@@ -34,6 +34,7 @@ os.environ["FACE_GUESTS_FILE"] = os.path.join(_TMP, "guests.json")
 os.environ["FACE_DEVICES_FILE"] = os.path.join(_TMP, "devices.json")
 os.environ["FACE_GUARDIANS_FILE"] = os.path.join(_TMP, "guardians.json")
 os.environ["FACE_CONSENT_FILE"] = os.path.join(_TMP, "consent.json")
+os.environ["FACE_FIELD_DIR"] = os.path.join(_TMP, "fielddata")
 os.environ["FACE_ADMIN_PASSWORD"] = "test-pw"
 os.environ["FACE_SECRET_KEY"] = "test-secret"
 os.environ["FACE_RATE_LIMIT"] = "100000"          # don't let rate limiting trip tests

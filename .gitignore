@@ -107,3 +107,8 @@ android/build_*.log
 # Temporary analytics pulls from the live Space (biometric embeddings — never commit)
 _analytics/
 collect/
+
+# Field data: real capture frames + decisions pulled from production (biometric
+# data — never commit). Server-side folder AND the local pull output.
+fielddata/
+_fielddata/

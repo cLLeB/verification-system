@@ -49,6 +49,15 @@ shutil.copyfile(d('kyereboatengcaleb/palm-ccnet-onnx','hand_landmarker.task'), '
 
 # All runtime state lives under /data (writable, owned by 'user'). On compose/Oracle
 # this is a mounted volume; on Hugging Face it's synced to a Dataset (see persistence.py).
+# PILOT (temporary): walk-up enrolment with no operator password, and every real
+# capture recorded under /data/fielddata for accuracy tuning. Set FACE_OPEN_ENROLL=0
+# / FACE_FIELD_DATA=0 (Space secret or compose env) to switch either off.
+# The rate limit is per IP; a room of testers behind one NAT shares it, so it's
+# raised from the 120/min default.
+ENV FACE_OPEN_ENROLL=1 \
+    FACE_FIELD_DATA=1 \
+    FACE_RATE_LIMIT=600
+
 ENV FACE_DB_PATH=/data/face_db \
     FACE_KEYS_FILE=/data/apikeys.json \
     FACE_INVITES_FILE=/data/invites.json \

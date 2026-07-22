@@ -1,7 +1,9 @@
 """First-party admin gating + operational probes via the test client."""
 
 
-def test_enroll_requires_admin_login(client):
+def test_enroll_requires_admin_login(client, monkeypatch):
+    import app
+    monkeypatch.setattr(app, "OPEN_ENROLL", False)     # pilot runs this open; gate it here
     assert client.post("/api/enroll", json={}).status_code == 401
     assert client.get("/api/users").status_code == 401
     assert client.post("/admin/login", json={"password": "wrong"}).status_code == 401

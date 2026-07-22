@@ -26,6 +26,7 @@ import secrets
 import time
 import urllib.parse
 import uuid
+from functools import wraps
 
 import cv2
 import numpy as np
@@ -37,7 +38,7 @@ from face import liveness as _liveness
 from face import liveness_active as _active
 from face.config import load_config
 from face.storage import FaceStore
-from face_service import admin, admins, audit, bundle, credentials, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
+from face_service import admin, admins, audit, bundle, credentials, fielddata, invites, issuer_keys, keys, metrics, persistence, security, tenants, usage, webhooks
 from face_service import consent as _consent, devices as _devices, \
     guardians as _guardians, guests as _guests, policies as _policies
 from face_service import modality as _modality
@@ -236,6 +237,10 @@ SELF_ENROLL_LIVENESS = os.environ.get("FACE_SELF_ENROLL_LIVENESS", "0") == "1"
 # default; set to 0 to require a claimed user_id (1:1 only) so the open endpoint
 # can't be used to probe "is this person in your DB" (fix F — identify privacy).
 PUBLIC_IDENTIFY = os.environ.get("FACE_PUBLIC_IDENTIFY", "1") == "1"
+# PILOT: open enrolment — no admin login on /api/enroll, so anyone opening the link
+# can enrol themselves with zero friction. Set FACE_OPEN_ENROLL=0 to put the operator
+# password back (the console at /admin stays password-protected either way).
+OPEN_ENROLL = os.environ.get("FACE_OPEN_ENROLL", "1") == "1"
 # TEMPORARY analytics + data collection (accuracy tuning + liveness/PAD test-set on real
 # data). ALL of it is OFF unless this ONE secret is set; delete the secret to switch it
 # off instantly. See /api/analytics/templates, /collect, /api/analytics/collect.
@@ -509,7 +514,9 @@ def admin_logout():
 
 @app.route("/admin/session")
 def admin_session():
-    return jsonify({"success": True, "admin": admin.valid_session()})
+    # open_enroll tells the web client it can skip the login prompt before enrolling.
+    return jsonify({"success": True, "admin": admin.valid_session(),
+                    "open_enroll": OPEN_ENROLL})
 
 
 # --- admin console (operator UI) -------------------------------------------
@@ -1168,6 +1175,50 @@ def analytics_collect_export():
     return jsonify({"success": True, "counts": counts, "zip_b64": payload})
 
 
+@app.route("/api/analytics/field/manifest", methods=["GET"])
+def analytics_field_manifest():
+    """What the live deployment currently holds: how many attempts recorded, over
+    which days, how big. Token-gated. Use it to check the pilot is capturing before
+    people start arriving — and to see what a pull will bring back."""
+    if not ANALYTICS_TOKEN:
+        return jsonify({"success": False, "code": "disabled"}), 404
+    if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
+        return jsonify({"success": False, "code": "forbidden"}), 403
+    return jsonify({"success": True, "persisted": persistence.enabled(),
+                    "field": fielddata.stats()})
+
+
+@app.route("/api/analytics/field.zip", methods=["GET"])
+def analytics_field_export():
+    """Pull recorded field data as a zip (events.jsonl + the capture images).
+
+    Incremental: ``?since=<cursor>`` returns only newer attempts, ``?limit=`` caps
+    the batch, and the response headers carry the next cursor plus how many remain,
+    so ``pull_production.py`` can loop until drained. ``?wipe=1`` clears the server
+    copy afterwards (only do that once a pull has landed safely)."""
+    if not ANALYTICS_TOKEN:
+        return jsonify({"success": False, "code": "disabled"}), 404
+    if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
+        return jsonify({"success": False, "code": "forbidden"}), 403
+    try:
+        since = int(request.args.get("since", "0"))
+        limit = min(2000, max(1, int(request.args.get("limit", "300"))))
+    except ValueError:
+        return jsonify({"success": False, "code": "bad_cursor"}), 400
+    blob, meta = fielddata.archive(since, limit)
+    if request.args.get("wipe") == "1" and meta["remaining"] == 0:
+        fielddata.wipe()
+    audit.log(_FP_TENANT, "field_export", actor="analytics", success=True,
+              detail=f"{meta['count']} events, {meta['remaining']} remaining")
+    resp = make_response(blob)
+    resp.headers["Content-Type"] = "application/zip"
+    resp.headers["Content-Disposition"] = 'attachment; filename="fielddata.zip"'
+    resp.headers["X-Field-Count"] = str(meta["count"])
+    resp.headers["X-Field-Cursor"] = str(meta["cursor"])
+    resp.headers["X-Field-Remaining"] = str(meta["remaining"])
+    return resp
+
+
 @app.route("/api/health")
 def health():
     return jsonify({"success": True, "status": "ok",
@@ -1175,7 +1226,13 @@ def health():
                     "liveness": CONFIG.liveness_enabled and LIVENESS_READY,
                     "active_liveness": CONFIG.active_liveness,
                     "encrypted_at_rest": ENCRYPTED_AT_REST,
-                    "signing": bool(SIGNING_SECRET)})
+                    "signing": bool(SIGNING_SECRET),
+                    # pilot switches — so a glance at /api/health confirms the
+                    # deployment is capturing data and open for walk-up enrolment
+                    "open_enroll": OPEN_ENROLL,
+                    "field_data": fielddata.enabled(),
+                    "analytics": bool(ANALYTICS_TOKEN),
+                    "persisted": persistence.enabled()})
 
 
 @app.route("/api/challenge")
@@ -1287,6 +1344,7 @@ def api_invite_stepup():
             return jsonify({"success": False, "code": "liveness",
                             "message": "Challenge expired — try again."})
         res = engine.verify_live(uid, imgs, face_cfg)
+        shot = imgs                            # burst; the recorder keeps the last frame
     else:
         # A palm (or non-liveness) burst: confirm from the sharpest frame. Accept ANY
         # biometric this person already holds — proving either their face OR a palm
@@ -1299,12 +1357,14 @@ def api_invite_stepup():
         if img is None:
             return jsonify({"success": False, "message": "Failed to decode image."})
         res = _modality.verify(uid, img, face_cfg, palm_enabled=palm_enabled)
+        shot = img
     ok = bool(res.get("success"))
     if ok:
         invites.mark_stepped_up(token)
     audit.log(tenant, "self_enroll_stepup", actor=f"invite:{rec['invite_id']}", user_id=uid,
               success=ok, detail=f"via={res.get('matched_modality') or res.get('modality')} "
                                  f"score={res.get('score')}")
+    fielddata.record("stepup", shot, res, tenant=tenant, claimed_user_id=uid, actor="invite")
     return jsonify({"success": ok,
                     "code": "step_up_ok" if ok else "step_up_failed",
                     "message": ("Identity confirmed — you can now add the new modality."
@@ -1396,6 +1456,8 @@ def _record_self_enroll(token, tenant, rec, result, img):
     result["user_id"] = rec["user_id"]
     if img is not None:
         save_debug(img, "self_enroll", result)
+        fielddata.record("self_enroll", img, result, tenant=tenant,
+                         claimed_user_id=rec["user_id"], actor="invite")
 
 
 @app.route("/api/invite/finish", methods=["POST"])
@@ -1431,8 +1493,20 @@ def api_invite_finish():
     return jsonify(out)
 
 
+def _enroll_auth(view):
+    """Admin login on enrolment — unless FACE_OPEN_ENROLL is on (the pilot default),
+    in which case the walk-up client enrols with no password at all. Verifying was
+    always open; this makes enrolling equally frictionless while we gather data."""
+    guarded = admin.require_admin(view)
+
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        return view(*args, **kwargs) if OPEN_ENROLL else guarded(*args, **kwargs)
+    return wrapper
+
+
 @app.route("/api/enroll", methods=["POST"])
-@admin.require_admin
+@_enroll_auth
 def api_enroll():
     data = request.get_json(silent=True) or {}
     # Accept a capture burst (preferred — the sharpest frame wins) or a single image.
@@ -1441,6 +1515,7 @@ def api_enroll():
         decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
         img = _modality.best_enroll_frame(decoded, CONFIG, True) if decoded else None
     else:
+        decoded = []
         img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
@@ -1468,6 +1543,9 @@ def api_enroll():
               success=bool(result.get("success")),
               detail=f"{out.get('modality')}: {result.get('message', '')}")
     save_debug(img, "enroll", result)
+    fielddata.record("enroll", (decoded or []) + [img], out, claimed_user_id=uid,
+                     actor=g.get("admin_user", "self"),
+                     extra={"source": source, "hand": hand})
     return jsonify(result)
 
 
@@ -1510,6 +1588,9 @@ def api_verify():
                   success=bool(result.get("success")),
                   detail=f"modality={result.get('modality')} score={result.get('score')}")
         save_debug(mid, "verify", result)
+        fielddata.record("verify", imgs + [best if routed.modality == "palm" else mid],
+                         result, claimed_user_id=user_id, actor="kiosk",
+                         extra={"mode": "burst", "routed": routed.modality})
         return jsonify(sign(result))
 
     # Single-image path (active liveness off, or palm) — auto-routed.
@@ -1523,6 +1604,8 @@ def api_verify():
               success=bool(result.get("success")),
               detail=f"modality={result.get('modality')} score={result.get('score')}")
     save_debug(img, "verify", result)
+    fielddata.record("verify", img, result, claimed_user_id=user_id, actor="kiosk",
+                     extra={"mode": "single"})
     return jsonify(sign(result))
 
 
@@ -1538,6 +1621,7 @@ def api_identify():
         return jsonify({"success": False, "message": "Failed to decode image."})
     result = _subject_gates(_modality.identify(img, CONFIG, palm_enabled=True))
     save_debug(img, "identify", result)
+    fielddata.record("identify", img, result, actor="kiosk")
     return jsonify(sign(result))
 
 

@@ -189,8 +189,9 @@ async function onCapture() {
 
 async function ensureAdmin() {
     // Enrolment is restricted. If not already signed in, prompt for the admin password.
+    // While the deployment runs open enrolment (pilot), there's no prompt at all.
     const s = await (await fetch('/admin/session')).json().catch(() => ({ admin: false }));
-    if (s.admin) return true;
+    if (s.open_enroll || s.admin) return true;
     const user = prompt('Enrolment is restricted. Admin username:', 'admin');
     if (user === null) return false;
     const pw = prompt('Admin password:');

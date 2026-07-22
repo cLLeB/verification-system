@@ -164,6 +164,11 @@ def load_config() -> PalmConfig:
             cfg = replace(cfg, liveness_threshold=float(env_live))
         except ValueError:
             pass
+    # Adaptive enrolment folds confident live matches back into the template. That
+    # tracks a person as they change — but a false accept becomes permanent, so
+    # PALM_ADAPTIVE=0 freezes templates while chasing cross-identity confusions.
+    if os.environ.get("PALM_ADAPTIVE") == "0":
+        cfg = replace(cfg, adaptive_enabled=False)
     env_db = os.environ.get("FACE_DB_PATH")   # shared tenant root with face
     if env_db:
         cfg = replace(cfg, db_path=env_db)

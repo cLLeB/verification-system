@@ -423,6 +423,7 @@ Two consolidated docs live in **[`docs/`](docs/)**:
 - **[System guide](docs/GUIDE.md)** — architecture, security & privacy, operations, deployment, development, and direction (one technical reference).
 - **[Integration & API reference](docs/API.md)** — how other apps integrate: managed/stateless flows, SDKs, credentials, Glance, and the full error/code table. Machine-readable spec in [`openapi.yaml`](openapi.yaml).
 - **[Compliance mapping](docs/trust/compliance.md)** — Ghana DPA (Act 843) + GDPR, each obligation tied to its code path.
+- **[Pilot data capture](docs/PILOT_DATA.md)** — what the live deployment records from real enrolments/verifications, the settings it needs, and `pull_production.py` to bring it all back for accuracy tuning.
 - **[What's new (Changelog)](CHANGELOG.md)** · **[Things that need you (manual checklist)](docs/trust/MANUAL-CHECKS.md)**
 
 ---
