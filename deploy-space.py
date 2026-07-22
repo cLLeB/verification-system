@@ -88,13 +88,6 @@ def main() -> int:
     run("git", "branch", "-D", BRANCH, check=False)
     run("git", "checkout", "--orphan", BRANCH)
     try:
-        # Binaries a Space rejects, and the Android app it doesn't need.
-        run("git", "rm", "--cached", "--ignore-unmatch", "-q",
-            "face/models/antispoof_bin_1.5_128.onnx",
-            "face/models/antispoof_print_replay_1.5_128.onnx",
-            "palm/models/hand_landmarker.task")
-        run("git", "rm", "-r", "--cached", "--ignore-unmatch", "-q", "android")
-
         with open("README.md", "w", encoding="utf-8") as fh:
             fh.write(build_readme(a.title))
         with open("packages.txt", "w", encoding="utf-8") as fh:
@@ -106,6 +99,13 @@ def main() -> int:
                       "# Source: requirements-service.txt (no fingerprint/dev stack).\n")
             dst.write(service_deps)
         run("git", "add", "-A")
+        # Drop what a Space rejects or doesn't need — AFTER staging, or `add -A`
+        # simply puts the binaries back and the push is refused.
+        run("git", "rm", "--cached", "--ignore-unmatch", "-q",
+            "face/models/antispoof_bin_1.5_128.onnx",
+            "face/models/antispoof_print_replay_1.5_128.onnx",
+            "palm/models/hand_landmarker.task")
+        run("git", "rm", "-r", "--cached", "--ignore-unmatch", "-q", "android")
         # Disposable deploy artifact; don't require the GPG passphrase.
         run("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m",
             "Deploy to Hugging Face Space")
