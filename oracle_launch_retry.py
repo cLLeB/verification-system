@@ -261,7 +261,28 @@ def main() -> int:
         return setup_credentials(a.force)
 
     cfg, compute, network, identity = load_clients()
-    found = discover(cfg, compute, network, identity, a)
+    # A freshly registered API key propagates unevenly — calls can succeed, then
+    # 401, then succeed again for several minutes. Tolerate that for a bounded
+    # window rather than aborting a 10-hour run on a transient rejection.
+    auth_deadline = time.time() + 600
+    while True:
+        try:
+            found = discover(cfg, compute, network, identity, a)
+            break
+        except oci.exceptions.ServiceError as exc:
+            if exc.status == 401 and time.time() < auth_deadline:
+                log("401 — key still propagating, retrying in 30s")
+                time.sleep(30)
+                continue
+            if exc.status == 401:
+                raise SystemExit(
+                    f"\nOracle keeps rejecting the credentials (401).\n"
+                    f"\nRegister the public key against your user:\n"
+                    f"    https://cloud.oracle.com/identity/domains/my-profile/api-keys\n"
+                    f"    Add API key -> Paste a public key -> {PUB_PEM}\n"
+                    f"\nThe fingerprint there must equal {cfg.get('fingerprint')},\n"
+                    f"and the user OCID in ~/.oci/config must be that same user.\n")
+            raise SystemExit(f"\n{exc.status} {exc.code}: {exc.message}\n")
     log(f"region      : {cfg['region']}")
     log(f"availability: {found['ad']}")
     log(f"subnet      : {found['subnet_name']}")
