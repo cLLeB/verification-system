@@ -26,6 +26,34 @@ import os
 import sys
 import time
 
+# --- ZeroGPU registration ---------------------------------------------------
+# Must sit at MODULE scope in the app_file: the runtime looks for a @spaces.GPU
+# function while the Space starts, and refuses to run one that declares none.
+# Importing `spaces` also has to precede any torch/CUDA import.
+try:
+    import spaces
+except Exception:                       # local dev / container: no ZeroGPU
+    class _NoGPU:
+        @staticmethod
+        def GPU(*dargs, **dkwargs):
+            def wrap(fn):
+                return fn
+            return wrap(dargs[0]) if dargs and callable(dargs[0]) else wrap
+    spaces = _NoGPU()
+
+
+@spaces.GPU(duration=120)
+def gpu_batch_embed(images_b64, modality: str = "palm") -> dict:
+    """Embed a whole labelled set inside one accelerator allocation.
+
+    The GPU-shaped job in this app: producing the (N, D) matrix
+    ``palm/training/eval_eer.py`` needs for threshold calibration and encoder
+    evaluation. Live verification stays on CPU on purpose — it is one small image
+    per request, and a per-call GPU allocation would make it slower."""
+    from space_gpu import batch_embed
+    return batch_embed(images_b64, modality)
+
+
 PORT = int(os.environ.get("PORT", "7860"))
 THREADS = int(os.environ.get("WEB_THREADS", "8"))
 
@@ -105,17 +133,10 @@ def bootstrap() -> None:
 
 
 def main() -> int:
-    # ZeroGPU scans for a @spaces.GPU function during startup and refuses to run a
-    # Space that declares none, so this import must happen before we serve. It also
-    # has to precede any torch/CUDA import, which is why it comes first.
-    try:
-        import space_gpu
-        print(f"[space] GPU batch embedding registered "
-              f"(zerogpu={space_gpu.ON_ZERO_GPU}, providers={space_gpu.providers()})",
-              flush=True)
-    except Exception as exc:
-        print(f"[space] GPU registration failed: {exc}", flush=True)
-
+    import space_gpu
+    print(f"[space] GPU batch embedding registered "
+          f"(zerogpu={space_gpu.ON_ZERO_GPU}, providers={space_gpu.providers()})",
+          flush=True)
     apply_state_paths(writable_state_dir())   # BEFORE anything reads the env
     bootstrap()
     from app import app as flask_app        # imports AFTER the models are on disk

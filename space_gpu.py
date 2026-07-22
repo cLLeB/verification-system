@@ -27,16 +27,10 @@ import cv2
 import numpy as np
 
 try:                                    # present only on a ZeroGPU Space
-    import spaces
-    _GPU = spaces.GPU
+    import spaces                       # noqa: F401
     ON_ZERO_GPU = True
-except Exception:                       # local dev / container: no-op decorator
+except Exception:                       # local dev / container
     ON_ZERO_GPU = False
-
-    def _GPU(*dargs, **dkwargs):        # noqa: D401
-        def wrap(fn):
-            return fn
-        return wrap(dargs[0]) if dargs and callable(dargs[0]) else wrap
 
 
 def providers() -> List[str]:
@@ -62,9 +56,13 @@ def _decode(b64: str) -> Optional[np.ndarray]:
     return cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
 
 
-@_GPU(duration=120)
 def batch_embed(images_b64: List[str], modality: str = "palm") -> dict:
-    """Embed many captures in one GPU allocation.
+    """Embed many captures in one pass.
+
+    The ``@spaces.GPU`` wrapper around this lives in ``space_app.py`` at module
+    scope, because that is where the ZeroGPU runtime looks for it — a decorator
+    hidden behind a function-local import in another module is not found, which
+    costs a deploy cycle to learn.
 
     Returns ``{embeddings: [[float]], failed: [index], provider, seconds}``.
     Failures are reported per image rather than aborting the batch — one unusable
