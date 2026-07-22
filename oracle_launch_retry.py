@@ -50,23 +50,97 @@ def log(msg: str) -> None:
     print(f"[{datetime.now():%H:%M:%S}] {msg}", flush=True)
 
 
+# --- credentials ------------------------------------------------------------
+OCI_DIR = os.path.join(os.path.expanduser("~"), ".oci")
+KEY_PEM = os.path.join(OCI_DIR, "oci_api_key.pem")
+PUB_PEM = os.path.join(OCI_DIR, "oci_api_key_public.pem")
+CONFIG = os.path.join(OCI_DIR, "config")
+
+
+def _fingerprint(pub_der: bytes) -> str:
+    """OCI shows the API key fingerprint as colon-separated MD5 of the DER key."""
+    import hashlib
+    digest = hashlib.md5(pub_der).hexdigest()          # noqa: S324 - OCI's format
+    return ":".join(digest[i:i + 2] for i in range(0, len(digest), 2))
+
+
+def setup_credentials(force: bool = False) -> int:
+    """Generate an API keypair and write ~/.oci/config, replacing `oci setup config`.
+
+    The official CLI is a large separate install whose only job here is this; the
+    cryptography library is already a dependency, so we do it directly."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    if os.path.exists(CONFIG) and not force:
+        raise SystemExit(f"{CONFIG} already exists — pass --setup --force to replace it.")
+
+    print("\nFind these in the Oracle console (top-right avatar):")
+    print("  user OCID    : My profile      -> OCID (starts ocid1.user...)")
+    print("  tenancy OCID : Tenancy: <name> -> OCID (starts ocid1.tenancy...)\n")
+    user = input("user OCID    : ").strip()
+    tenancy = input("tenancy OCID : ").strip()
+    region = input("region [eu-paris-1]: ").strip() or "eu-paris-1"
+    if not user.startswith("ocid1.user") or not tenancy.startswith("ocid1.tenancy"):
+        raise SystemExit("those don't look like OCIDs — expected ocid1.user... and "
+                         "ocid1.tenancy...")
+
+    os.makedirs(OCI_DIR, exist_ok=True)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    with open(KEY_PEM, "wb") as fh:
+        fh.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()))
+    pub_der = key.public_key().public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    pub_pem = key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    with open(PUB_PEM, "wb") as fh:
+        fh.write(pub_pem)
+    try:
+        os.chmod(KEY_PEM, 0o600)
+    except OSError:
+        pass
+
+    fp = _fingerprint(pub_der)
+    with open(CONFIG, "w", encoding="utf-8") as fh:
+        fh.write("[DEFAULT]\n"
+                 f"user={user}\n"
+                 f"fingerprint={fp}\n"
+                 f"tenancy={tenancy}\n"
+                 f"region={region}\n"
+                 f"key_file={KEY_PEM}\n")
+
+    print(f"\nwrote {CONFIG}")
+    print(f"fingerprint: {fp}")
+    print("\n" + "=" * 68)
+    print("NOW paste this public key into the console:")
+    print("  avatar -> My profile -> API keys -> Add API key -> Paste a public key")
+    print("=" * 68)
+    print(pub_pem.decode())
+    print("=" * 68)
+    print(f"(also saved at {PUB_PEM})")
+    print("\nAfter adding it, the fingerprint shown in the console must match the")
+    print("one above. Then run:  python oracle_launch_retry.py --check\n")
+    return 0
+
+
 def load_clients():
     try:
         cfg = oci.config.from_file()
         oci.config.validate_config(cfg)
     except oci.exceptions.ConfigFileNotFound:
         raise SystemExit(
-            "\nNo Oracle API credentials yet. One-time setup:\n"
-            "\n    oci setup config\n"
-            "\nIt asks for your user OCID and tenancy OCID (console -> your avatar ->\n"
-            "My profile / Tenancy), the region (eu-paris-1), and offers to generate a\n"
-            "keypair - say yes. Then upload the public key it writes:\n"
-            "\n    console -> avatar -> My profile -> API keys -> Add API key\n"
-            "    -> Paste, using ~/.oci/oci_api_key_public.pem\n"
-            "\nThen re-run with --check.\n")
+            "\nNo Oracle API credentials yet. Create them with this script:\n"
+            "\n    python oracle_launch_retry.py --setup\n"
+            "\nIt generates the keypair, writes ~/.oci/config, and prints the public\n"
+            "key for you to paste into the console. No extra tooling needed.\n")
     except oci.exceptions.InvalidConfig as exc:
         raise SystemExit(f"\n~/.oci/config is incomplete: {exc}\n"
-                         f"Re-run `oci setup config` to rebuild it.\n")
+                         f"Rebuild it with:  python oracle_launch_retry.py --setup --force\n")
     return cfg, oci.core.ComputeClient(cfg), oci.core.VirtualNetworkClient(cfg), \
         oci.identity.IdentityClient(cfg)
 
@@ -178,7 +252,13 @@ def main() -> int:
     ap.add_argument("--ssh-key", default="", help="path to the .pub key")
     ap.add_argument("--check", action="store_true",
                     help="resolve everything and exit without launching")
+    ap.add_argument("--setup", action="store_true",
+                    help="generate an API keypair and write ~/.oci/config")
+    ap.add_argument("--force", action="store_true", help="with --setup: overwrite")
     a = ap.parse_args()
+
+    if a.setup:
+        return setup_credentials(a.force)
 
     cfg, compute, network, identity = load_clients()
     found = discover(cfg, compute, network, identity, a)
