@@ -1,7 +1,13 @@
 # Face verification backbone — service/container deps only (no fingerprint stack).
 insightface>=0.7
 onnxruntime>=1.16
-mediapipe>=0.10.18              # palm: hand-landmark detection (Tasks API) for ROI
+# palm: hand-landmark detection (Tasks API) for ROI.
+# 0.10.18 is the LAST release with a linux-aarch64 wheel — later ones are x86_64
+# only, so an unpinned install on an ARM host (Oracle Ampere A1, Graviton, a Pi)
+# fails outright and takes the whole palm modality with it. There is no sdist to
+# fall back on. x86 stays on the current release.
+mediapipe==0.10.18; platform_machine == "aarch64"
+mediapipe>=0.10.18; platform_machine != "aarch64"
 opencv-python-headless>=4.8     # headless: no system GUI libs needed on a server
 numpy>=1.24
 flask>=3.0

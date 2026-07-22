@@ -119,3 +119,6 @@ _backup_prod/
 
 # Local pilot state (templates, captures, logs) — never commit
 _prod_state/
+
+# Embeddings staged for external compute (biometric vectors) — never commit
+_kaggle_upload/

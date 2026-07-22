@@ -1,0 +1,66 @@
+# Render blueprint — deploy this repo as a Docker web service.
+#
+# Render → New → Blueprint → point at this repo, or create a Web Service manually
+# with Runtime = Docker and copy the settings below.
+#
+# MEMORY: the service loads ~444 MB of face + palm models and peaks near 775 MB
+# serving a request. A 512 MB instance WILL be OOM-killed. Pick a plan with at
+# least 1 GB; 2 GB leaves room for concurrent testers.
+#
+# Secrets are marked `sync: false` so Render prompts for them instead of storing
+# them in git. Values are in .face_db_key_NEWSPACE.json (git-ignored).
+
+services:
+  - type: web
+    name: contactless-verify
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard              # >= 1 GB RAM. 'free'/'starter' (512 MB) will OOM.
+    region: frankfurt           # closest of Render's regions to Ghana
+    healthCheckPath: /healthz   # deliberately exempt from the private-link gate
+    autoDeploy: false           # deploy on purpose, not on every push
+
+    envVars:
+      # --- access -------------------------------------------------------
+      # Whole site answers only to /?k=<FACE_LINK_TOKEN>; anything else 404s.
+      - key: FACE_LINK_TOKEN
+        sync: false
+      - key: FACE_ADMIN_PASSWORD
+        sync: false
+      - key: FACE_SECRET_KEY
+        sync: false
+
+      # --- data at rest -------------------------------------------------
+      # BIO_DB_KEY derives the template encryption key. LOSE IT AND EVERY
+      # ENROLLED TEMPLATE IS UNREADABLE - keep a copy outside the platform.
+      - key: BIO_DB_KEY
+        sync: false
+
+      # --- durable state ------------------------------------------------
+      # Render's container disk is ephemeral, so state syncs to a private HF
+      # Dataset every 60s and restores on boot - same dataset the other
+      # deployments use, so enrolments follow the app between hosts.
+      - key: FACE_PERSIST_DATASET
+        value: kyereboatengcaleb/verification-data
+      - key: HF_TOKEN
+        sync: false
+
+      # --- pilot behaviour ----------------------------------------------
+      - key: FACE_OPEN_ENROLL       # no password to enrol (temporary)
+        value: "1"
+      - key: FACE_FIELD_DATA        # record every capture + decision
+        value: "1"
+      - key: FACE_RATE_LIMIT        # testers behind one NAT share an IP
+        value: "600"
+      - key: FACE_ANALYTICS_TOKEN   # gates the data-pull endpoints
+        sync: false
+
+      # --- palm models (fetched at boot; not committed) -------------------
+      - key: PALM_MODEL_HF_REPO
+        value: kyereboatengcaleb/palm-ccnet-onnx
+      - key: PALM_MODEL_HF_FILE
+        value: palm_ccnet_fp16.onnx
+      - key: PALM_HAND_MODEL_HF_REPO
+        value: kyereboatengcaleb/palm-ccnet-onnx
+      - key: PALM_HAND_MODEL_HF_FILE
+        value: hand_landmarker.task
