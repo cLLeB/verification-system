@@ -116,3 +116,6 @@ _fielddata/
 # Disaster-recovery copy of the live deployment's state dataset: templates AND
 # their encryption key material. Never commit.
 _backup_prod/
+
+# Local pilot state (templates, captures, logs) — never commit
+_prod_state/

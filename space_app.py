@@ -105,6 +105,17 @@ def bootstrap() -> None:
 
 
 def main() -> int:
+    # ZeroGPU scans for a @spaces.GPU function during startup and refuses to run a
+    # Space that declares none, so this import must happen before we serve. It also
+    # has to precede any torch/CUDA import, which is why it comes first.
+    try:
+        import space_gpu
+        print(f"[space] GPU batch embedding registered "
+              f"(zerogpu={space_gpu.ON_ZERO_GPU}, providers={space_gpu.providers()})",
+              flush=True)
+    except Exception as exc:
+        print(f"[space] GPU registration failed: {exc}", flush=True)
+
     apply_state_paths(writable_state_dir())   # BEFORE anything reads the env
     bootstrap()
     from app import app as flask_app        # imports AFTER the models are on disk

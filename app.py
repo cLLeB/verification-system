@@ -1225,6 +1225,36 @@ def analytics_field_export():
     return resp
 
 
+@app.route("/api/analytics/embed-batch", methods=["POST"])
+def analytics_embed_batch():
+    """Embed a batch of captures in one shot, for offline accuracy work.
+
+    This is the input to ``palm/training/eval_eer.py`` (an (N, D) matrix plus
+    labels) and to threshold recalibration. On a GPU host it runs inside a single
+    accelerator allocation; on CPU it simply runs slower. Token-gated like the
+    rest of the analytics surface."""
+    if not ANALYTICS_TOKEN:
+        return jsonify({"success": False, "code": "disabled"}), 404
+    if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
+        return jsonify({"success": False, "code": "forbidden"}), 403
+    data = request.get_json(silent=True) or {}
+    images = data.get("images") or []
+    if not isinstance(images, list) or not images:
+        return jsonify({"success": False, "code": "no_images",
+                        "message": "Post {images: [base64, ...]}."}), 400
+    if len(images) > 512:
+        return jsonify({"success": False, "code": "too_many",
+                        "message": "Send at most 512 images per batch."}), 400
+    try:
+        import space_gpu
+    except Exception as exc:
+        return jsonify({"success": False, "code": "unavailable", "message": str(exc)}), 503
+    out = space_gpu.batch_embed(images, (data.get("modality") or "palm"))
+    audit.log(_FP_TENANT, "embed_batch", actor="analytics", success=True,
+              detail=f"{out['count']} embedded on {out['provider']}")
+    return jsonify({"success": True, **out})
+
+
 @app.route("/api/health")
 def health():
     return jsonify({"success": True, "status": "ok",
