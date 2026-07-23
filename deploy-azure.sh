@@ -103,11 +103,14 @@ else
         --env-vars \
             PORT="$PORT" \
             FACE_SNAPSHOT_DIR=/snapshot \
+            BIO_DB_KEY_STATELESS=1 \
             FACE_OPEN_ENROLL=1 \
             FACE_FIELD_DATA=1 \
             FACE_RATE_LIMIT=600 \
         --only-show-errors 1>/dev/null
 fi
+# BIO_DB_KEY_STATELESS=1 is REQUIRED on Azure Files: the encryption key derives from
+# BIO_DB_KEY with no on-disk salt/key files (SMB can't reliably hold chmod-0600 files).
 
 say "6/7 mount the file share at /data"
 # Pull the current template, inject the volume + mount, push it back. Container Apps

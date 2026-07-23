@@ -123,3 +123,4 @@ _prod_state/
 # Embeddings staged for external compute (biometric vectors) — never commit
 _kaggle_upload/
 oracle_retry.log
+pulled_data/
