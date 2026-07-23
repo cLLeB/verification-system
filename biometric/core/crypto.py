@@ -60,11 +60,25 @@ def _derive_kek(db_path: str, passphrase: str) -> bytes:
     return base64.urlsafe_b64encode(kdf.derive(passphrase.encode("utf-8")))
 
 
+# A fixed application salt for the STATELESS key mode (BIO_DB_KEY_STATELESS=1). A
+# per-store random salt is normally written to a ``.salt`` file, but that file must
+# then survive on the durable store — and network shares (Azure Files/SMB) can't
+# reliably hold the chmod-0600 key files, so the salt desyncs from the wrapped key
+# and the DB becomes undecryptable. With a strong random master passphrase, deriving
+# the key from a FIXED salt is safe (the salt only blocks cross-DB precomputation)
+# and needs NO files: the same BIO_DB_KEY reproduces the exact key on every boot.
+_STATELESS_SALT = b"biometric-core-stateless-kek-v1"
+
+
 def get_cipher(db_path: str, passphrase: Optional[str] = None):
     if not _AVAILABLE:
         return None
     if passphrase is None:
         passphrase = next((os.environ[v] for v in _KEY_ENV_VARS if os.environ.get(v)), "")
+    if passphrase and os.environ.get("BIO_DB_KEY_STATELESS", "").strip() in ("1", "true", "yes"):
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=_STATELESS_SALT,
+                         iterations=_PBKDF2_ITERATIONS)
+        return Fernet(base64.urlsafe_b64encode(kdf.derive(passphrase.encode("utf-8"))))
     if passphrase:
         fresh = not os.path.exists(os.path.join(db_path, _SALT_FILE))
         kek = Fernet(_derive_kek(db_path, passphrase))
