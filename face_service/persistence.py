@@ -76,19 +76,24 @@ def _iter_files(base: str):
 _BULK_DIRS = ("fielddata", "collect", "audit_logs")
 
 
+# NB: shutil.copyfile — NOT copy2/copy — because copy2 also copies permissions
+# (copystat -> os.chmod), and the durable store is Azure Files (SMB), which rejects
+# chmod with "Operation not permitted", making the whole copy fail. The key files are
+# chmod 0600, so copy2 silently dropped them and desynced the encryption key material.
+# copyfile moves only the bytes, which is all a snapshot needs.
 def _copy_newer(src_file: str, src_base: str, dst_base: str) -> None:
     import shutil
     dst = os.path.join(dst_base, os.path.relpath(src_file, src_base))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     if not os.path.exists(dst) or os.path.getmtime(src_file) > os.path.getmtime(dst):
-        shutil.copy2(src_file, dst)
+        shutil.copyfile(src_file, dst)
 
 
 def _copy_always(src_file: str, src_base: str, dst_base: str) -> None:
     import shutil
     dst = os.path.join(dst_base, os.path.relpath(src_file, src_base))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    shutil.copy2(src_file, dst)
+    shutil.copyfile(src_file, dst)
 
 
 def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
