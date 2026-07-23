@@ -69,12 +69,26 @@ def _iter_files(base: str):
             yield os.path.join(root, f)
 
 
+# Large, append-heavy trees: snapshot by mtime (don't recopy old captures every cycle).
+# EVERYTHING ELSE — the small critical state (encryption salt/keys, JSON registries) —
+# is copied EVERY cycle so related files (e.g. .salt + .key.wrapped) can never desync
+# in the durable store. A desynced key set makes the whole DB undecryptable on restore.
+_BULK_DIRS = ("fielddata", "collect", "audit_logs")
+
+
 def _copy_newer(src_file: str, src_base: str, dst_base: str) -> None:
     import shutil
     dst = os.path.join(dst_base, os.path.relpath(src_file, src_base))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     if not os.path.exists(dst) or os.path.getmtime(src_file) > os.path.getmtime(dst):
         shutil.copy2(src_file, dst)
+
+
+def _copy_always(src_file: str, src_base: str, dst_base: str) -> None:
+    import shutil
+    dst = os.path.join(dst_base, os.path.relpath(src_file, src_base))
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy2(src_file, dst)
 
 
 def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
@@ -96,7 +110,12 @@ def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
 def _snapshot(src_base: str, dst_base: str) -> None:
     for f in _iter_files(src_base):
         try:
-            (_backup_db if f.endswith(".db") else _copy_newer)(f, src_base, dst_base)
+            if f.endswith(".db"):
+                _backup_db(f, src_base, dst_base)
+            elif os.path.relpath(f, src_base).split(os.sep)[0] in _BULK_DIRS:
+                _copy_newer(f, src_base, dst_base)          # bulk captures: mtime-skip
+            else:
+                _copy_always(f, src_base, dst_base)         # small critical state: every cycle
         except Exception as exc:                            # pragma: no cover
             print(f"[persist] snapshot skip {f}: {exc}", flush=True)
 
