@@ -119,14 +119,16 @@ import sys, yaml
 path, share = sys.argv[1], sys.argv[2]
 doc = yaml.safe_load(open(path))
 tmpl = doc["properties"]["template"]
-tmpl.setdefault("volumes", [])
-if not any(v.get("name") == "data" for v in tmpl["volumes"]):
-    tmpl["volumes"].append({"name": "data", "storageType": "AzureFile",
-                            "storageName": share})
+# `az ... -o yaml` emits absent lists as `null`, so coerce None -> [] before use.
+vols = tmpl.get("volumes") or []
+if not any((v or {}).get("name") == "data" for v in vols):
+    vols.append({"name": "data", "storageType": "AzureFile", "storageName": share})
+tmpl["volumes"] = vols
 for c in tmpl["containers"]:
-    c.setdefault("volumeMounts", [])
-    if not any(m.get("volumeName") == "data" for m in c["volumeMounts"]):
-        c["volumeMounts"].append({"volumeName": "data", "mountPath": "/data"})
+    mounts = c.get("volumeMounts") or []
+    if not any((m or {}).get("volumeName") == "data" for m in mounts):
+        mounts.append({"volumeName": "data", "mountPath": "/data"})
+    c["volumeMounts"] = mounts
 yaml.safe_dump(doc, open(path, "w"), sort_keys=False)
 PY
 az containerapp update -n "$APP" -g "$RG" --yaml "$TMP/app.yaml" --only-show-errors 1>/dev/null
