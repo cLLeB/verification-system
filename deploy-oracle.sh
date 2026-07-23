@@ -41,6 +41,26 @@ sudo netfilter-persistent save >/dev/null 2>&1 || \
 echo "     install iptables-persistent to make it stick)"
 echo "    Remember the OTHER layer: VCN -> Security List -> Ingress TCP 80,443 from 0.0.0.0/0"
 
+# On a small box (the 1 GB E2.1.Micro), two things bite:
+#   * the Docker build pre-loads ~450 MB of face models, which can OOM-kill the
+#     build outright — a swapfile absorbs that;
+#   * the running app + active-liveness 3D model won't fit, so we default liveness
+#     off (palm liveness is separate and stays on).
+# Both are skipped on a box with real memory (the A1), so this stays a no-op there.
+MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+echo "==> memory: ${MEM_MB} MB"
+if [ "${MEM_MB:-9999}" -lt 2048 ]; then
+    if ! swapon --show | grep -q swapfile; then
+        echo "    low memory — adding a 2 GB swapfile so the build doesn't OOM"
+        sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile >/dev/null
+        sudo swapon /swapfile
+        grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+    fi
+    LOW_MEM=1
+fi
+
 echo "==> 3/5 code"
 if [ -d "$DIR/.git" ]; then
     git -C "$DIR" pull --ff-only
@@ -71,6 +91,13 @@ if [ ! -f .env ]; then
     Then run this script again.
 MSG
     exit 0
+fi
+
+# On a low-memory box, force active liveness off so the app fits — unless the
+# operator has already chosen a value. Palm liveness is unaffected.
+if [ "${LOW_MEM:-0}" = "1" ] && ! grep -q '^FACE_ACTIVE_LIVENESS=' .env; then
+    echo "FACE_ACTIVE_LIVENESS=0" >> .env
+    echo "    low memory — set FACE_ACTIVE_LIVENESS=0 (face head-turn off; palm unaffected)"
 fi
 
 echo "==> 5/5 build + run"

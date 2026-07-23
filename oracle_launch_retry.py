@@ -200,20 +200,24 @@ def ssh_key(path: str | None) -> str:
 
 
 def launch(compute, found, key, name, ocpus, memory, shape):
-    details = oci.core.models.LaunchInstanceDetails(
+    kwargs = dict(
         compartment_id=found["compartment"],
         availability_domain=found["ad"],
         display_name=name,
         shape=shape,
-        shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(
-            ocpus=float(ocpus), memory_in_gbs=float(memory)),
         source_details=oci.core.models.InstanceSourceViaImageDetails(
             image_id=found["image"]),
         create_vnic_details=oci.core.models.CreateVnicDetails(
             subnet_id=found["subnet"], assign_public_ip=True),
         metadata={"ssh_authorized_keys": key},
     )
-    return compute.launch_instance(details).data
+    # Only FLEX shapes take (and require) a shape_config. Fixed shapes like
+    # E2.1.Micro reject it — their CPU/memory is baked into the shape.
+    if shape.endswith(".Flex"):
+        kwargs["shape_config"] = oci.core.models.LaunchInstanceShapeConfigDetails(
+            ocpus=float(ocpus), memory_in_gbs=float(memory))
+    return compute.launch_instance(
+        oci.core.models.LaunchInstanceDetails(**kwargs)).data
 
 
 def public_ip(cfg, compute, network, instance) -> str:
