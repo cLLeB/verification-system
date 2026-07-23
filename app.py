@@ -1280,7 +1280,10 @@ def health():
                     "link_gated": linkgate.enabled(),
                     "field_data": fielddata.enabled(),
                     "analytics": bool(ANALYTICS_TOKEN),
-                    "persisted": persistence.enabled()})
+                    # active(), not enabled(): enabled() only answers for the HF
+                    # backend, so a snapshot-backed deploy reported "not persisted"
+                    # while persisting fine — which masked a real data-loss bug.
+                    "persisted": persistence.active()})
 
 
 @app.route("/api/challenge")
