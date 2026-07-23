@@ -8,6 +8,7 @@ enrol/verify.
 
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -28,6 +29,12 @@ def _ensure(cfg: FaceConfig):
         return _app
     with _lock:
         if _app is None:
+            # Keep onnxruntime from grabbing large thread pools and pre-extending
+            # its memory arena — on a small host that transient is what tips a
+            # boot over the memory limit. One intra-op thread is also plenty on a
+            # shared single vCPU. Set before the first session is created.
+            os.environ.setdefault("OMP_NUM_THREADS", "1")
+            os.environ.setdefault("ORT_DISABLE_CPU_ARENA_ALLOCATOR", "1")
             from insightface.app import FaceAnalysis
             modules = list(cfg.modules)
             if cfg.attributes and "genderage" not in modules:

@@ -92,6 +92,21 @@ def load_config() -> FaceConfig:
     env_db = os.environ.get("FACE_DB_PATH")
     if env_db:
         cfg = replace(cfg, db_path=env_db)
+    # Model pack + detector input are the two biggest memory levers. On a small
+    # host (a 512 MB free tier) FACE_MODEL_NAME=buffalo_s swaps the 166 MB
+    # ResNet50 recogniser for a ~13 MB MobileFaceNet, and a smaller FACE_DET_SIZE
+    # shrinks the detector's buffers — together the difference between fitting and
+    # being OOM-killed. Embeddings from different packs are NOT interchangeable, so
+    # changing the pack means re-enrolling faces (palm is a separate model).
+    env_model = os.environ.get("FACE_MODEL_NAME")
+    if env_model:
+        cfg = replace(cfg, model_name=env_model.strip())
+    env_det = os.environ.get("FACE_DET_SIZE")
+    if env_det:
+        try:
+            cfg = replace(cfg, det_size=int(env_det))
+        except ValueError:
+            pass
     env_id = os.environ.get("FACE_ID_DETECTION")
     if env_id is not None:
         cfg = replace(cfg, id_detection_enabled=env_id not in ("0", "false", "False", ""))
