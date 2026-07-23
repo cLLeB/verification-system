@@ -183,6 +183,31 @@ def load_config() -> PalmConfig:
     env_db = os.environ.get("FACE_DB_PATH")   # shared tenant root with face
     if env_db:
         cfg = replace(cfg, db_path=env_db)
+    # Capture-quality gates — env-tunable so a live pilot can loosen/tighten them in
+    # SECONDS without a rebuild. A too-strict enrol gate silently blocks real phone
+    # palms (variance-of-Laplacian is measured on the small 128px ROI, so the floor
+    # must stay low — see enroll_min_sharpness history above). Lets us relax for data
+    # collection now and re-tighten once the encoder is calibrated.
+    _gate_env = {
+        "PALM_MIN_HAND_SCORE": "min_hand_score",
+        "PALM_MIN_ROI_PX": "min_roi_px",
+        "PALM_MIN_SHARPNESS": "min_sharpness",
+        "PALM_MIN_FINGER_SPREAD": "min_finger_spread",
+        "PALM_ENROLL_MIN_SHARPNESS": "enroll_min_sharpness",
+        "PALM_ENROLL_MIN_ROI_FRAC": "enroll_min_roi_frac",
+        "PALM_ENROLL_MIN_BRIGHTNESS": "enroll_min_brightness",
+        "PALM_ENROLL_MAX_BRIGHTNESS": "enroll_max_brightness",
+    }
+    for _env_name, _field in _gate_env.items():
+        _v = os.environ.get(_env_name)
+        if _v:
+            try:
+                cfg = replace(cfg, **{_field: float(_v)})
+            except ValueError:
+                pass
+    _facing = os.environ.get("PALM_REQUIRE_PALM_FACING")
+    if _facing is not None:
+        cfg = replace(cfg, require_palm_facing=_facing.strip().lower() not in ("0", "false", "no", ""))
     # Pick the encoder-appropriate operating point unless the user pinned one.
     if not explicit_threshold:
         cfg = _apply_encoder_thresholds(cfg)
