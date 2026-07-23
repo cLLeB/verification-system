@@ -102,7 +102,7 @@ else
         --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
         --env-vars \
             PORT="$PORT" \
-            BIO_SQLITE_JOURNAL=DELETE \
+            FACE_SNAPSHOT_DIR=/snapshot \
             FACE_OPEN_ENROLL=1 \
             FACE_FIELD_DATA=1 \
             FACE_RATE_LIMIT=600 \
@@ -127,7 +127,10 @@ tmpl["volumes"] = vols
 for c in tmpl["containers"]:
     mounts = c.get("volumeMounts") or []
     if not any((m or {}).get("volumeName") == "data" for m in mounts):
-        mounts.append({"volumeName": "data", "mountPath": "/data"})
+        # Mount the durable share at /snapshot (NOT /data): SQLite runs live on the
+        # container's local /data; persistence.py snapshots it here. SQLite cannot
+        # run directly on the SMB share — its file locking breaks ("database is locked").
+        mounts.append({"volumeName": "data", "mountPath": "/snapshot"})
     c["volumeMounts"] = mounts
 yaml.safe_dump(doc, open(path, "w"), sort_keys=False)
 PY
