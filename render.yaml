@@ -3,9 +3,16 @@
 # Render → New → Blueprint → point at this repo, or create a Web Service manually
 # with Runtime = Docker and copy the settings below.
 #
-# MEMORY: the service loads ~444 MB of face + palm models and peaks near 775 MB
-# serving a request. A 512 MB instance WILL be OOM-killed. Pick a plan with at
-# least 1 GB; 2 GB leaves room for concurrent testers.
+# MEMORY: with FACE_ACTIVE_LIVENESS=0 (set below) the app loads ~300 MB and peaks
+# ~376 MB under concurrent requests — measured. That fits the 512 MB free tier
+# with headroom. (With liveness ON it peaks ~600 MB and needs a >=1 GB paid plan.)
+#
+# FREE-TIER TRADEOFFS you are accepting:
+#   * the service SPINS DOWN after 15 min idle; the next request waits 30-60s
+#     while it wakes and reloads models. Fine for a pilot, rough for a live demo
+#     (open the link yourself a minute before anyone arrives).
+#   * limited CPU — a verification takes several seconds, not one.
+#   * 750 compute-hours/month ~ one always-on service; enough for a single box.
 #
 # Secrets are marked `sync: false` so Render prompts for them instead of storing
 # them in git. Values are in .face_db_key_NEWSPACE.json (git-ignored).
@@ -15,7 +22,7 @@ services:
     name: contactless-verify
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: standard              # >= 1 GB RAM. 'free'/'starter' (512 MB) will OOM.
+    plan: free                  # 512 MB — fits ONLY with FACE_ACTIVE_LIVENESS=0
     region: frankfurt           # closest of Render's regions to Ghana
     healthCheckPath: /healthz   # deliberately exempt from the private-link gate
     autoDeploy: false           # deploy on purpose, not on every push
@@ -52,6 +59,8 @@ services:
         value: "1"
       - key: FACE_RATE_LIMIT        # testers behind one NAT share an IP
         value: "600"
+      - key: FACE_ACTIVE_LIVENESS   # REQUIRED on 512 MB: drops the 3D model too.
+        value: "0"                  # face head-turn off; palm liveness unaffected.
       - key: FACE_ANALYTICS_TOKEN   # gates the data-pull endpoints
         sync: false
 
