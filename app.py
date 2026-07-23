@@ -1201,7 +1201,7 @@ def analytics_field_manifest():
         return jsonify({"success": False, "code": "disabled"}), 404
     if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
         return jsonify({"success": False, "code": "forbidden"}), 403
-    return jsonify({"success": True, "persisted": persistence.enabled(),
+    return jsonify({"success": True, "persisted": persistence.active(),
                     "field": fielddata.stats()})
 
 

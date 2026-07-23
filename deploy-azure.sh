@@ -22,6 +22,11 @@
 # Everything else has sensible defaults you can override via the env vars below.
 set -euo pipefail
 
+# Git Bash on Windows rewrites any argument that looks like a Unix path, so
+# `--env-vars FACE_PERSIST_DIR=/data` silently becomes `C:/Program Files/Git/data`
+# inside the Linux container. Observed for real. Turn the rewriting off.
+export MSYS_NO_PATHCONV=1
+
 # --- config (override via env) ----------------------------------------------
 LOCATION="${AZ_LOCATION:-westeurope}"          # closest low-latency region to Ghana
 RG="${AZ_RG:-verify-rg}"
@@ -102,13 +107,23 @@ else
         --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
         --env-vars \
             PORT="$PORT" \
+            FACE_PERSIST_DIR=/data \
             FACE_SNAPSHOT_DIR=/snapshot \
+            FACE_FIELD_DIR=/snapshot/fielddata \
             BIO_DB_KEY_STATELESS=1 \
             FACE_OPEN_ENROLL=1 \
             FACE_FIELD_DATA=1 \
             FACE_RATE_LIMIT=600 \
         --only-show-errors 1>/dev/null
 fi
+# FACE_FIELD_DIR points field captures STRAIGHT at the durable mount instead of
+# relying on the 60s snapshot loop. Captures are plain JPEG/JSONL, so unlike
+# SQLite they write to SMB fine — and the pilot's training data is then durable
+# the instant it is recorded, with no window where a restart can eat it.
+# FACE_PERSIST_DIR=/data is REQUIRED, not cosmetic: persistence.py defaults its
+# snapshot SOURCE to /data, but fielddata.py and the collect dir default to "." —
+# so leaving it unset silently writes every field capture to the container's
+# ephemeral working dir, outside the snapshot, and loses it on each revision.
 # BIO_DB_KEY_STATELESS=1 is REQUIRED on Azure Files: the encryption key derives from
 # BIO_DB_KEY with no on-disk salt/key files (SMB can't reliably hold chmod-0600 files).
 

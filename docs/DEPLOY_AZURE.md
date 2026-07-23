@@ -65,6 +65,29 @@ It builds → pushes to GHCR → updates the app.
 
 ---
 
+## Custom domain (`verify.kyere.me`)
+The `*.azurecontainerapps.io` URL is unreadable on a poster and unmemorable on a
+phone. Bind a subdomain of a domain you own — Azure issues a free managed TLS
+certificate for it, so there is nothing to renew.
+
+1. At your DNS host (Namecheap → Domain List → **Advanced DNS** → Add New Record),
+   add both records. `./bind-domain.sh` prints them with your real values:
+
+   | Type | Host | Value |
+   |---|---|---|
+   | `CNAME` | `verify` | `<app>.<region>.azurecontainerapps.io` |
+   | `TXT` | `asuid.verify` | the app's `customDomainVerificationId` |
+
+2. Bind it (waits for DNS, then issues the cert):
+```
+./bind-domain.sh                    # verify.kyere.me
+./bind-domain.sh admin.kyere.me     # any further subdomain
+```
+
+The old `*.azurecontainerapps.io` URL keeps working — a bound hostname is added
+alongside it, not swapped in — so QR codes and APKs already pointing at it don't
+break the moment you cut over.
+
 ## Going live (never sleep)
 When real traffic is constant and you want zero cold starts:
 ```

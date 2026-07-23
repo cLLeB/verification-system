@@ -56,6 +56,17 @@ def _snap_enabled() -> bool:
     return bool(SNAP)
 
 
+def active() -> bool:
+    """True if state survives a restart by EITHER backend.
+
+    ``enabled()`` only answers for the Hugging Face dataset backend, so reporting
+    it alone on a snapshot-backed deploy reads as "nothing is persisted" while the
+    snapshot loop is in fact running — which is exactly how a real field-capture
+    loss went unnoticed. Status surfaces should use this.
+    """
+    return enabled() or _snap_enabled()
+
+
 def _iter_files(base: str):
     for root, dirs, files in os.walk(base):
         rel = os.path.relpath(root, base)
@@ -97,19 +108,42 @@ def _copy_always(src_file: str, src_base: str, dst_base: str) -> None:
 
 
 def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
-    """Consistent point-in-time copy of a live SQLite DB via the backup API."""
+    """Consistent point-in-time copy of a live SQLite DB via the backup API.
+
+    The backup is written to LOCAL disk first and only then byte-copied to the
+    destination. Writing it straight to the destination looks simpler but breaks
+    on an SMB share (Azure Files): SQLite needs locking the share doesn't provide,
+    so ``connect(dst)`` creates the file and then writes nothing — leaving a
+    0-byte "backup" that silently loses every enrolment, with no error raised.
+    Observed in production. A plain byte copy of the finished file needs no
+    locking and is safe on SMB.
+    """
+    import shutil
     import sqlite3
+    import tempfile
+
     dst = os.path.join(dst_base, os.path.relpath(src_db, src_base))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    src = sqlite3.connect(src_db)
+    # Same directory as the source, so the temp file is on the local disk where
+    # SQLite works — never in dst_base.
+    fd, tmp = tempfile.mkstemp(suffix=".dbsnap", dir=os.path.dirname(src_db) or ".")
+    os.close(fd)
     try:
-        out = sqlite3.connect(dst)
+        src = sqlite3.connect(src_db)
         try:
-            src.backup(out)
+            out = sqlite3.connect(tmp)
+            try:
+                src.backup(out)
+            finally:
+                out.close()
         finally:
-            out.close()
+            src.close()
+        shutil.copyfile(tmp, dst)          # copyfile, not copy2: SMB rejects chmod
     finally:
-        src.close()
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def _snapshot(src_base: str, dst_base: str) -> None:
