@@ -25,10 +25,15 @@ COPY --chown=user requirements-service.txt .
 RUN pip install --no-cache-dir --upgrade -r requirements-service.txt
 
 # Pre-download the ArcFace model pack (into the user's cache) so the first request
-# isn't slow and the container works offline after build.
-RUN python -c "from insightface.app import FaceAnalysis; \
-a=FaceAnalysis(name='buffalo_l', allowed_modules=['detection','landmark_3d_68','recognition']); \
-a.prepare(ctx_id=-1, det_size=(480,480))"
+# isn't slow and the container works offline after build. Bake BOTH packs: the
+# full buffalo_l (default) and the small buffalo_s (FACE_MODEL_NAME=buffalo_s on a
+# memory-tight host). Baking buffalo_s matters on such a host — otherwise it is
+# re-downloaded on every cold start, inside the same startup window where memory
+# is already tight, which is exactly when it must not be.
+ARG FACE_PREFETCH_MODELS="buffalo_l buffalo_s"
+RUN python -c "import sys; from insightface.app import FaceAnalysis; \
+[FaceAnalysis(name=n, allowed_modules=['detection','recognition']).prepare(ctx_id=-1, det_size=(320,320)) \
+for n in '${FACE_PREFETCH_MODELS}'.split()]"
 
 # App code (fingerprint stack is intentionally NOT copied — see .dockerignore).
 COPY --chown=user biometric ./biometric
