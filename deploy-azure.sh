@@ -27,7 +27,11 @@ LOCATION="${AZ_LOCATION:-westeurope}"          # closest low-latency region to G
 RG="${AZ_RG:-verify-rg}"
 ENVNAME="${AZ_ENV:-verify-env}"
 APP="${AZ_APP:-verify}"
-STORAGE="${AZ_STORAGE:-verifydata$RANDOM}"      # must be globally unique, 3-24 lc/nums
+# Storage name must be globally unique + 3-24 lowercase alphanumerics. Derive it
+# from the subscription id so it's both unique to you AND identical on every run
+# (idempotent — a re-run reuses the same account instead of orphaning a new one).
+SUB="$(az account show --query id -o tsv 2>/dev/null | tr -d '\r')"
+STORAGE="${AZ_STORAGE:-vd$(echo "$SUB" | tr -cd '0-9a-f' | cut -c1-22)}"
 SHARE="${AZ_SHARE:-data}"
 IMAGE="${AZ_IMAGE:-ghcr.io/clleb/verification-system:latest}"   # GHCR, lowercase
 CPU="${AZ_CPU:-2.0}"
@@ -47,8 +51,11 @@ say() { echo "==> $*"; }
 
 say "1/7 providers + extension"
 az extension add --name containerapp --upgrade --only-show-errors 1>/dev/null
+# Fresh subscriptions have these unregistered; the API returns SubscriptionNotFound
+# from a provider until it's registered. --wait blocks until each is Registered.
 az provider register --namespace Microsoft.App --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
+az provider register --namespace Microsoft.Storage --wait
 
 say "2/7 resource group ($RG in $LOCATION)"
 az group create -n "$RG" -l "$LOCATION" --only-show-errors 1>/dev/null
