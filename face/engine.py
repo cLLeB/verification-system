@@ -54,7 +54,18 @@ def available() -> bool:
         return False
 
 
+# Face can be switched off entirely (BIO_FACE_ENABLED=0) so its ~150 MB of models
+# are never loaded — the way a small host (a 512 MB free tier) runs palm-only. The
+# router already fails soft on an absent modality, so with the presence probe
+# forced to "no face" every request auto-routes to palm and nothing else changes.
+FACE_DISABLED = os.environ.get("BIO_FACE_ENABLED", "1").strip().lower() in ("0", "false", "no")
+
+
 def warm(cfg: FaceConfig = CONFIG) -> bool:
+    if FACE_DISABLED:
+        print("[face] disabled (BIO_FACE_ENABLED=0) — palm-only; face models not loaded",
+              flush=True)
+        return False
     try:
         _ensure(cfg)
         return True
@@ -123,7 +134,7 @@ def has_face(image: np.ndarray, cfg: FaceConfig = CONFIG) -> Tuple[bool, float]:
     how confident? Runs ONLY the detector (no recognition), and fails soft — if the
     model isn't installed or anything goes wrong, returns ``(False, 0.0)`` so the
     router simply treats face as absent rather than erroring the whole request."""
-    if image is None or getattr(image, "size", 0) == 0:
+    if FACE_DISABLED or image is None or getattr(image, "size", 0) == 0:
         return False, 0.0
     try:
         app = _ensure(cfg)
