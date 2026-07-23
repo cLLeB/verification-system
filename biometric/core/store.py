@@ -153,7 +153,13 @@ class TemplateStore:
         conn = getattr(self._local, "conn", None)
         if conn is None:
             conn = sqlite3.connect(self._db, check_same_thread=False, timeout=30.0)
-            conn.execute("PRAGMA journal_mode=WAL")
+            # WAL is fastest on a local disk (Oracle/compose/dev) and is the default.
+            # It CANNOT run on a network file share (Azure Files / SMB, NFS) because it
+            # needs shared-memory coordination the share can't provide — SQLite falls
+            # back or errors there. On such a host set BIO_SQLITE_JOURNAL=DELETE; with a
+            # single writer (one replica, gunicorn -w 1) rollback journalling is safe.
+            journal = os.environ.get("BIO_SQLITE_JOURNAL", "WAL").strip().upper() or "WAL"
+            conn.execute(f"PRAGMA journal_mode={journal}")
             conn.execute("PRAGMA synchronous=NORMAL")
             self._local.conn = conn
         return conn

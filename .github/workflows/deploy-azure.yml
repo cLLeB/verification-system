@@ -1,0 +1,76 @@
+# Build the container, push it to GHCR (free, part of your Student pack), and roll
+# it out to Azure Container Apps. Runs on every push to main, or on demand.
+#
+# One-time setup (see docs/DEPLOY_AZURE.md):
+#   * run deploy-azure.sh once to create the app.
+#   * add repo secret AZURE_CREDENTIALS  (output of: az ad sp create-for-rbac ... --sdk-auth)
+#   * the built-in GITHUB_TOKEN pushes to GHCR — no extra secret needed for that.
+name: deploy-azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: true
+
+env:
+  RG: verify-rg
+  APP: verify
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # push to GHCR
+    env:
+      # deploy steps run only once you've added the AZURE_CREDENTIALS secret;
+      # until then the job just builds + pushes the image (which is all the
+      # one-time deploy-azure.sh needs to exist).
+      HAS_AZURE: ${{ secrets.AZURE_CREDENTIALS != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase image ref (GHCR rejects uppercase owners)
+        id: img
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/verification-system" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.img.outputs.ref }}:latest
+            ${{ steps.img.outputs.ref }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login
+        if: env.HAS_AZURE == 'true'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Roll out new image to Container Apps
+        if: env.HAS_AZURE == 'true'
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az extension add --name containerapp --upgrade --only-show-errors
+            # Best-effort: no-op with a clear note if the app isn't created yet
+            # (run deploy-azure.sh once first). Real deploys after that go green.
+            az containerapp update -n "$APP" -g "$RG" \
+              --image "${{ steps.img.outputs.ref }}:${{ github.sha }}" --only-show-errors \
+              || echo "::warning::app '$APP' not found yet — run ./deploy-azure.sh once to create it."
