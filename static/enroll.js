@@ -322,11 +322,25 @@ async function doEnroll() {
             ? (data.hand === 2 ? 'Other hand' : 'Print') : 'Face';
         const more = allowed.filter((m) => !enrolled.includes(m));
         const nextLabel = more.length ? (more[0] === 'palm' ? 'hand' : more[0]) : '';
-        const palmHint = data.modality === 'palm' && data.hand === 1
-            ? ' — you can also add your OTHER hand' : '';
-        setHint(more.length
-            ? `${what} captured ✓ — now your ${nextLabel}, or tap Finish`
-            : `${what} captured ✓${palmHint} — tap Finish`, 'ok');
+        // A palm needs SEVERAL SEPARATE PRESENTATIONS, not several shots of a hand
+        // held still. Measured on the curated capture set: worst-case genuine score
+        // is 0.61-0.72 from one anchor and 0.62-0.73 from two — both under the 0.68
+        // accept — but 0.72-0.87 from three, which always clears it. What varies is
+        // hand POSE, so the user has to lower the hand and raise it again between
+        // captures; telling them only about their "other hand" left the single
+        // biggest driver of reliability to chance.
+        const need = (data.samples_target || 3) - (data.hand_samples || 0);
+        if (data.modality === 'palm' && need > 0) {
+            setHint(`Print captured ✓ (${data.hand_samples} of ${data.samples_target}) — `
+                + `lower your hand, raise it again at a slightly different angle, `
+                + `and capture ${need} more time${need > 1 ? 's' : ''}.`, 'ok');
+        } else {
+            const palmHint = data.modality === 'palm' && data.hand === 1
+                ? ' — you can also add your OTHER hand' : '';
+            setHint(more.length
+                ? `${what} captured ✓ — now your ${nextLabel}, or tap Finish`
+                : `${what} captured ✓${palmHint} — tap Finish`, 'ok');
+        }
     } else {
         setHint(data.message || 'No usable biometric detected — try again.', 'warn');
     }
