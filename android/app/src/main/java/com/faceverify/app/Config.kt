@@ -84,14 +84,19 @@ object PalmConfig {
     const val ENROLL_MAX_BRIGHTNESS = 235.0f   // ...and ceiling (blown out)
 
     // matching (cosine on L2-normalised embeddings) — palm-tuned.
-    // RE-CALIBRATED 2026-07-02 against live production templates + local captures
-    // (CCNet ONNX, max-over-anchors — the metric verify actually uses): genuine
-    // cross-session 0.672-0.879 (blur-robust: a ghosted frame still hit 0.846) vs
-    // impostor 0.603-0.623. The old 0.60 sat BELOW the impostor ceiling (observed
-    // false-accepts); 0.65 is the measured-gap midpoint. Mirrors palm/calibration.json
-    // — keep the two in sync.
-    const val MATCH_THRESHOLD = 0.65f
-    const val IDENTIFY_MARGIN = 0.05f
+    // RE-CALIBRATED 2026-07-27 on every frame the live pilot recorded, with each
+    // person's template rebuilt from their most recent enrolment session and scored
+    // leave-one-out. GENUINE same session: 0.854-0.986. GENUINE 12 h later: 0.743.
+    // GENUINE ~3 days later: 0.608-0.706 — cross-day probes fall INTO the impostor
+    // range, so no threshold separates them. IMPOSTOR (88 pairs): max 0.6933. The
+    // old 0.65 sat BELOW that ceiling and produced wrong-person grants; 0.75 clears
+    // it by 0.057 and still takes every same-session genuine, for zero wrong-person
+    // grants across all 110 scored pairs. Margin 0.05 -> 0.10 for the same reason.
+    // By design this refuses anyone enrolled much earlier: they re-enrol. A refusal
+    // is recoverable, admitting the wrong person is not.
+    // Mirrors palm/calibration.json — keep the two in sync.
+    const val MATCH_THRESHOLD = 0.75f
+    const val IDENTIFY_MARGIN = 0.10f
     const val SAMPLES_PER_USER = 3            // anchor captures per HAND
     // A person has at most two palms; one identity may enrol both (present either to
     // verify). Mirrors palm/config.py max_hands_per_user — keep in sync.

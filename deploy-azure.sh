@@ -44,6 +44,8 @@ MEM="${AZ_MEM:-4.0Gi}"
 MIN_REPLICAS="${AZ_MIN_REPLICAS:-0}"           # 0 = scale-to-zero; set 1 when live
 MAX_REPLICAS="${AZ_MAX_REPLICAS:-1}"           # 1 = single SQLite writer (do not raise)
 PORT="${AZ_PORT:-7860}"
+# Face recognition pack — see the note by the env-vars block for the measurements.
+FACE_MODEL_NAME="${AZ_FACE_MODEL:-buffalo_s}"
 
 GHCR_USER="${1:-}"
 GHCR_PAT="${2:-}"
@@ -96,6 +98,7 @@ if az containerapp show -n "$APP" -g "$RG" --only-show-errors 1>/dev/null 2>&1; 
     az containerapp update -n "$APP" -g "$RG" --image "$IMAGE" \
         --cpu "$CPU" --memory "$MEM" \
         --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
+        --set-env-vars FACE_MODEL_NAME="$FACE_MODEL_NAME" \
         --only-show-errors 1>/dev/null
 else
     az containerapp create -n "$APP" -g "$RG" --environment "$ENVNAME" \
@@ -114,8 +117,23 @@ else
             FACE_OPEN_ENROLL=1 \
             FACE_FIELD_DATA=1 \
             FACE_RATE_LIMIT=600 \
+            FACE_MODEL_NAME="$FACE_MODEL_NAME" \
         --only-show-errors 1>/dev/null
 fi
+# FACE_MODEL_NAME=buffalo_s is a LATENCY decision, not a memory one. Measured on
+# this container's 2 vCPU (ONNX Runtime, 2 intra-op threads), per model call:
+#   buffalo_l  detector 133 ms  landmarks  65 ms  recognition(r50)  1561 ms
+#   buffalo_s  detector  39 ms  landmarks 134 ms  recognition(mbf)    24 ms
+# Recognition dominated everything — a verify burst (5 detected frames + 2
+# recognitions) cost 4.11 s, and a face enrolment 1.76 s. On buffalo_s the same
+# burst is 0.91 s and an enrolment 0.20 s, WITHOUT dropping a single frame or
+# either security check. Accuracy was A/B'd on the pilot's own recorded faces
+# (leave-one-out): buffalo_l genuine 0.666-0.792 vs impostor max 0.232;
+# buffalo_s genuine 0.665-0.780 vs impostor max 0.305 — same accept/reject
+# decision on every one of the 36 pairs at the 0.40 threshold. The margin is
+# smaller, so revisit this if the population grows into the thousands.
+# NOTE: the two packs' embeddings are NOT interchangeable — switching invalidates
+# existing face templates and everyone must re-enrol.
 # FACE_FIELD_DIR points field captures STRAIGHT at the durable mount instead of
 # relying on the 60s snapshot loop. Captures are plain JPEG/JSONL, so unlike
 # SQLite they write to SMB fine — and the pilot's training data is then durable
