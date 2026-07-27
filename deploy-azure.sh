@@ -46,6 +46,8 @@ MAX_REPLICAS="${AZ_MAX_REPLICAS:-1}"           # 1 = single SQLite writer (do no
 PORT="${AZ_PORT:-7860}"
 # Face recognition pack — see the note by the env-vars block for the measurements.
 FACE_MODEL_NAME="${AZ_FACE_MODEL:-buffalo_s}"
+# Seconds between durable snapshots — this is the restart data-loss window.
+PERSIST_INTERVAL="${AZ_PERSIST_INTERVAL:-10}"
 
 GHCR_USER="${1:-}"
 GHCR_PAT="${2:-}"
@@ -99,6 +101,7 @@ if az containerapp show -n "$APP" -g "$RG" --only-show-errors 1>/dev/null 2>&1; 
         --cpu "$CPU" --memory "$MEM" \
         --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
         --set-env-vars FACE_MODEL_NAME="$FACE_MODEL_NAME" \
+                       FACE_PERSIST_INTERVAL="$PERSIST_INTERVAL" \
         --only-show-errors 1>/dev/null
 else
     az containerapp create -n "$APP" -g "$RG" --environment "$ENVNAME" \
@@ -118,8 +121,17 @@ else
             FACE_FIELD_DATA=1 \
             FACE_RATE_LIMIT=600 \
             FACE_MODEL_NAME="$FACE_MODEL_NAME" \
+            FACE_PERSIST_INTERVAL="$PERSIST_INTERVAL" \
         --only-show-errors 1>/dev/null
 fi
+# FACE_PERSIST_INTERVAL: the share is mounted at /snapshot, NOT at /data — the live
+# SQLite lives on the container's ephemeral disk and is copied to durable storage
+# every INTERVAL seconds (SQLite is deliberately kept off the SMB share; see the
+# WAL/journal notes). So the interval IS the data-loss window on a restart. At the
+# 60 s default this was not theoretical: on 2026-07-27 a deleted identity kept
+# reappearing after every deploy, because each delete was rolled back by the boot
+# restore from a snapshot older than it. 10 s keeps the window small enough that a
+# restart cannot silently undo an enrolment or a deletion mid-session.
 # FACE_MODEL_NAME=buffalo_s is a LATENCY decision, not a memory one. Measured on
 # this container's 2 vCPU (ONNX Runtime, 2 intra-op threads), per model call:
 #   buffalo_l  detector 133 ms  landmarks  65 ms  recognition(r50)  1561 ms
