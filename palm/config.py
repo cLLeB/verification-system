@@ -114,8 +114,28 @@ class PalmConfig:
     liveness_enabled: bool = True           # reject printed/screened palms
     liveness_threshold: float = 0.55        # min live-probability to accept
 
-    # --- adaptive enrollment (track the user as they change, anti-drift) ---
-    adaptive_enabled: bool = True
+    # --- adaptive enrollment: OFF for palm, by design ---
+    # Inherited from the face module (palm/api.py mirrors face/api.py), where it earns
+    # its keep: a FACE genuinely changes over months and years, and a static template
+    # would eventually lock the real person out. A PALM PRINT DOES NOT AGE, so palm was
+    # carrying the mechanism without the problem it solves — while paying its whole
+    # cost: adaptation is the only path by which a verify, whose identity nobody has
+    # confirmed, can WRITE into a stored template. One false accept becomes permanent.
+    # That is precisely how the 2026-07-27 pilot failed: the busiest palm accumulated
+    # a vector 0.60 from its own anchors but 0.62 from another person, and then refused
+    # that person's enrolment as a duplicate of itself.
+    #
+    # The benefit was also measured, not assumed. Palm's real difficulty is not ageing
+    # but PRESENTATION variance (the same palm re-presented hours later scores
+    # 0.63-0.74 against its own anchors, vs 0.95 within one burst), and extra variants
+    # barely help: rebuilding a template from TWO full sessions instead of one moved a
+    # 3-day probe from 0.5583 to 0.6076 — still far under the 0.75 accept. So palm was
+    # taking a proven, severe risk for a benefit that does not materialise.
+    #
+    # A palm template is now exactly what was enrolled, under supervision, with the
+    # identity known: auditable, reproducible, and impossible to poison at verify time.
+    # PALM_ADAPTIVE=1 re-enables it; the anchor floor below then still bounds it.
+    adaptive_enabled: bool = False
     adaptive_update_threshold: float = 0.45  # only adapt when match is well above accept
     adaptive_margin: float = 0.08            # 1:N: only adapt if top beats 2nd by this
     adaptive_max_samples: int = 8
@@ -223,11 +243,14 @@ def load_config() -> PalmConfig:
     env_hand_file = os.environ.get("PALM_HAND_MODEL_HF_FILE")
     if env_hand_file:
         cfg = replace(cfg, hand_model_hf_file=env_hand_file)
-    # Adaptive enrolment folds confident live matches back into the template. That
-    # tracks a person as they change — but a false accept becomes permanent, so
-    # PALM_ADAPTIVE=0 freezes templates while chasing cross-identity confusions.
-    if os.environ.get("PALM_ADAPTIVE") == "0":
-        cfg = replace(cfg, adaptive_enabled=False)
+    # Adaptive enrolment is OFF for palm by default (see PalmConfig: a palm does not
+    # age, so it never needed the mechanism, and it was the only route by which an
+    # unconfirmed verify could write into a stored template). PALM_ADAPTIVE=1 turns it
+    # back on for experiments; the anchor floor still bounds it. "0" stays accepted so
+    # any deployment already pinning it off keeps working.
+    _adaptive = os.environ.get("PALM_ADAPTIVE")
+    if _adaptive in ("0", "1"):
+        cfg = replace(cfg, adaptive_enabled=(_adaptive == "1"))
     env_db = os.environ.get("FACE_DB_PATH")   # shared tenant root with face
     if env_db:
         cfg = replace(cfg, db_path=env_db)

@@ -186,6 +186,31 @@ def test_prune_adaptive_repairs_a_widened_template_and_keeps_anchors(store):
         assert np.allclose(got, want)
 
 
+def test_palm_never_learns_from_a_verify():
+    """A palm template must be exactly what was enrolled — nothing else.
+
+    Adaptive enrolment came from the face module, where it tracks a face changing
+    over years. A palm print does not age, so palm carried the cost (a verify, whose
+    identity nobody confirmed, could write into a stored template and one false
+    accept became permanent) with no matching benefit. It stays off.
+    """
+    from palm.config import load_config
+    assert load_config().adaptive_enabled is False
+
+    # ...and the face module keeps it, deliberately: a static face template would
+    # eventually lock the real person out (tests/test_adaptive_drift.py).
+    from face.config import load_config as face_config
+    assert face_config().adaptive_enabled is True
+
+
+def test_palm_adaptive_can_be_switched_back_on_for_experiments(monkeypatch):
+    from palm.config import load_config
+    monkeypatch.setenv("PALM_ADAPTIVE", "1")
+    assert load_config().adaptive_enabled is True
+    monkeypatch.setenv("PALM_ADAPTIVE", "0")
+    assert load_config().adaptive_enabled is False
+
+
 def test_prune_adaptive_is_a_no_op_when_nothing_drifted(store):
     rng = np.random.default_rng(29)
     caleb = unit(rng.standard_normal(DIM))
