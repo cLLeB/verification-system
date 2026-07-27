@@ -181,8 +181,10 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
         _record_side(st, user_id, [], sample.handedness)
         return _enrolled(user_id, 1, 1, cfg, sample)
 
-    hands = _clusters.group(anchors, cfg.match_threshold)
-    matched = _clusters.matched_hand(probe, anchors, cfg.match_threshold)
+    # Grouping this user's own anchors into hands is an intra-identity question —
+    # see PalmConfig.same_hand_threshold for why it must not use the identify bar.
+    hands = _clusters.group(anchors, cfg.same_hand_threshold)
+    matched = _clusters.matched_hand(probe, anchors, cfg.same_hand_threshold)
 
     # Matches an already-enrolled hand -> top that hand up (no confirmation needed).
     if matched >= 0:
@@ -203,10 +205,15 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     sides = _hand_sides(st, user_id)
     side = sample.handedness
     if cfg.reject_same_side_hand and side and side in sides:
+        # Nobody has two right hands, so this is far more likely a WEAK CAPTURE of
+        # the hand already enrolled than a second one. Lead with the retake — the
+        # old wording ("use a different name if this is someone else") accused a
+        # real person of being an impostor over what was usually just a soft frame.
         return _fail(
-            f"'{user_id}' already has a {side.lower()} hand enrolled — a person has only "
-            f"one {side.lower()} hand. Enrol the OTHER hand, or use a different name if "
-            f"this is someone else.", "same_hand_side", user_id=user_id, side=side)
+            f"That capture didn't match the {side.lower()} hand already enrolled for "
+            f"'{user_id}' — hold the same hand steadier, fill the frame, and try again. "
+            f"(To add the other hand, present it instead.)",
+            "same_hand_side", user_id=user_id, side=side)
     if not allow_new_hand:
         return {"success": False, "code": "different_hand", "modality": "palm",
                 "message": f"This looks like a different hand than the one already "

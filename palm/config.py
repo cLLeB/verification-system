@@ -90,6 +90,16 @@ class PalmConfig:
     dupe_self_margin: float = 0.0           # ...and it must beat the claimant's own score by this
     classical_match_threshold: float = 0.80  # Gabor-encoder accept threshold
     classical_identify_margin: float = 0.04  # Gabor-encoder 1:N margin
+    # "Is this the same hand I already enrolled for THIS name?" is a much weaker
+    # question than "is this a different person?", and must not share the identify
+    # threshold. It is asked only AFTER the cross-user duplicate gate has cleared,
+    # i.e. within one claimed identity, so it needs to separate a person's left hand
+    # from their right — not one person from another. Raising match_threshold to
+    # 0.75 silently made this strict too, and the live pilot immediately showed the
+    # cost: two of Samuel's four enrolment captures scored 0.69-0.74 against his own
+    # first anchor, were declared "a different hand", and were refused as
+    # ``same_hand_side`` — a real person turned away again, just by another name.
+    same_hand_threshold: float = 0.60       # intra-identity hand clustering
     samples_per_user: int = 3               # anchor embeddings stored per HAND
     # A person has at most two palms. One identity may enrol both hands (present
     # either to verify); a capture matching neither enrolled hand is accepted as the
