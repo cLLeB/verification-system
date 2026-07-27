@@ -84,19 +84,24 @@ object PalmConfig {
     const val ENROLL_MAX_BRIGHTNESS = 235.0f   // ...and ceiling (blown out)
 
     // matching (cosine on L2-normalised embeddings) — palm-tuned.
-    // RE-CALIBRATED 2026-07-27 on every frame the live pilot recorded, with each
-    // person's template rebuilt from their most recent enrolment session and scored
-    // leave-one-out. GENUINE same session: 0.854-0.986. GENUINE 12 h later: 0.743.
-    // GENUINE ~3 days later: 0.608-0.706 — cross-day probes fall INTO the impostor
-    // range, so no threshold separates them. IMPOSTOR (88 pairs): max 0.6933. The
-    // old 0.65 sat BELOW that ceiling and produced wrong-person grants; 0.75 clears
-    // it by 0.057 and still takes every same-session genuine, for zero wrong-person
-    // grants across all 110 scored pairs. Margin 0.05 -> 0.10 for the same reason.
-    // By design this refuses anyone enrolled much earlier: they re-enrol. A refusal
-    // is recoverable, admitting the wrong person is not.
+    // RE-CALIBRATED 2026-07-27 (late) on captures/ — clean, hand-curated, known-label,
+    // known-time data. An earlier same-night pass calibrated on LIVE FIELD data gave
+    // 0.75 and was wrong: field labels are only as good as the name typed at
+    // enrolment, and several frames were filed under the wrong person (frames
+    // enrolled as 'caleb' score 0.26 against caleb and 0.67-0.71 against Edwina).
+    // Those pairs inflated the apparent impostor ceiling and pushed the threshold up
+    // until it rejected real people.
+    // Method = what verify computes: probe vs that hand's OTHER captures, MAX over
+    // anchors, leave-one-out. GENUINE n=10 min 0.7161 mean 0.8003 max 0.8653 —
+    // INCLUDING probes 27 HOURS apart at 0.8380 and 0.8653. IMPOSTOR n=80 max 0.6462.
+    // 0.65/0.68/0.70 all give 10/10 genuine and 0/80 impostors; 0.75 rejected 4 of 10
+    // genuine. 0.68 is the midpoint of the gap [0.6462, 0.7161].
+    // NOTE: time is NOT the variable — a 27-hour pair scores 0.84 while two shots 36
+    // seconds apart score 0.73. Hand POSE is, and max-over-anchors absorbs it, which
+    // is why enrolling several DIFFERENT presentations matters.
     // Mirrors palm/calibration.json — keep the two in sync.
-    const val MATCH_THRESHOLD = 0.75f
-    const val IDENTIFY_MARGIN = 0.10f
+    const val MATCH_THRESHOLD = 0.68f
+    const val IDENTIFY_MARGIN = 0.08f
     const val SAMPLES_PER_USER = 3            // anchor captures per HAND
     // A person has at most two palms; one identity may enrol both (present either to
     // verify). Mirrors palm/config.py max_hands_per_user — keep in sync.
