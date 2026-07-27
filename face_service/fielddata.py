@@ -154,8 +154,14 @@ def _sub(result: dict, key: str) -> dict:
     return inner.get(key, {}) if isinstance(inner, dict) and isinstance(inner.get(key), dict) else {}
 
 
+# ``conflict_user_id``/``self_score`` matter as much as ``candidates`` do for a
+# 1:N miss: a refused enrolment used to record only "duplicate" plus a score, so
+# the 2026-07-27 pilot failure could not be explained from the pulled data at all
+# — WHICH identity claimed the palm, and how the claimant's own score compared,
+# had to be reconstructed offline from the raw frames.
 _KEEP = ("success", "code", "score", "margin", "threshold", "identify_margin",
-         "user_id", "quality", "liveness", "live_score", "adapted", "hand", "source")
+         "user_id", "conflict_user_id", "self_score", "quality", "liveness",
+         "live_score", "adapted", "hand", "source")
 
 
 def _slice(r: dict) -> dict:

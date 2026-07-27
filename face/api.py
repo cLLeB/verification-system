@@ -82,12 +82,14 @@ def _guards_ok(emb, user_id: str, st: FaceStore, cfg: FaceConfig,
     """Shared enrol guards: face must not belong to another user (duplicate), and
     must match this user's earlier captures (self-consistency). Returns a failure
     dict, or None when both pass."""
-    dupe_hits = _core_matcher.merge_off_domain(
-        _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
-    for uid, score in dupe_hits:
-        if uid != user_id and score >= cfg.match_threshold:
-            return _fail(f"This face is already enrolled as '{uid}'.", "duplicate",
-                         conflict_user_id=uid, score=round(score, 4))
+    dupe = _core_matcher.duplicate_check(emb, user_id, st, _index_for(st, cfg),
+                                         threshold=cfg.dupe_threshold,
+                                         self_margin=cfg.dupe_self_margin)
+    if dupe is not None:
+        return _fail(f"This face is already enrolled as '{dupe.user_id}'.", "duplicate",
+                     conflict_user_id=dupe.user_id, score=round(dupe.score, 4),
+                     self_score=round(dupe.self_score, 4),
+                     threshold=cfg.dupe_threshold)
     existing = st.load(user_id)
     if existing is not None and existing.embeddings:
         score = _matcher.best_score(st.protect_probe(emb, user_id=user_id),

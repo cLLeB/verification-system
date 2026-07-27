@@ -58,6 +58,72 @@ def merge_off_domain(hits: List[Tuple[str, float]], emb: np.ndarray, store,
     return sorted(scores.items(), key=lambda kv: -kv[1])[:top_k]
 
 
+@dataclass(frozen=True)
+class DuplicateHit:
+    """The identity a would-be enrolment already belongs to."""
+    user_id: str
+    score: float
+    self_score: float
+
+
+def duplicate_check(emb: np.ndarray, user_id: str, store, index, *,
+                    threshold: float, self_margin: float = 0.0,
+                    top_k: int = 5) -> Optional[DuplicateHit]:
+    """Is this RAW probe already enrolled under a DIFFERENT identity?
+
+    Deliberately NOT the same decision as a 1:1 verify, because the costs are not
+    symmetric: a missed duplicate leaves one person holding two names (visible in
+    the audit trail, fixable later), while a FALSE duplicate makes a real person
+    unenrollable — they are simply turned away. So this gate is strict about
+    saying "duplicate", in three ways:
+
+    1. It scores against enrolment ANCHORS ONLY. Adaptive vectors are drift the
+       template picked up at verify time; they widen a user's accept region, so
+       letting them speak here means the most-verified identity gradually starts
+       absorbing everyone else's enrolments (measured on the 2026-07-27 pilot:
+       the busiest identity's adaptive vector sat closer to OTHER people than to
+       its own anchors, and blocked a genuine first-time enrolment four times).
+    2. It uses its own ``threshold``, set above the observed impostor ceiling
+       rather than at the 1:1 accept point — an accept and a "this is definitely
+       somebody else's palm" are different levels of confidence.
+    3. The cross-user score must also BEAT the claimant's own score. If the probe
+       looks more like the person enrolling than like anyone else, it is theirs.
+       This cannot be used to sneak a duplicate in: the very first capture for a
+       new name has no self-template (``self_score`` -1), so it is judged on the
+       absolute threshold alone — and that is exactly the capture a real
+       duplicate must get past.
+
+    Returns the strongest conflicting identity, or None.
+    """
+    probe = store.protect_probe(emb)
+    candidates = {uid for uid, _ in index.search(probe, top_k=top_k)}
+    # Individually reissued users score as noise in the store domain, so they may
+    # never surface in the shortlist — add them explicitly.
+    candidates.update(uid for uid, _ue in
+                      getattr(store, "off_domain_users", lambda: [])())
+    candidates.discard(user_id)
+    if not candidates:
+        return None
+
+    own = store.load(user_id) if user_id else None
+    self_score = (best_score(store.protect_probe(emb, user_id=user_id), own.embeddings)
+                  if own is not None and own.embeddings else -1.0)
+
+    best: Optional[DuplicateHit] = None
+    for uid in candidates:
+        tmpl = store.load(uid)
+        if tmpl is None or not tmpl.anchors:
+            continue
+        score = best_score(store.protect_probe(emb, user_id=uid), tmpl.anchors)
+        if best is None or score > best.score:
+            best = DuplicateHit(uid, score, self_score)
+    if best is None:
+        return None
+    if best.score >= threshold and best.score >= self_score + self_margin:
+        return best
+    return None
+
+
 def verify(probe: np.ndarray, embeddings: Sequence[np.ndarray],
            match_threshold: float) -> Decision:
     score = best_score(probe, embeddings)

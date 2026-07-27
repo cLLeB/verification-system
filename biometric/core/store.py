@@ -128,12 +128,14 @@ class TemplateStore:
     def __init__(self, db_path: str, samples_per_user: int = 3,
                  adaptive_novelty: float = 0.92, adaptive_max_samples: int = 8,
                  db_file: str = _DEFAULT_DB_FILE, modality: str = "face",
-                 protect_templates: Optional[bool] = None) -> None:
+                 protect_templates: Optional[bool] = None,
+                 adaptive_min_anchor_sim: float = 0.0) -> None:
         self.db_path = db_path
         self.modality = modality
         self.samples_per_user = samples_per_user
         self.adaptive_novelty = adaptive_novelty
         self.adaptive_max_samples = adaptive_max_samples
+        self.adaptive_min_anchor_sim = adaptive_min_anchor_sim
         os.makedirs(self.db_path, exist_ok=True)
         self._cipher = get_cipher(self.db_path)
         use_protect = protect.enabled() if protect_templates is None else bool(protect_templates)
@@ -434,6 +436,17 @@ class TemplateStore:
         existing = tmpl.embeddings
         if existing and max(float(np.dot(emb, e)) for e in existing) >= self.adaptive_novelty:
             return False                         # too similar to add value
+        # ...but novelty alone is a one-way ratchet: it only ever rejects samples for
+        # being too CLOSE, so every accepted verify pushes the template further out,
+        # and because a user's score is the MAX over their vectors, that widening is
+        # permanent and monotonic. The busiest identity therefore drifts into an
+        # everyone-matches blob (2026-07-27 pilot: a palm template whose adaptive
+        # vector had drifted to 0.60 from its own anchors — closer to other people
+        # than to itself — falsely claimed a first-time enrollee's palm). Adaptation
+        # must stay tethered to what the person actually enrolled as.
+        if self.adaptive_min_anchor_sim > 0.0 and tmpl.anchors:
+            if max(float(np.dot(emb, a)) for a in tmpl.anchors) < self.adaptive_min_anchor_sim:
+                return False                     # drifted too far from the anchors
         tmpl.adaptive.append(emb)
         tmpl.adaptive_sources.append(_SRC_LIVE)   # adaptation only from live verifies
         cap = max(0, self.adaptive_max_samples - len(tmpl.anchors))
@@ -442,6 +455,39 @@ class TemplateStore:
             tmpl.adaptive_sources = tmpl.adaptive_sources[-cap:]
         self._write(tmpl)
         return True
+
+    def prune_adaptive(self, min_anchor_sim: Optional[float] = None,
+                       dry_run: bool = False) -> List[Tuple[str, int, int, float]]:
+        """Drop adaptive vectors that no longer resemble the user's own anchors.
+
+        Repairs templates that widened under the old unbounded adaptation (see
+        ``add_adaptive``). Enrolment anchors are never touched, so the worst case
+        is that a user reverts to exactly what they enrolled with. Returns one
+        ``(user_id, dropped, kept, worst_sim_dropped)`` row per changed user.
+        """
+        floor = self.adaptive_min_anchor_sim if min_anchor_sim is None else float(min_anchor_sim)
+        if floor <= 0.0:
+            return []
+        changed: List[Tuple[str, int, int, float]] = []
+        for user_id in self.list_users():
+            tmpl = self.load_raw(user_id)
+            if tmpl is None or not tmpl.anchors or not tmpl.adaptive:
+                continue
+            keep, keep_src, dropped_sims = [], [], []
+            for emb, src in zip(tmpl.adaptive, tmpl.adaptive_sources):
+                sim = max(float(np.dot(emb, a)) for a in tmpl.anchors)
+                if sim >= floor:
+                    keep.append(emb)
+                    keep_src.append(src)
+                else:
+                    dropped_sims.append(sim)
+            if not dropped_sims:
+                continue
+            changed.append((user_id, len(dropped_sims), len(keep), min(dropped_sims)))
+            if not dry_run:
+                tmpl.adaptive, tmpl.adaptive_sources = keep, keep_src
+                self._write(tmpl)
+        return changed
 
     def add_many(self, items, max_anchors: Optional[int] = None) -> int:
         """Bulk-write templates (one transaction). ``max_anchors`` overrides the

@@ -35,6 +35,13 @@ class FaceConfig:
     # --- matching (cosine similarity on L2-normalised embeddings) ---
     match_threshold: float = 0.40            # accept if best similarity >= this
     identify_margin: float = 0.06            # 1:N: best must beat 2nd identity by this
+    # Enrolment duplicate gate — see palm/config.py for the reasoning; the failure
+    # mode (a real person who cannot enrol) is identical here. Face separates far
+    # more cleanly than palm: on the live pilot store the highest cross-identity
+    # score was 0.263 while the loosest genuine template still held together at
+    # 0.693, so 0.55 sits in open space between the two.
+    dupe_threshold: float = 0.55             # cross-user score that means "duplicate"
+    dupe_self_margin: float = 0.0            # ...and it must beat the claimant's own score by this
     samples_per_user: int = 3                # embeddings stored per identity
 
     # --- passive anti-spoofing (single-shot) ---
@@ -48,6 +55,18 @@ class FaceConfig:
     live_turn_yaw: float = 16.0              # need a frame with |yaw| >= this (real turn)
     live_swing_yaw: float = 18.0             # need max-min yaw span >= this
     live_identity_min: float = 0.45          # same-person cosine across the sequence
+    # Latency budget for the burst. Measured per model call on a 2-vCPU container
+    # (ONNX Runtime, 2 intra-op threads): detector 198 ms, 3D-landmark 75 ms,
+    # ArcFace r50 recognition 1799 ms. So a default burst costs
+    # 5x(198+75) + 2x1799 = ~5.0 s, and RECOGNITION IS 72% OF IT — trimming frames
+    # barely helps, halving the recognition count does.
+    live_max_analyze: int = 5                # frames detected on (burst is subsampled to this)
+    # The second recognition pass embeds the most-turned frame and checks it is the
+    # same person as the frontal one, so an attacker cannot pair their own head-turn
+    # with a victim's frontal photo. Worth 1.8 s on a 2-vCPU host. Turning it off is
+    # a REAL security trade-off — only reasonable for an attended kiosk where an
+    # operator can see who is standing there. FACE_LIVE_IDENTITY_CHECK=0.
+    live_identity_check: bool = True          # embed the turned frame too (anti-splice)
 
     # --- adaptive enrollment (track the user as they change, anti-drift) ---
     adaptive_enabled: bool = True            # update template on confident live verifies
@@ -55,6 +74,16 @@ class FaceConfig:
     adaptive_margin: float = 0.10            # 1:N: only adapt if top beats 2nd by this
     adaptive_max_samples: int = 8            # total stored embeddings cap (anchors + adaptive)
     adaptive_novelty: float = 0.92           # skip near-duplicate captures (>= this cosine)
+    # Anchor tether — OFF for face, deliberately, unlike palm (0.75). A face
+    # legitimately drifts away from its enrolment anchors over months and years, and
+    # tracking that is exactly what adaptation is for; tethering it to day-0 anchors
+    # locks the real person out (tests/test_adaptive_drift.py proves this). Face can
+    # afford the looser rule because it separates enormously: on the live pilot store
+    # the worst cross-identity score was 0.263 against a genuine floor of 0.693, so
+    # widening has nowhere near enough room to reach another identity. Palm has no
+    # such margin, which is why it sets a floor. Set FACE_ADAPTIVE_MIN_ANCHOR_SIM if
+    # a deployment ever needs the tether.
+    adaptive_min_anchor_sim: float = 0.0
 
     # --- ID-document detection on enrollment (detect the document, not the face) ---
     id_detection_enabled: bool = True        # auto-branch IDs at enroll (env FACE_ID_DETECTION=0 to disable)
@@ -89,6 +118,25 @@ def load_config() -> FaceConfig:
             cfg = replace(cfg, match_threshold=float(env_thr))
         except ValueError:
             pass
+    if os.environ.get("FACE_LIVE_IDENTITY_CHECK") == "0":
+        cfg = replace(cfg, live_identity_check=False)
+    _env_frames = os.environ.get("FACE_LIVE_MAX_ANALYZE")
+    if _env_frames:
+        try:
+            cfg = replace(cfg, live_max_analyze=int(_env_frames))
+        except ValueError:
+            pass
+    # Tunable live for the same reason as the palm pair: these decide whether a real
+    # person can enrol at all.
+    for _env, _field in (("FACE_DUPE_THRESHOLD", "dupe_threshold"),
+                         ("FACE_DUPE_SELF_MARGIN", "dupe_self_margin"),
+                         ("FACE_ADAPTIVE_MIN_ANCHOR_SIM", "adaptive_min_anchor_sim")):
+        _val = os.environ.get(_env)
+        if _val:
+            try:
+                cfg = replace(cfg, **{_field: float(_val)})
+            except ValueError:
+                pass
     env_db = os.environ.get("FACE_DB_PATH")
     if env_db:
         cfg = replace(cfg, db_path=env_db)

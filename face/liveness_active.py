@@ -92,9 +92,10 @@ _MAX_ANALYZE = 5                   # cap CPU work: never detect on more than thi
 
 
 def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
-    if len(images) > _MAX_ANALYZE:                       # evenly subsample
-        step = len(images) / _MAX_ANALYZE
-        images = [images[int(i * step)] for i in range(_MAX_ANALYZE)]
+    budget = max(int(getattr(cfg, "live_max_analyze", _MAX_ANALYZE)), cfg.live_min_frames)
+    if len(images) > budget:                             # evenly subsample
+        step = len(images) / budget
+        images = [images[int(i * step)] for i in range(budget)]
 
     # Fast path: detection + head pose on every frame (no recognition yet).
     frames: List[_engine.PoseFrame] = []
@@ -118,8 +119,9 @@ def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
     # matching) and the most-turned frame — they must be the SAME person, so an
     # attacker can't combine their own head-turn with a victim's frontal photo.
     emb_front = _engine.embed_pose_frame(frontal, cfg)
-    emb_turn = _engine.embed_pose_frame(turned, cfg)
-    if float(np.dot(emb_front, emb_turn)) < cfg.live_identity_min:
-        return LiveResult(False, "Keep the same face in view the whole time.")
+    if getattr(cfg, "live_identity_check", True):
+        emb_turn = _engine.embed_pose_frame(turned, cfg)
+        if float(np.dot(emb_front, emb_turn)) < cfg.live_identity_min:
+            return LiveResult(False, "Keep the same face in view the whole time.")
 
     return LiveResult(True, "live", emb_front)

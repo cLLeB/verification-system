@@ -37,6 +37,7 @@ class Profile:
     samples_per_user: int           # anchor embeddings stored per identity
     adaptive_novelty: float = 0.92  # skip near-duplicate adaptive captures (>= this cosine)
     adaptive_max_samples: int = 8   # total stored embeddings cap (anchors + adaptive)
+    adaptive_min_anchor_sim: float = 0.0   # floor on adaptive-vs-own-anchors similarity
 
     def store_path(self, tenant_db_path: str) -> str:
         """Directory holding this modality's data for a given tenant."""
@@ -48,6 +49,7 @@ class Profile:
             samples_per_user=self.samples_per_user,
             adaptive_novelty=self.adaptive_novelty,
             adaptive_max_samples=self.adaptive_max_samples,
+            adaptive_min_anchor_sim=self.adaptive_min_anchor_sim,
             db_file=self.db_file,
             modality=self.name,
         )
@@ -69,6 +71,7 @@ FACE_PROFILE = Profile(
     samples_per_user=3,
     adaptive_novelty=0.92,
     adaptive_max_samples=8,
+    adaptive_min_anchor_sim=0.0,     # see FaceConfig: faces must be free to drift
 )
 
 _REGISTRY = {FACE_PROFILE.name: FACE_PROFILE}

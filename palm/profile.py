@@ -27,6 +27,7 @@ PALM_PROFILE = Profile(
     samples_per_user=_ACTIVE.samples_per_user,
     adaptive_novelty=_ACTIVE.adaptive_novelty,
     adaptive_max_samples=_ACTIVE.adaptive_max_samples,
+    adaptive_min_anchor_sim=_ACTIVE.adaptive_min_anchor_sim,
 )
 
 register(PALM_PROFILE)

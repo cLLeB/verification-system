@@ -42,6 +42,7 @@ class FaceStore(TemplateStore):
             samples_per_user=cfg.samples_per_user,
             adaptive_novelty=cfg.adaptive_novelty,
             adaptive_max_samples=cfg.adaptive_max_samples,
+            adaptive_min_anchor_sim=cfg.adaptive_min_anchor_sim,
             db_file=_DB_FILE,
             modality="face",
         )

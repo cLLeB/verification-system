@@ -83,14 +83,19 @@ def _record_side(st: TemplateStore, user_id: str, sides: list, side: str) -> Non
 def _dupe_check(emb, user_id: str, st: TemplateStore, cfg: PalmConfig):
     """This palm must not already belong to a DIFFERENT identity, whichever hand it
     is. Returns a duplicate-failure dict, or None. (Cross-user only — matching one of
-    *this* user's own enrolled hands is expected and handled by the enrol flow.)"""
-    hits = _matcher.merge_off_domain(
-        _index_for(st, cfg).search(st.protect_probe(emb), top_k=3), emb, st, top_k=3)
-    for uid, score in hits:
-        if uid != user_id and score >= cfg.match_threshold:
-            return _fail(f"This print is already enrolled as '{uid}'.", "duplicate",
-                         conflict_user_id=uid, score=round(score, 4))
-    return None
+    *this* user's own enrolled hands is expected and handled by the enrol flow.)
+
+    See ``matcher.duplicate_check`` for why this is a stricter, anchors-only
+    decision rather than a re-run of the verify threshold."""
+    hit = _matcher.duplicate_check(emb, user_id, st, _index_for(st, cfg),
+                                   threshold=cfg.dupe_threshold,
+                                   self_margin=cfg.dupe_self_margin)
+    if hit is None:
+        return None
+    return _fail(f"This print is already enrolled as '{hit.user_id}'.", "duplicate",
+                 conflict_user_id=hit.user_id, score=round(hit.score, 4),
+                 self_score=round(hit.self_score, 4),
+                 threshold=cfg.dupe_threshold)
 
 
 def _enrolled(user_id: str, hand_no: int, hand_samples: int, cfg: PalmConfig,

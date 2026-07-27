@@ -77,6 +77,17 @@ class PalmConfig:
     # with palm/training/eval_eer.py before trusting it in production.
     match_threshold: float = 0.40           # ONNX-encoder accept threshold (CALIBRATE)
     identify_margin: float = 0.05           # ONNX-encoder 1:N margin
+    # Enrolment duplicate gate — DELIBERATELY not match_threshold. Rejecting an
+    # enrolment as "already someone else's palm" is a far stronger claim than
+    # accepting a verify, and its failure mode is worse: the person cannot enrol at
+    # all. Measured on the 2026-07-27 pilot (46 real frames, scored against
+    # enrolment anchors only): the highest score any frame reached against a
+    # DIFFERENT person was 0.737, while a genuine re-presentation of the same palm
+    # sits at 0.98 median. At the old 0.65 gate 18 of 46 genuine frames (39%) were
+    # wrongly refused; at 0.75 and above, none were. 0.80 keeps clear headroom over
+    # the observed impostor ceiling and still catches a real re-enrolment.
+    dupe_threshold: float = 0.80            # cross-user score that means "duplicate"
+    dupe_self_margin: float = 0.0           # ...and it must beat the claimant's own score by this
     classical_match_threshold: float = 0.80  # Gabor-encoder accept threshold
     classical_identify_margin: float = 0.04  # Gabor-encoder 1:N margin
     samples_per_user: int = 3               # anchor embeddings stored per HAND
@@ -99,6 +110,21 @@ class PalmConfig:
     adaptive_margin: float = 0.08            # 1:N: only adapt if top beats 2nd by this
     adaptive_max_samples: int = 8
     adaptive_novelty: float = 0.92
+    # Floor on how far an adaptive sample may sit from the user's own enrolment
+    # anchors. Without it, novelty-gating only ever rejects samples for being too
+    # SIMILAR, so a template can only widen — and since a user's score is the max
+    # over their vectors, the busiest identity slowly becomes a magnet that matches
+    # everyone. That is exactly what happened to the most-verified palm in the
+    # 2026-07-27 pilot (an adaptive vector 0.60 from its own anchors but 0.62 from
+    # another person). Genuine re-presentations of the same palm score 0.9+, so 0.75
+    # admits real drift (lighting, distance, season) and refuses identity drift.
+    #
+    # Face deliberately leaves this at 0 because a face must be free to drift away
+    # from its enrolment over years. Palm sets it because (a) a palm print does not
+    # age the way a face does, so there is little legitimate long-term drift to
+    # track, and (b) palm has nothing like face's separation — the measured gap here
+    # is thin enough that an untethered template reaches other identities, and did.
+    adaptive_min_anchor_sim: float = 0.75
 
     # --- storage ---
     db_path: str = "face_db"                 # tenant root; palm data lives in <root>/palm/
@@ -158,6 +184,18 @@ def load_config() -> PalmConfig:
             explicit_threshold = True
         except ValueError:
             pass
+    # The enrolment duplicate gate and the adaptive anchor floor are the two knobs
+    # that decide whether a real person can enrol at all, so keep them tunable in
+    # seconds during a live session — the same reasoning as the capture gates below.
+    for _env, _field in (("PALM_DUPE_THRESHOLD", "dupe_threshold"),
+                         ("PALM_DUPE_SELF_MARGIN", "dupe_self_margin"),
+                         ("PALM_ADAPTIVE_MIN_ANCHOR_SIM", "adaptive_min_anchor_sim")):
+        _val = os.environ.get(_env)
+        if _val:
+            try:
+                cfg = replace(cfg, **{_field: float(_val)})
+            except ValueError:
+                pass
     # Passive palm anti-spoof (moiré/specular re-presentation cues): PALM_LIVENESS=0
     # disables it; PALM_LIVENESS_THRESHOLD tunes strictness — parity with the face
     # modality's FACE_LIVENESS / FACE_LIVENESS_THRESHOLD env switches.
