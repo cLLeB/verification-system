@@ -93,9 +93,14 @@ _MAX_ANALYZE = 5                   # cap CPU work: never detect on more than thi
 
 def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
     budget = max(int(getattr(cfg, "live_max_analyze", _MAX_ANALYZE)), cfg.live_min_frames)
-    if len(images) > budget:                             # evenly subsample
-        step = len(images) / budget
-        images = [images[int(i * step)] for i in range(budget)]
+    if len(images) > budget:
+        # Span first..last INCLUSIVE. The old `int(i * len/budget)` walk stopped
+        # short of the end — for an 11-frame burst it sampled 0,2,4,6,8 and never
+        # reached the closing frames. Those are the "look straight at the camera"
+        # ones, i.e. where the frontal frame that actually gets MATCHED comes from,
+        # so recognition ran on a half-turned face.
+        span = (len(images) - 1) / (budget - 1) if budget > 1 else 0
+        images = [images[int(round(i * span))] for i in range(budget)]
 
     # Fast path: detection + head pose on every frame (no recognition yet).
     frames: List[_engine.PoseFrame] = []

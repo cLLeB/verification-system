@@ -25,7 +25,15 @@ let stepUp = { required: false, satisfied: true, modality: null };
 let liveness = false;                // server: self_enroll_liveness && active_liveness
 
 const DEAD_CODES = ['used', 'expired', 'revoked', 'invalid'];
-const BURST_FRAMES = 12, BURST_GAP_MS = 130;
+// Guided head-turn — see static/app.js for the reasoning. The old values here were
+// worse still: 12 frames 130 ms apart is 1.5 SECONDS for a three-part instruction,
+// with each prompt shown only after its frame was already taken.
+const TURN_PHASES = [
+    { hint: '⟵  Slowly turn your head LEFT', frames: 4 },
+    { hint: 'Now turn your head RIGHT  ⟶', frames: 4 },
+    { hint: 'Look straight at the camera', frames: 3 },
+];
+const PHASE_LEAD_MS = 350, BURST_GAP_MS = 250;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- Live-preview watchdog — production camera-freeze fix --------------------
@@ -206,14 +214,17 @@ async function captureBurst() {
     setHint('Keep your face in view…');
     await sleep(300);
     const frames = [];
-    for (let i = 0; i < BURST_FRAMES; i++) {
-        const f = grabFrame();
-        if (f) frames.push(f);
-        const frac = (i + 1) / BURST_FRAMES;
-        setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
-              : frac < 0.85 ? 'Now turn your head RIGHT  ⟶'
-              :               'Look at the camera', 'info');
-        await sleep(BURST_GAP_MS);
+    const totalFrames = TURN_PHASES.reduce((n, p) => n + p.frames, 0);
+    let taken = 0;
+    for (const phase of TURN_PHASES) {
+        setHint(phase.hint, 'info');
+        await sleep(PHASE_LEAD_MS);            // instruction first, THEN record
+        for (let i = 0; i < phase.frames; i++) {
+            const f = grabFrame();
+            if (f) frames.push(f);
+            taken++;
+            await sleep(BURST_GAP_MS);
+        }
     }
     return frames;
 }

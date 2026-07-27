@@ -47,7 +47,19 @@ function refreshCaptureLabel() {
 // white flash over the oval at the moment of capture
 function flashOval() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 const OUT_W = 720;
-const BURST_FRAMES = 7, BURST_GAP_MS = 280;    // ~2s head-turn recording
+// Guided head-turn. The old loop grabbed 7 frames 280 ms apart — under 2 SECONDS
+// for "turn left, turn right, look at camera" — and set the instruction AFTER
+// grabbing each frame, so the first frames were recorded before the user had been
+// told anything. Nobody can perform that, which is why live verifies failed with
+// "Turn your head a bit more, side to side". Each instruction now appears BEFORE
+// its frames and stays up long enough to act on.
+const TURN_PHASES = [
+    { hint: '⟵  Slowly turn your head LEFT', frames: 4 },
+    { hint: 'Now turn your head RIGHT  ⟶', frames: 4 },
+    { hint: 'Look straight at the camera', frames: 3 },
+];
+const PHASE_LEAD_MS = 350;                     // read it and start moving first
+const BURST_GAP_MS = 250;                      // ~3.8s total, vs 2s before
 let mode = 'verify', busy = false;
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -312,14 +324,17 @@ async function verify() {
     setHint('Keep your face in the oval…');
     await wait(400);
     const frames = [];
-    for (let i = 0; i < BURST_FRAMES; i++) {
-        const f = grabFrame(); if (f) frames.push(f);
-        const frac = (i + 1) / BURST_FRAMES;
-        setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
-              : frac < 0.85 ? 'Now turn your head RIGHT  ⟶'
-              :               'Look at the camera', 'info');
-        bar.style.width = Math.round(frac * 100) + '%';
-        await wait(BURST_GAP_MS);
+    const totalFrames = TURN_PHASES.reduce((n, p) => n + p.frames, 0);
+    let taken = 0;
+    for (const phase of TURN_PHASES) {
+        setHint(phase.hint, 'info');
+        await wait(PHASE_LEAD_MS);             // instruction first, THEN record
+        for (let i = 0; i < phase.frames; i++) {
+            const f = grabFrame(); if (f) frames.push(f);
+            taken++;
+            bar.style.width = Math.round(taken / totalFrames * 100) + '%';
+            await wait(BURST_GAP_MS);
+        }
     }
     statusText.textContent = 'Checking'; setHint('Checking…');
     try {

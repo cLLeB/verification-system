@@ -163,13 +163,21 @@ async function verifyMe() {
             let ch = null;
             try { ch = await (await fetch('/api/challenge')).json(); } catch (e) {}
             if (ch && ch.active) {
+                // Guided head-turn — instruction BEFORE its frames, and paced so a
+                // person can actually perform it (see static/app.js).
                 const frames = [];
-                for (let i = 0; i < 7; i++) {
-                    const f = grab(); if (f) frames.push(f);
-                    const frac = (i + 1) / 7;
-                    setHint(frac < 0.45 ? '⟵  Slowly turn your head LEFT'
-                          : frac < 0.85 ? 'Now turn your head RIGHT  ⟶' : 'Look at the camera');
-                    await sleep(280);
+                const phases = [
+                    ['⟵  Slowly turn your head LEFT', 4],
+                    ['Now turn your head RIGHT  ⟶', 4],
+                    ['Look straight at the camera', 3],
+                ];
+                for (const [text, n] of phases) {
+                    setHint(text);
+                    await sleep(350);
+                    for (let i = 0; i < n; i++) {
+                        const f = grab(); if (f) frames.push(f);
+                        await sleep(250);
+                    }
                 }
                 body = { frames, token: ch.token };
             } else {

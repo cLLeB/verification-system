@@ -33,3 +33,7 @@ qrcode>=8.0              # credential QR rendering (trust platform phase 2)
 # security floors (pip-audit CVE remediation)
 werkzeug>=3.1.6
 urllib3>=2.6.3
+
+# stdlib zoneinfo has no tz database on Windows/slim images — face_service/timezone.py
+# needs it (tests/test_timezone.py failed with "unknown timezone UTC" without it).
+tzdata>=2024.1
