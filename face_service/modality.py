@@ -123,7 +123,11 @@ def _user_has_palm(user_id: str, pcfg: PalmConfig) -> bool:
 
 
 def _routed(image, face_cfg, palm_enabled, modality, prefer=None,
-            short_circuit=False, primary="face") -> _router.RouteResult:
+            short_circuit=False, primary="palm") -> _router.RouteResult:
+    # MUST match route()'s default. This passes ``primary`` through explicitly, so
+    # leaving it at "face" here silently overrode the palm-first fix for every
+    # verify/identify call that goes through this helper — /api/detect (which calls
+    # route directly) said "palm" while /api/verify said "face" on the SAME frame.
     return (_pinned(modality) if modality in ("face", "palm", "both")
             else route(image, face_cfg, palm_enabled, prefer=prefer,
                        short_circuit=short_circuit, primary=primary))
