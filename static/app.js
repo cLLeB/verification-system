@@ -189,6 +189,12 @@ function grabFrame() {
 function startBusy(status) {
     busy = true; captureBtn.disabled = true; scanner.classList.add('busy');
     statusPill.classList.remove('ok');
+    // Clear the PREVIOUS outcome before a new attempt. The result card used to be
+    // hidden only by the "Start over" button, so after enrolling one hand its green
+    // "Enrolled — ready to verify" card stayed up while the person captured their
+    // OTHER hand (or their face) under the same name — the screen then showed
+    // "Enrolled" and "Captured 1/3, tap Capture again" at the same time.
+    result.classList.add('hidden');
     setCaptureLabel('Capturing…');
     statusText.textContent = status; progressWrap.classList.remove('hidden');
 }
@@ -465,6 +471,7 @@ function reset(msg, kind = '') {
     statusPill.classList.remove('ok');
     refreshCaptureLabel();
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
+    result.classList.add('hidden');     // a hint replaces the old result, never sits under it
     setHint(msg || defaultHint(), kind);
 }
 function defaultHint() {
