@@ -74,9 +74,16 @@ def route(image: np.ndarray, face_probe: Probe, palm_probe: Probe,
     ONE modality) runs the ``primary`` probe first and, if it fires with confidence
     ``>= confident``, returns immediately WITHOUT running the second probe — halving
     the routing cost for the common case. It never short-circuits enrolment, so a
-    combined face+palm image can still enrol both. Accuracy is unaffected: only the
-    cheap presence check is skipped; the matching encoder always runs at full
-    fidelity on the routed modality."""
+    combined face+palm image can still enrol both. Only the cheap presence check is
+    skipped; the matching encoder always runs at full fidelity on the routed
+    modality.
+
+    CHOOSE ``primary`` CAREFULLY. Short-circuiting on FACE means any detectable
+    face wins outright — including a bystander standing behind the subject — so a
+    palm held up in a busy room routes to face and is then asked for a head-turn it
+    will never perform. That happened on the 2026-07-27 pilot. Palm is the safer
+    primary for verify: an open hand with spread fingers presented to the camera is
+    a deliberate gesture, whereas a face in frame is often incidental."""
     if short_circuit:
         first = face_probe if primary == FACE else palm_probe
         present, score = first(image)

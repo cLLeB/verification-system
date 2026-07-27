@@ -83,13 +83,20 @@ def _no_biometric() -> dict:
 
 def route(image: np.ndarray, face_cfg: FaceConfig, palm_enabled: bool = True,
           prefer: Optional[str] = None, *, short_circuit: bool = False,
-          primary: str = "face") -> _router.RouteResult:
+          primary: str = "palm") -> _router.RouteResult:
     """Run the presence probes (fail-soft) and decide the modality.
 
     ``short_circuit`` (verify/identify) runs the primary probe first and skips the
-    second when the primary is confidently present — so a face request never pays
-    for the palm hand-detector, and vice-versa. Enrolment leaves it off so a
-    combined face+palm image still enrols both."""
+    second when the primary is confidently present. Enrolment leaves it off so a
+    combined face+palm image still enrols both.
+
+    ``primary`` defaults to PALM, not face. Face-first meant any detectable face
+    short-circuited the decision, so a palm presented in a room with people in the
+    background routed to face and was then asked for a head-turn — three of
+    Dorsphil's palm verifies failed exactly that way on 2026-07-27. Palm-first is
+    correct because presenting an open, spread hand is deliberate while a face in
+    shot is often a bystander; a face-only capture still finds no hand and falls
+    through to face."""
     pcfg = _palm_cfg_for(face_cfg)
 
     def face_probe(img):
