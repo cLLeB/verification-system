@@ -1339,8 +1339,11 @@ def api_detect():
                 "aligned": abs(pf.yaw) <= CONFIG.max_yaw_deg and abs(pf.pitch) <= CONFIG.max_pitch_deg,
                 "confidence": round(float(pf.det_score), 3),
             }
-    except Exception:
-        pass                                   # no quality block -> neutral chips
+    except Exception as exc:
+        # Fail soft for the CALLER (chips go neutral, capture is never blocked) but
+        # never silently: a missing import here once made every chip read red while
+        # the swallowed NameError left no trace at all.
+        app.logger.warning("detect coach signals unavailable: %r", exc)
     return jsonify(out)
 
 

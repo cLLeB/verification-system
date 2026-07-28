@@ -11,7 +11,12 @@ const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
 const scanner = document.querySelector('.scanner');
 const modeVerify = $('mode-verify'), modeEnroll = $('mode-enroll'), segThumb = $('seg-thumb');
 const enrollRow = $('enroll-row'), userId = $('user-id'), dots = $('dots');
-const hint = $('hint'), bar = $('bar'), progressWrap = $('progress-wrap'), statusText = $('status-text');
+const hint = $('hint'), statusText = $('status-text');
+// The loading bar under the shutter was removed; these stand in for it so the
+// capture flow keeps its single set of progress calls instead of sprouting a
+// null-check at every step.
+const bar = { style: {} };
+const progressWrap = { classList: { add() {}, remove() {} } };
 const captureBtn = $('capture-btn'), swapBtn = $('swap-btn');
 const result = $('result'), resultSvg = $('result-svg');
 const resultTitle = $('result-title'), resultSub = $('result-sub'), againBtn = $('again');
@@ -56,114 +61,6 @@ function refreshCaptureLabel() {
 function flashOval() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 const OUT_W = 720;
 
-// --- Live capture coaching -------------------------------------------------
-// Tell the person WHAT is wrong while they are still framing, instead of failing
-// the shot and leaving them to guess. Three signals, each measured rather than
-// invented:
-//   Lighting - mean luma of the oval region, computed here from the video. Free
-//              and instant, so it needs no network at all.
-//   Distance - how much of the frame the detected face/palm fills.
-//   Angle    - palm facing the camera with fingers spread, or head yaw/pitch
-//              inside the accept range.
-// Distance and Angle can only come from the detector, so a small frame goes to
-// /api/detect?coach at a slow cadence. The thresholds stay on the SERVER, next to
-// the ones enrolment actually enforces, so the chips can never drift out of sync
-// with the gate they are predicting.
-// Everything here is best-effort: it never blocks a capture, never throws into
-// the capture path, and stops while busy or backgrounded so it cannot compete
-// with a real request for the 2-vCPU container.
-const COACH_MS = 900;                       // one probe per ~0.9s while idle
-const COACH_W = 320;                        // downscaled probe frame
-const LUMA_LOW = 55, LUMA_HIGH = 240;       // usable exposure band
-let coachTimer = null, coachBusy = false, coachOn = false;
-const coachCanvas = document.createElement('canvas');
-const coachCtx = coachCanvas.getContext('2d', { willReadFrequently: true });
-
-function setChip(id, state) {               // state: 'ok' | 'bad' | null (unknown)
-    const el = $(id);
-    if (!el) return;
-    el.classList.toggle('ok', state === 'ok');
-    el.classList.toggle('bad', state === 'bad');
-}
-
-function setRing(fraction, locked) {
-    const r = $('ring-fill');
-    if (!r) return;
-    const pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
-    r.setAttribute('stroke-dasharray', `${pct} ${100 - pct}`);
-    r.classList.toggle('locked', !!locked);
-}
-
-// Mean luma over the centre of the frame, where the subject actually is.
-function frameLuma() {
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return null;
-    const w = 48, h = 60;
-    coachCanvas.width = w; coachCanvas.height = h;
-    const cw = vw * 0.6, ch = vh * 0.6;      // centre 60%, roughly the oval
-    coachCtx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, w, h);
-    const d = coachCtx.getImageData(0, 0, w, h).data;
-    let sum = 0;
-    for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-    return sum / (d.length / 4);
-}
-
-function coachFrame() {                      // small JPEG for the detector
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return null;
-    const w = Math.min(COACH_W, vw), h = Math.round(w * vh / vw);
-    coachCanvas.width = w; coachCanvas.height = h;
-    coachCtx.drawImage(video, 0, 0, w, h);
-    return coachCanvas.toDataURL('image/jpeg', 0.6);
-}
-
-async function coachTick() {
-    if (!coachOn || coachBusy || busy || document.hidden) return;
-    if (!video.srcObject || video.readyState < 2) return;
-    coachBusy = true;
-    try {
-        const luma = frameLuma();
-        const lightOk = luma !== null && luma >= LUMA_LOW && luma <= LUMA_HIGH;
-        setChip('q-light', luma === null ? null : (lightOk ? 'ok' : 'bad'));
-
-        const img = coachFrame();
-        let sizeOk = null, angleOk = null;
-        if (img) {
-            const r = await fetch('/api/detect', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: img, coach: 1 }),
-            }).then((x) => x.json());
-            const q = r && r.quality;
-            if (q) { sizeOk = !!q.size_ok; angleOk = !!q.aligned; }
-            else if (r && r.modality === 'none') { sizeOk = false; angleOk = null; }
-        }
-        setChip('q-dist', sizeOk === null ? null : (sizeOk ? 'ok' : 'bad'));
-        setChip('q-angle', angleOk === null ? null : (angleOk ? 'ok' : 'bad'));
-
-        const good = [lightOk, sizeOk === true, angleOk === true].filter(Boolean).length;
-        const locked = good === 3;
-        setRing(good / 3, locked);
-        captureBtn.classList.toggle('ready', locked);
-    } catch (e) {
-        /* coaching is advisory: a failed probe leaves the chips as they were */
-    } finally {
-        coachBusy = false;
-    }
-}
-
-function startCoach() {
-    if (coachTimer) return;
-    coachOn = true;
-    coachTimer = setInterval(coachTick, COACH_MS);
-}
-function stopCoach() {
-    coachOn = false;
-    if (coachTimer) { clearInterval(coachTimer); coachTimer = null; }
-    ['q-light', 'q-dist', 'q-angle'].forEach((id) => setChip(id, null));
-    setRing(0, false);
-    captureBtn.classList.remove('ready');
-}
-document.addEventListener('visibilitychange', () => { if (document.hidden) setRing(0, false); });
 // Guided head-turn. The old loop grabbed 7 frames 280 ms apart - under 2 SECONDS
 // for "turn left, turn right, look at camera" - and set the instruction AFTER
 // grabbing each frame, so the first frames were recorded before the user had been
@@ -220,6 +117,105 @@ async function ensureLiveVideo(v) {
     await nextVideoFrame(v);
 }
 
+// --- Live capture coaching -------------------------------------------------
+// Tell the person WHAT is wrong while they are still framing, instead of failing
+// the shot and leaving them to guess. Three signals, each measured rather than
+// invented:
+//   Lighting - mean luma of the oval region, computed here from the video. Free
+//              and instant, so it needs no network at all.
+//   Distance - how much of the frame the detected face/palm fills.
+//   Angle    - palm facing the camera with fingers spread, or head yaw/pitch
+//              inside the accept range.
+// Distance and Angle can only come from the detector, so a small frame goes to
+// /api/detect?coach at a slow cadence. The thresholds stay on the SERVER, next to
+// the ones enrolment actually enforces, so the chips can never drift out of sync
+// with the gate they are predicting.
+// Everything here is best-effort: it never blocks a capture, never throws into
+// the capture path, and stops while busy or backgrounded so it cannot compete
+// with a real request for the 2-vCPU container.
+const COACH_MS = 900;                       // one probe per ~0.9s while idle
+const COACH_W = 320;                        // downscaled probe frame
+const LUMA_LOW = 55, LUMA_HIGH = 240;       // usable exposure band
+let coachTimer = null, coachBusy = false, coachOn = false;
+const coachCanvas = document.createElement('canvas');
+const coachCtx = coachCanvas.getContext('2d', { willReadFrequently: true });
+
+function setChip(id, state) {               // state: 'ok' | 'bad' | null (unknown)
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('ok', state === 'ok');
+    el.classList.toggle('bad', state === 'bad');
+}
+
+// Mean luma over the centre of the frame, where the subject actually is.
+function frameLuma() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = 48, h = 60;
+    coachCanvas.width = w; coachCanvas.height = h;
+    const cw = vw * 0.6, ch = vh * 0.6;      // centre 60%, roughly the oval
+    coachCtx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, w, h);
+    const d = coachCtx.getImageData(0, 0, w, h).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    return sum / (d.length / 4);
+}
+
+function coachFrame() {                      // small JPEG for the detector
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = Math.min(COACH_W, vw), h = Math.round(w * vh / vw);
+    coachCanvas.width = w; coachCanvas.height = h;
+    coachCtx.drawImage(video, 0, 0, w, h);
+    return coachCanvas.toDataURL('image/jpeg', 0.6);
+}
+
+async function coachTick() {
+    if (!coachOn || coachBusy || busy || document.hidden) return;
+    if (!video.srcObject || video.readyState < 2) return;
+    coachBusy = true;
+    try {
+        const luma = frameLuma();
+        const lightOk = luma !== null && luma >= LUMA_LOW && luma <= LUMA_HIGH;
+        setChip('q-light', luma === null ? null : (lightOk ? 'ok' : 'bad'));
+
+        const img = coachFrame();
+        let sizeOk = null, angleOk = null;
+        if (img) {
+            const r = await fetch('/api/detect', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: img, coach: 1 }),
+            }).then((x) => x.json());
+            const q = r && r.quality;
+            if (q) { sizeOk = !!q.size_ok; angleOk = !!q.aligned; }
+            else if (r && r.modality === 'none') { sizeOk = false; angleOk = null; }
+        }
+        setChip('q-dist', sizeOk === null ? null : (sizeOk ? 'ok' : 'bad'));
+        setChip('q-angle', angleOk === null ? null : (angleOk ? 'ok' : 'bad'));
+
+        // All three in range -> the shutter goes green. The oval's progress ring
+        // was removed; the chips already say which signal is out.
+        const good = [lightOk, sizeOk === true, angleOk === true].filter(Boolean).length;
+        captureBtn.classList.toggle('ready', good === 3);
+    } catch (e) {
+        /* coaching is advisory: a failed probe leaves the chips as they were */
+    } finally {
+        coachBusy = false;
+    }
+}
+
+function startCoach() {
+    if (coachTimer) return;
+    coachOn = true;
+    coachTimer = setInterval(coachTick, COACH_MS);
+}
+function stopCoach() {
+    coachOn = false;
+    if (coachTimer) { clearInterval(coachTimer); coachTimer = null; }
+    ['q-light', 'q-dist', 'q-angle'].forEach((id) => setChip(id, null));
+    captureBtn.classList.remove('ready');
+}
+
 let facing = 'user';                         // 'user' = front (selfie), 'environment' = rear
 async function startCamera() {
     try {
@@ -237,7 +233,7 @@ async function startCamera() {
         $('cam-denied').classList.add('hidden');
         captureBtn.disabled = false;
         showDeviceTip();                                        // palm camera guidance
-        startCoach();                                           // live framing guidance
+        startCoach();                                           // live framing chips
     } catch (err) {
         statusText.textContent = 'Blocked';
         statusPill.classList.add('bad');
@@ -597,8 +593,7 @@ function reset(msg, kind = '') {
     setHint(msg || defaultHint(), kind);
 }
 function defaultHint() {
-    return mode === 'enroll' ? 'Show your face or open hand, then tap Capture (3 times)'
-                             : 'Show your face - or your open hand - then tap Verify';
+    return '';        // no idle instruction line; the shutter speaks for itself
 }
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
