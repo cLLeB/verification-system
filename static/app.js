@@ -315,6 +315,50 @@ function startBusy(status) {
     statusText.textContent = status; progressWrap.classList.remove('hidden');
 }
 
+// --- Auto-retry after a coachable failure -----------------------------------
+// A run that fails on POSITIONING ("turn your head a bit more", "move closer",
+// "nothing detected") used to stop dead. The person reads the advice, repositions,
+// and waits - without realising the attempt ended and the shutter needs pressing
+// again. They had already tapped, so continuing is not a new consent decision; it
+// finishes the attempt they started.
+// Only codes a person can FIX BY MOVING retry. A real decision - not recognised,
+// access denied, consent withdrawn, duplicate - never does, because repeating
+// those is pointless and hides the answer. The run is capped so it can never loop,
+// and any manual tap takes over and resets the budget.
+const RETRY_CODES = ['liveness', 'low_quality', 'multiple_faces', 'no_biometric_detected',
+                     'no_hand', 'palm_too_small', 'palm_blurry', 'fingers_not_spread',
+                     'palm_not_facing', 'multiple_hands', 'palm_enroll_blurry',
+                     'palm_enroll_too_far', 'palm_enroll_too_dark', 'palm_enroll_too_bright'];
+const RETRY_MAX = 3, RETRY_DELAY_MS = 2600;   // long enough to read the advice and move
+let retryLeft = RETRY_MAX, retryTimer = null, retryTick = null;
+
+function cancelRetry() {
+    if (retryTimer) clearTimeout(retryTimer);
+    if (retryTick) clearInterval(retryTick);
+    retryTimer = retryTick = null;
+}
+function scheduleRetry(msg) {
+    cancelRetry();
+    const advice = msg || 'Adjust your position';
+    if (retryLeft <= 0) {                     // budget spent: hand control back, clearly
+        setHint(`${advice} Tap the shutter when you are ready.`, 'warn');
+        return;
+    }
+    retryLeft--;
+    let left = Math.round(RETRY_DELAY_MS / 1000);
+    const paint = () => setHint(`${advice} Retrying in ${left}...`, 'warn');
+    paint();
+    retryTick = setInterval(() => { left = Math.max(0, left - 1); paint(); }, 1000);
+    retryTimer = setTimeout(() => {
+        cancelRetry();
+        if (document.hidden) {              // backgrounded: don't fire into nothing
+            setHint(`${advice} Tap the shutter when you are ready.`, 'warn');
+            return;
+        }
+        onCapture();
+    }, RETRY_DELAY_MS);
+}
+
 async function onCapture() {
     if (busy) return;
     if (mode === 'enroll') return enrollCapture();
@@ -512,7 +556,7 @@ async function handle(data) {
     // for palm, nudge toward the rear/face now. This is the accurate palm-intent signal.
     if (data.modality === 'palm' || data.matched_modality === 'palm' ||
         (typeof data.code === 'string' && data.code.startsWith('palm_'))) palmCameraNudge();
-    if (['liveness', 'low_quality', 'multiple_faces'].includes(data.code)) { reset(data.message, 'warn'); return; }
+    if (RETRY_CODES.includes(data.code)) { reset(); scheduleRetry(data.message); return; }
 
     if (mode === 'enroll') {
         const n = data.samples || 0;
@@ -553,7 +597,7 @@ async function handle(data) {
         const wardNote = wards ? ` - may collect for: ${wards}` : '';
         show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}${wardNote}` : '');
     } else if (data.code === 'no_biometric_detected') {
-        show('bad', ICON_BAD, 'Nothing detected', 'Show your face - or your open hand - clearly');
+        reset(); scheduleRetry('Nothing detected - show your face, or your open hand, clearly.');
     } else if (data.code === 'step_up_required') {
         show('warn', ICON_BAD, 'One more step', data.message || 'Also present your other biometric');
     } else if (data.code === 'access_denied') {
@@ -574,6 +618,7 @@ async function handle(data) {
 function show(kind, icon, title, sub) {
     busy = false; captureBtn.disabled = false;
     captureBtn.classList.remove('busy');
+    cancelRetry(); retryLeft = RETRY_MAX;
     refreshCaptureLabel();
     if (kind === 'ok') { statusText.textContent = 'Complete'; statusPill.classList.add('ok'); }
     // done-state action: "Verify again" / "Start over" with a restart icon (per design)
@@ -596,8 +641,8 @@ function defaultHint() {
     return '';        // no idle instruction line; the shutter speaks for itself
 }
 
-againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
-captureBtn.addEventListener('click', onCapture);
+againBtn.addEventListener('click', () => { cancelRetry(); retryLeft = RETRY_MAX; result.classList.add('hidden'); reset(); });
+captureBtn.addEventListener('click', () => { cancelRetry(); retryLeft = RETRY_MAX; onCapture(); });
 $('upload-enroll').addEventListener('click', enrollFromFiles);
 // selecting a reference photo submits it directly (no separate button, per design)
 $('enroll-files').addEventListener('change', () => { if ($('enroll-files').files.length) enrollFromFiles(); });
@@ -635,6 +680,7 @@ function setMode(m) {
     // and explainer, so only enrol needs the layout compacted to stay on one
     // screen - verify keeps the full-size oval it always had.
     document.documentElement.dataset.mode = m;
+    cancelRetry(); retryLeft = RETRY_MAX;
     modeEnroll.classList.toggle('is-active', enr); modeVerify.classList.toggle('is-active', !enr);
     modeEnroll.setAttribute('aria-selected', enr); modeVerify.setAttribute('aria-selected', !enr);
     segThumb.classList.toggle('right', enr);

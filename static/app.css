@@ -391,8 +391,8 @@ html, body { overflow-x: hidden; }
     html[data-mode="enroll"] .app { gap: 14px; }
     html[data-mode="enroll"] .upload-card { padding: 10px; }
     html[data-mode="enroll"] .upload-ico { width: 30px; height: 30px; }
-    /* Everything above the camera in enrol mode costs ~517px at these paddings
-       (the 76px shutter is part of that). Give the
+    /* Everything above the camera in enrol mode costs ~553px at these paddings
+       (the chip row and the 76px shutter are part of that). Give the
        oval exactly what is left so it scales continuously with the viewport
        instead of stepping between fixed sizes and overflowing between the steps.
        The floor keeps it big enough to frame a hand; below that the page simply
@@ -414,11 +414,37 @@ html, body { overflow-x: hidden; }
     html[data-mode="enroll"] .q-chip { padding: 3px 8px; font-size: 0.7rem; }
     html[data-mode="enroll"] .shutter { width: 66px; height: 66px; }
     html[data-mode="enroll"] .shutter-core { width: 50px; height: 50px; }
-    /* Trimming the label, sub-text, paddings and shutter drops it to ~432px. */
+    /* Trimming the label, sub-text, paddings and shutter drops it to ~468px. */
     html[data-mode="enroll"] .scanner-stage {
         width: clamp(150px, calc((100dvh - 468px) * 0.778), 300px);
     }
 }
+
+/* Shutter: one large, thumb-reachable target. 76px is above the 44px minimum by
+   a wide margin because this is the only control that matters on the screen. */
+.actions { justify-content: center; }
+.shutter {
+    position: relative; width: 76px; height: 76px; flex: none; padding: 0;
+    border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+    display: grid; place-items: center;
+    transition: transform .12s var(--ease), opacity .2s var(--ease);
+}
+.shutter-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 3px solid color-mix(in oklab, var(--txt) 55%, transparent);
+    transition: border-color .2s var(--ease);
+}
+.shutter-core {
+    width: 58px; height: 58px; border-radius: 50%; background: var(--txt);
+    transition: transform .12s var(--ease), background .2s var(--ease);
+}
+.shutter:active .shutter-core { transform: scale(.88); }
+.shutter:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
+.shutter:disabled { opacity: .45; cursor: default; }
+/* Ready to shoot: everything the engine checks is in range. */
+.shutter.ready .shutter-ring { border-color: var(--ok); }
+.shutter.ready .shutter-core { background: var(--ok); }
+.shutter.busy .shutter-core { transform: scale(.7); background: var(--brand); }
 
 /* Chips. Neutral by default (nothing measured yet) so the screen is not a wall
    of red before the camera has even seen anything. */
