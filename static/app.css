@@ -172,16 +172,33 @@ body {
 .scanner {
     position: relative; z-index: 1; width: 100%; height: 100%;
     background: #05080d; border-radius: 50%; overflow: hidden;
+    /* THE fix for the faint grey rectangle around the oval. overflow:hidden +
+       border-radius does not contain a child that owns a compositing layer, and
+       three children here do: <video> (always, plus a transform when mirrored),
+       .scan-bar (transform animation) and .result (backdrop-filter). Each was
+       painting its full rectangle past the oval in every state. clip-path is a
+       geometric clip the compositor cannot ignore, and putting it on the CONTAINER
+       clips every child at once instead of chasing them one by one.
+       Consequence: an outer box-shadow would now be clipped away too, so the
+       surrounding glow comes from .scan-halo (which already sits behind the oval)
+       and the rim from the 4px border. */
+    clip-path: ellipse(50% 50% at 50% 50%);
     border: 4px solid var(--bg-1);
-    box-shadow: 0 30px 80px -30px color-mix(in oklab, var(--brand) 50%, transparent),
-                0 0 0 1px var(--line);
     display: flex; align-items: center; justify-content: center;
     animation: pulse-ring 2.8s var(--ease) infinite;
     transition: box-shadow .3s var(--ease);
 }
-/* border-radius on the video itself clips it to the ellipse — without this,
-   iOS Safari lets the transformed <video> corners escape the parent's round
-   mask (the "faded square" around the oval). */
+/* Children that get their OWN compositing layer escape the parent's
+   overflow:hidden + border-radius mask, and paint their full rectangle — that is
+   the faint grey box around the oval, visible in EVERY state, not just on a
+   result. Three separate triggers here: #video.mirror carries a transform, the
+   result overlay carries backdrop-filter, and a <video> is composited anyway.
+   border-radius on the child was the earlier workaround and is not enough on
+   iOS Safari; clip-path is a geometric clip the compositor cannot ignore.
+   Applied only to children that fill the whole oval box (inset:0 or 100%/100%),
+   so ellipse(50% 50%) is exactly the oval — .scan-bar is deliberately excluded
+   because it is a short band and would be clipped to its own tiny ellipse. */
+#video, .flash, .result, .cam-denied { clip-path: ellipse(50% 50% at 50% 50%); }
 #video { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
 #video.mirror { transform: scaleX(-1); }
 
