@@ -391,96 +391,40 @@ html[data-theme="light"] .result.ok { background: color-mix(in oklab, var(--ok) 
 html, body { overflow-x: hidden; }
 @supports (overflow: clip) { html, body { overflow-x: clip; } }
 
+/* ENROL ONLY. Verify shows just the camera, chips and shutter, so it has room to
+   spare and keeps the full-size oval it has always had. Enrol additionally carries
+   the name field, the upload card and the collapsed explainer, and that is the
+   combination that overflowed a short phone. Scoping by data-mode (set in
+   setMode()) means shrinking enrol can never quietly shrink verify. */
 @media (max-height: 860px) {
-    .app { gap: 14px; }
-    .upload-card { padding: 10px; }
-    .upload-ico { width: 30px; height: 30px; }
-    .actions .btn { min-height: 50px; }
+    html[data-mode="enroll"] .app { gap: 14px; }
+    html[data-mode="enroll"] .upload-card { padding: 10px; }
+    html[data-mode="enroll"] .upload-ico { width: 30px; height: 30px; }
     /* Everything above the camera in enrol mode costs ~553px at these paddings
-       (the coaching chip row and the 76px shutter are part of that).
-       Give the oval exactly what is left, so it scales continuously with the
-       viewport instead of stepping between fixed sizes and overflowing between
-       the steps. Floor keeps it big enough to frame a hand; below that the page
-       simply scrolls again, which is honest rather than unusable. */
-    .scanner-stage { width: clamp(175px, calc((100dvh - 553px) * 0.778), 300px); margin: 2px auto 0; }
+       (the coaching chip row and the 76px shutter are part of that). Give the
+       oval exactly what is left so it scales continuously with the viewport
+       instead of stepping between fixed sizes and overflowing between the steps.
+       The floor keeps it big enough to frame a hand; below that the page simply
+       scrolls again, which is honest rather than unusable. */
+    html[data-mode="enroll"] .scanner-stage {
+        width: clamp(175px, calc((100dvh - 553px) * 0.778), 300px); margin: 2px auto 0;
+    }
 }
 @media (max-height: 800px) {
-    .app { gap: 10px; padding-top: max(10px, env(safe-area-inset-top));
-           padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-    .enroll-row { gap: 8px; }
-    .micro-label { display: none; }        /* the input's placeholder already says it */
-    .upload-card { padding: 8px; }
-    .upload-sub { display: none; }         /* "Optional - enroll from an image" */
-    .actions .btn { min-height: 46px; }
-    .protect-note { padding: 8px 12px; }
-    .shutter { width: 66px; height: 66px; }
-    .shutter-core { width: 50px; height: 50px; }
-    .q-chip { padding: 3px 8px; font-size: 0.7rem; }
+    html[data-mode="enroll"] .app {
+        gap: 10px; padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    html[data-mode="enroll"] .enroll-row { gap: 8px; }
+    html[data-mode="enroll"] .micro-label { display: none; }   /* the placeholder already says it */
+    html[data-mode="enroll"] .upload-card { padding: 8px; }
+    html[data-mode="enroll"] .upload-sub { display: none; }    /* "Optional - enroll from an image" */
+    html[data-mode="enroll"] .protect-note { padding: 8px 12px; }
+    html[data-mode="enroll"] .shutter { width: 66px; height: 66px; }
+    html[data-mode="enroll"] .shutter-core { width: 50px; height: 50px; }
+    html[data-mode="enroll"] .q-chip { padding: 3px 8px; font-size: 0.7rem; }
     /* Trimming the label, sub-text, paddings and shutter drops it to ~468px. */
-    .scanner-stage { width: clamp(150px, calc((100dvh - 468px) * 0.778), 300px); }
-}
-
-/* ─── Capture coaching: shutter, quality chips, progress ring ──────────────
-   Replaces the text buttons ("Capture & verify", "Capture sample 2") with a
-   camera shutter, and gives the person live feedback while they frame up. The
-   pattern is the one bank/KYC flows use: say WHICH thing is wrong, in the
-   moment, instead of failing after the shot and making them guess. */
-
-/* Shutter: one large, thumb-reachable target. 76px is above the 44px minimum by
-   a wide margin because this is the only control that matters on the screen. */
-.actions { justify-content: center; }
-.shutter {
-    position: relative; width: 76px; height: 76px; flex: none; padding: 0;
-    border: 0; border-radius: 50%; background: transparent; cursor: pointer;
-    display: grid; place-items: center;
-    transition: transform .12s var(--ease), opacity .2s var(--ease);
-}
-.shutter-ring {
-    position: absolute; inset: 0; border-radius: 50%;
-    border: 3px solid color-mix(in oklab, var(--txt) 55%, transparent);
-    transition: border-color .2s var(--ease);
-}
-.shutter-core {
-    width: 58px; height: 58px; border-radius: 50%; background: var(--txt);
-    transition: transform .12s var(--ease), background .2s var(--ease);
-}
-.shutter:active .shutter-core { transform: scale(.88); }
-.shutter:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
-.shutter:disabled { opacity: .45; cursor: default; }
-/* Ready to shoot: everything the engine checks is in range. */
-.shutter.ready .shutter-ring { border-color: var(--ok); }
-.shutter.ready .shutter-core { background: var(--ok); }
-.shutter.busy .shutter-core { transform: scale(.7); background: var(--brand); }
-
-/* Chips. Neutral by default (nothing measured yet) so the screen is not a wall
-   of red before the camera has even seen anything. */
-.q-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.q-chips.hidden { display: none; }
-.q-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 999px;
-    font-size: 0.74rem; font-weight: 600; letter-spacing: .01em;
-    color: var(--txt-muted); background: var(--bg-1);
-    border: 1px solid var(--line);
-    transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
-}
-.q-chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
-.q-chip.ok  { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 45%, transparent);
-              background: color-mix(in oklab, var(--ok) 12%, transparent); }
-.q-chip.bad { color: var(--bad); border-color: color-mix(in oklab, var(--bad) 55%, transparent);
-              background: color-mix(in oklab, var(--bad) 14%, transparent); }
-.q-chip.ok i, .q-chip.bad i { opacity: 1; }
-
-/* Progress ring. The dashed ellipse stays as the TRACK; a solid arc grows over
-   it from 0 to 100 as the signals come good, so "something is happening" is
-   visible before any capture is taken. pathLength=100 lets JS set the arc in
-   plain percent regardless of the ellipse's real perimeter. */
-.scan-outline .ring-track { stroke: color-mix(in oklab, var(--brand) 45%, transparent); }
-.scan-outline .ring-fill {
-    stroke: var(--brand);
-    transition: stroke-dasharray .35s var(--ease), stroke .3s var(--ease);
-}
-.scan-outline .ring-fill.locked { stroke: var(--ok); }
-@media (prefers-reduced-motion: reduce) {
-    .scan-outline .ring-fill { transition: none; }
+    html[data-mode="enroll"] .scanner-stage {
+        width: clamp(150px, calc((100dvh - 468px) * 0.778), 300px);
+    }
 }

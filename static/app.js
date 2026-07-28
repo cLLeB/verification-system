@@ -636,6 +636,10 @@ function renderDots(n) {
 function setMode(m) {
     mode = m;
     const enr = m === 'enroll';
+    // Expose the mode to CSS. Only ENROL carries the extra name field, upload card
+    // and explainer, so only enrol needs the layout compacted to stay on one
+    // screen - verify keeps the full-size oval it always had.
+    document.documentElement.dataset.mode = m;
     modeEnroll.classList.toggle('is-active', enr); modeVerify.classList.toggle('is-active', !enr);
     modeEnroll.setAttribute('aria-selected', enr); modeVerify.setAttribute('aria-selected', !enr);
     segThumb.classList.toggle('right', enr);
