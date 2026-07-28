@@ -9,9 +9,9 @@ import org.junit.Test
 import kotlin.math.abs
 
 /** Golden glance-index test: the Kotlin search must reproduce the server's
- *  reference search (face_service/glance.py) on a real payload — same top hit,
+ *  reference search (face_service/glance.py) on a real payload - same top hit,
  *  same score, margin-gated decisions, clamped threshold. If this fails, the
- *  on-device 1:N disagrees with the server — do not ship. */
+ *  on-device 1:N disagrees with the server - do not ship. */
 class GlanceIndexTest {
 
     private val fx: JSONObject by lazy {

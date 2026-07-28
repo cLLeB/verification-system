@@ -1,12 +1,12 @@
-"""Retention — surface identities that have gone stale and are due for erasure.
+"""Retention - surface identities that have gone stale and are due for erasure.
 
 Storage minimisation is a legal duty: biometric templates should not outlive the
 reason they were collected. This subsystem records the last time each identity
 was *seen* (enrolled or successfully verified) and, given a tenant retention
-period, reports who has been inactive longer than that — the erasure worklist.
+period, reports who has been inactive longer than that - the erasure worklist.
 
 It deliberately does **not** delete anything itself; it produces the list, which
-the operator (or a scheduled job) runs through the normal delete path — and that
+the operator (or a scheduled job) runs through the normal delete path - and that
 path still consults [[legalhold]], so held data is never swept. This keeps a
 dangerous, irreversible action explicit while automating the tedious part:
 knowing *who*.

@@ -62,7 +62,7 @@ def _derive_kek(db_path: str, passphrase: str) -> bytes:
 
 # A fixed application salt for the STATELESS key mode (BIO_DB_KEY_STATELESS=1). A
 # per-store random salt is normally written to a ``.salt`` file, but that file must
-# then survive on the durable store — and network shares (Azure Files/SMB) can't
+# then survive on the durable store - and network shares (Azure Files/SMB) can't
 # reliably hold the chmod-0600 key files, so the salt desyncs from the wrapped key
 # and the DB becomes undecryptable. With a strong random master passphrase, deriving
 # the key from a FIXED salt is safe (the salt only blocks cross-DB precomputation)
@@ -105,7 +105,7 @@ def get_cipher(db_path: str, passphrase: Optional[str] = None):
             _restrict(wrapped)
             return Fernet(dk)
         # pre-KEK store (salt exists, no key files): the derived key IS the data
-        # key — behavior identical to the old code so existing DBs decrypt
+        # key - behavior identical to the old code so existing DBs decrypt
         return Fernet(_derive_kek(db_path, passphrase))
     key = _load_or_create(db_path, _KEY_FILE, Fernet.generate_key)
     return Fernet(key)
@@ -116,8 +116,8 @@ def available() -> bool:
 
 
 def rotate_master(db_path: str, old_passphrase: str, new_passphrase: str) -> bool:
-    """Re-wrap a store's data key under a new master passphrase. The data key —
-    and therefore every encrypted blob — is untouched. Returns False for stores
+    """Re-wrap a store's data key under a new master passphrase. The data key -
+    and therefore every encrypted blob - is untouched. Returns False for stores
     that have no wrapped key (legacy derived / plain key-file stores)."""
     wrapped = os.path.join(db_path, _WRAPPED_KEY_FILE)
     if not (_AVAILABLE and os.path.exists(wrapped)):
@@ -138,7 +138,7 @@ def erase_keys(db_path: str) -> int:
     behind (including SQLite pages and backups) become permanently unreadable.
     Returns the number of key files removed."""
     removed = 0
-    # .protect.secret: the template-protection secret (biometric.core.protect) —
+    # .protect.secret: the template-protection secret (biometric.core.protect) -
     # erasing it kills every protection domain along with the data key.
     for name in (_SALT_FILE, _KEY_FILE, _WRAPPED_KEY_FILE, ".protect.secret"):
         path = os.path.join(db_path, name)

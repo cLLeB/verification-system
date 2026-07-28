@@ -89,7 +89,7 @@ If you want to use your phone's high-quality back camera to scan your finger, we
 
 ### Step C: Using the Mobile Interface
 
-The interface is **hands-free** — there is no capture button. You hold your
+The interface is **hands-free** - there is no capture button. You hold your
 fingertip in the outline and it captures automatically when it's steady and in
 focus (the bar fills as it reads).
 
@@ -105,7 +105,7 @@ focus (the bar fills as it reads).
    - Tap **Scan again** to verify another finger.
 
 Tips for best accuracy: fill the capsule with the **pad** of your fingertip,
-hold steady, use even lighting. If it says "Hold steady — focusing…", give the
+hold steady, use even lighting. If it says "Hold steady - focusing…", give the
 camera a moment to focus (or pull back slightly).
 
 ---
@@ -129,7 +129,7 @@ camera a moment to focus (or pull back slightly).
 > **"Out of focus" / it keeps asking to recapture**
 > The system now refuses blurry frames (a blurry capture is the main reason a
 > finger fails to match itself). Hold the fingertip still at the phone's focus
-> distance — pull back a little if it won't sharpen — and let the preview crisp
+> distance - pull back a little if it won't sharpen - and let the preview crisp
 > up before it auto-captures. You can also nudge the Focus/Brightness sliders.
 
 > [!NOTE]
@@ -137,10 +137,10 @@ camera a moment to focus (or pull back slightly).
 > Make sure enrolment and verification are both **in focus** and the fingertip
 > fills the box similarly. Enrol 3 crisp impressions. If it still denies a
 > genuine finger, run the server with `FP_DEBUG=1` (PowerShell:
-> `$env:FP_DEBUG=1; python app.py`) — every capture is saved to `debug/` and the
+> `$env:FP_DEBUG=1; python app.py`) - every capture is saved to `debug/` and the
 > outcome (score, feature count) is printed to the terminal, so the thresholds
 > in `fingerprint/config.py` / `fingerprint/calibration.json` can be tuned to
-> your exact camera. End users never see these scores — only GRANTED / DENIED.
+> your exact camera. End users never see these scores - only GRANTED / DENIED.
 
 > [!NOTE]
 > **Focus Slider Not Working?**
@@ -148,7 +148,7 @@ camera a moment to focus (or pull back slightly).
 
 ---
 
-## Part 5: Project Architecture — What Each File Does
+## Part 5: Project Architecture - What Each File Does
 
 Here is a breakdown of every file in the project and what it is responsible for.
 
@@ -200,10 +200,10 @@ Every time you press Capture, the system runs through these stages:
 | **1** | **Image Capture** | A frame is taken from your camera and cropped to the guide box |
 | **2** | **Liveness Check** | Basic anti-spoofing: sharpness, glare and texture heuristics |
 | **3** | **Ridge Enhancement** | Local contrast normalisation (CLAHE) then **Gabor ridge enhancement** (`fingerprint_enhancer`), which also normalises ridge spacing so captures taken at slightly different distances are comparable |
-| **4** | **Minutiae Extraction** | Real fingerprint **minutiae** — ridge endings and bifurcations, each with a position and orientation — are extracted (`fingerprint_feature_extractor`) |
+| **4** | **Minutiae Extraction** | Real fingerprint **minutiae** - ridge endings and bifurcations, each with a position and orientation - are extracted (`fingerprint_feature_extractor`) |
 | **5** | **Quality Gate** | If too few minutiae are found, the capture is **rejected with feedback** ("move closer / improve focus") instead of guessing |
 | **6** | **Match / Save** | Enroll stores the minutiae template as versioned JSON; Verify runs a rotation/translation-invariant **minutiae matcher** that returns a normalised similarity in [0,1] |
-| **7** | **Decision** | Access is granted only if the best match clears an absolute threshold **and** beats the runner-up by a margin — otherwise it is denied |
+| **7** | **Decision** | Access is granted only if the best match clears an absolute threshold **and** beats the runner-up by a margin - otherwise it is denied |
 
 > **Why the rewrite?** The previous version ran ORB (a generic photo-corner
 > detector) on a skeletonised image and scored matches with an unnormalised sum
@@ -215,7 +215,7 @@ Every time you press Capture, the system runs through these stages:
 
 ## Part 7: Managing the Fingerprint Database
 
-All enrolled fingerprints are stored as files inside the `database/` folder. **No images are ever saved** — only minutiae templates (`<user>.json`). JSON is used instead of pickle because unpickling untrusted files is a security risk.
+All enrolled fingerprints are stored as files inside the `database/` folder. **No images are ever saved** - only minutiae templates (`<user>.json`). JSON is used instead of pickle because unpickling untrusted files is a security risk.
 
 ### Viewing all enrolled users
 ```bash
@@ -244,7 +244,7 @@ rm database/*.pkl            # also clear any incompatible old v1 templates
 
 Two checks, neither needs a camera:
 
-**1. Fast unit tests** (matcher, decision, storage) — deterministic, run in seconds:
+**1. Fast unit tests** (matcher, decision, storage) - deterministic, run in seconds:
 ```bash
 python -m pytest tests/
 ```
@@ -343,18 +343,18 @@ envelope:
 
 `success` is the allow/deny decision your app should act on. `code` (e.g.
 `low_quality`, `liveness`, `not_enrolled`, `duplicate`) lets you branch on
-failure reasons. A `low_quality` result is **retryable** — prompt the user to
+failure reasons. A `low_quality` result is **retryable** - prompt the user to
 recapture; it is not a denial.
 
 ### Security: template encryption at rest
 
 Enrolled templates are **encrypted on disk by default** (AES via Fernet). No
-fingerprint images are ever stored — only the encrypted minutiae template.
+fingerprint images are ever stored - only the encrypted minutiae template.
 
 - **Default (zero-config):** a random key file `database/.key` is created and
   used. This protects templates that are copied/leaked *without* the key file.
 - **Stronger (recommended for production):** set a passphrase so the key is
-  never written to disk — an attacker with the disk still can't read templates:
+  never written to disk - an attacker with the disk still can't read templates:
   ```powershell
   $env:FP_DB_KEY = "a-long-random-passphrase"
   python app.py
@@ -367,7 +367,7 @@ fingerprint images are ever stored — only the encrypted minutiae template.
 ### Focus quality across different phones
 
 The focus gate uses a **device-invariant** score (Laplacian variance ÷ image
-variance), so **one threshold works across phones without per-camera tuning** — a
+variance), so **one threshold works across phones without per-camera tuning** - a
 sharp capture scores about the same whether the phone has high or low contrast.
 You normally do **not** need to calibrate anything.
 
@@ -381,9 +381,9 @@ needed.
 
 Two separate things matter here:
 
-1. **Capture quality** is handled by the device-invariant gate above — a sharp
+1. **Capture quality** is handled by the device-invariant gate above - a sharp
    capture from any phone passes; a phone that can't resolve ridges at all is
-   rejected (correctly — no software can match detail the camera never captured).
+   rejected (correctly - no software can match detail the camera never captured).
 2. **Matching across devices.** A fingerprint enrolled on phone A *can* be
    verified on phone B because minutiae are an intrinsic property of the finger,
    and the engine normalises ridge scale and exposure. **But same-device is the
@@ -392,7 +392,7 @@ Two separate things matter here:
 
    For shared/kiosk or cross-device use, the robust pattern is **multi-device
    enrolment**: enrol the same finger on each phone that will be used (the engine
-   already stores multiple impressions per user — just enrol a few times across
+   already stores multiple impressions per user - just enrol a few times across
    the devices). Verification then matches against whichever impression is
    closest.
 
@@ -424,7 +424,7 @@ if result["granted"]:
 | Limitation | Explanation |
 |---|---|
 | **Camera ≠ certified sensor** | Contactless camera capture is inherently less reliable than a dedicated optical/capacitive reader. This system is solid for demos, access-control prototypes and coursework; for high-assurance security use a real fingerprint sensor. |
-| **Use the phone back camera, up close** | Resolving real friction ridges needs a high-res sensor close to the fingertip with good, even lighting. Laptop webcams usually cannot resolve ridges — `main.py` will work but accuracy is poor by hardware, not software. |
+| **Use the phone back camera, up close** | Resolving real friction ridges needs a high-res sensor close to the fingertip with good, even lighting. Laptop webcams usually cannot resolve ridges - `main.py` will work but accuracy is poor by hardware, not software. |
 | **Processing takes a few seconds** | Gabor ridge enhancement is compute-heavy. The engine vectorises the slow library loops (`fingerprint/_fast_enhance.py`, ~5x faster) bringing a capture to roughly **3–4 seconds** end-to-end. The UI shows "Processing…" during this time. |
 | **Enroll several impressions** | Enrolment stores up to 3 impressions per finger. Capture 3 slightly different angles of the SAME finger for best results. |
 | **iPhone Focus Slider** | Apple blocks websites from adjusting camera hardware; the focus slider on iPhone Safari does nothing (autofocus still works). |

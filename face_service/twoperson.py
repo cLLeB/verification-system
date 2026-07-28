@@ -1,4 +1,4 @@
-"""Two-person rule — a sensitive action needs two distinct people.
+"""Two-person rule - a sensitive action needs two distinct people.
 
 Vaults, armouries, pharmacies, crypto key ceremonies: no single individual may
 act alone. This subsystem gates an action behind two *different* successful
@@ -9,7 +9,7 @@ half-open authorization can't be completed hours later.
 
   * ``present``  register one person's successful verify against a named action.
                  Returns ``pending`` (waiting for a second) or ``authorized``.
-  * ``is_authorized`` / ``consume`` — check and then spend a completed
+  * ``is_authorized`` / ``consume`` - check and then spend a completed
     authorization (single use, so one approval can't unlock twice).
 
 Window defaults to 60s. State is per (tenant, action).

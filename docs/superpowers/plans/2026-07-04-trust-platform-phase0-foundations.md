@@ -1,12 +1,12 @@
-# Trust Platform — Phase 0: Crypto & Identity Foundations — Implementation Plan
+# Trust Platform - Phase 0: Crypto & Identity Foundations - Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the cryptographic plumbing for the Trust Platform (spec: `docs/superpowers/specs/2026-07-04-trust-platform-design.md` §4): per-tenant Ed25519 issuer keys, a versioned CBOR template envelope, and KEK-wrapped per-store data keys — exposed on admin console, tenant portal, REST API, and SDKs.
+**Goal:** Build the cryptographic plumbing for the Trust Platform (spec: `docs/superpowers/specs/2026-07-04-trust-platform-design.md` §4): per-tenant Ed25519 issuer keys, a versioned CBOR template envelope, and KEK-wrapped per-store data keys - exposed on admin console, tenant portal, REST API, and SDKs.
 
 **Architecture:** Three new pure modules (`biometric/core/envelope.py`, `biometric/core/signing.py`, `face_service/issuer_keys.py`) plus surgical extensions to `biometric/core/crypto.py` (key wrapping, rotation, crypto-erase) and `biometric/core/store.py` (envelope-wrapped blobs, fully backward compatible). Service layer adds two `/v1` endpoints, two admin endpoints, two portal endpoints, and UI panels.
 
-**Tech Stack:** Python/Flask, `cryptography` (Ed25519, Fernet — already a dep), `cbor2` (new dep), SQLite stores, pytest with existing `client`/`make_key` fixtures.
+**Tech Stack:** Python/Flask, `cryptography` (Ed25519, Fernet - already a dep), `cbor2` (new dep), SQLite stores, pytest with existing `client`/`make_key` fixtures.
 
 ## Global Constraints
 
@@ -17,7 +17,7 @@
 - Every new endpoint: audit event via `audit.log(tenant, action, actor=..., success=..., detail=...)`, scope-gated, documented in `openapi.yaml`.
 - UI copy is plain language (a semi-technical reader must understand it without knowing what Ed25519 is).
 - New files follow house style: module docstring explaining *why*, `from __future__ import annotations`, small focused functions.
-- Run commands from the repo root. Full suite must stay green: `python -m pytest tests/ -x -q` (some tests skip without the face model pack — skips are fine, failures are not).
+- Run commands from the repo root. Full suite must stay green: `python -m pytest tests/ -x -q` (some tests skip without the face model pack - skips are fine, failures are not).
 - Commit after every task with the repo's conventional-commit style (`feat:`, `fix:`, `docs:`, `test:`). No attribution footer (disabled globally).
 
 ---
@@ -114,7 +114,7 @@ def test_rejects_unknown_field_and_wrong_version():
 - [x] **Step 3: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_envelope.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'biometric.core.envelope'` (or ImportError).
+Expected: FAIL - `ModuleNotFoundError: No module named 'biometric.core.envelope'` (or ImportError).
 
 - [x] **Step 4: Implement the module**
 
@@ -123,8 +123,8 @@ Create `biometric/core/envelope.py`:
 ```python
 """Versioned CBOR container for biometric template payloads.
 
-One format for everything a template travels in — SQLite blobs, sync bundles,
-and (Phase 2) signed credentials — so every consumer validates the same way.
+One format for everything a template travels in - SQLite blobs, sync bundles,
+and (Phase 2) signed credentials - so every consumer validates the same way.
 A 3-byte magic prefix (``BE1``) distinguishes envelopes from the older FT1/FT2
 binary blobs and Fernet ciphertext. Decoding is strict: unknown fields, wrong
 enums, or a wrong version are rejected (never trust external bytes).
@@ -274,7 +274,7 @@ def test_verify_rejects_tamper_and_never_raises():
 - [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_signing.py -v`
-Expected: FAIL — ImportError.
+Expected: FAIL - ImportError.
 
 - [x] **Step 3: Implement the module**
 
@@ -284,8 +284,8 @@ Create `biometric/core/signing.py`:
 """Ed25519 signing primitives for the trust platform.
 
 Raw-bytes API (32-byte keys, 64-byte signatures) so callers never touch
-``cryptography`` objects. ``verify`` returns False on ANY failure — malformed
-key, malformed signature, or mismatch — so verification code can never be
+``cryptography`` objects. ``verify`` returns False on ANY failure - malformed
+key, malformed signature, or mismatch - so verification code can never be
 crashed by attacker-controlled bytes.
 """
 
@@ -427,7 +427,7 @@ def test_remove_for_offboarding():
 - [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_issuer_keys.py -v`
-Expected: FAIL — ImportError.
+Expected: FAIL - ImportError.
 
 - [x] **Step 3: Implement the module**
 
@@ -436,8 +436,8 @@ Create `face_service/issuer_keys.py`:
 ```python
 """Per-tenant Ed25519 issuer keypairs (the tenant's signing identity).
 
-Anything the platform issues on a tenant's behalf — portable credentials
-(Phase 2), signed bundles, the trust store — is signed with the tenant's
+Anything the platform issues on a tenant's behalf - portable credentials
+(Phase 2), signed bundles, the trust store - is signed with the tenant's
 active key. Rotation retires the old key: its PRIVATE half is dropped (it can
 never sign again) but the public half is retained so previously issued
 signatures keep verifying until their artifacts expire.
@@ -586,7 +586,7 @@ Run: `python -m pytest tests/test_issuer_keys.py -v`
 Expected: all PASS.
 
 Note: `test_private_key_encrypted_and_dropped_on_retire` relies on `get_cipher` creating a
-`.key` file in the issuer dir (encryption on by default) — that is existing behavior of
+`.key` file in the issuer dir (encryption on by default) - that is existing behavior of
 `biometric/core/crypto.py`.
 
 - [x] **Step 5: Commit**
@@ -613,7 +613,7 @@ git commit -m "feat(trust): per-tenant Ed25519 issuer key registry with rotation
 
 **Design (from spec §4.3):** with a master passphrase set, a *new* store gets a random
 data key stored only as `.key.wrapped` (Fernet-encrypted by a KEK derived from the
-passphrase + per-store salt). Rotating the master passphrase re-wraps the data key —
+passphrase + per-store salt). Rotating the master passphrase re-wraps the data key -
 no data re-encryption. Back-compat: existing passphrase-derived stores keep deriving
 the same key; existing plaintext `.key` files are wrapped on first open when a
 passphrase is present.
@@ -703,7 +703,7 @@ def test_erase_keys_makes_data_unrecoverable(tmp_path):
 - [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_crypto_kek.py -v`
-Expected: FAIL — `.key.wrapped` never created, `rotate_master`/`erase_keys` missing.
+Expected: FAIL - `.key.wrapped` never created, `rotate_master`/`erase_keys` missing.
 
 - [x] **Step 3: Implement**
 
@@ -760,7 +760,7 @@ def get_cipher(db_path: str, passphrase: Optional[str] = None):
             _restrict(wrapped)
             return Fernet(dk)
         # pre-KEK store (salt exists, no key files): the derived key IS the data
-        # key — behavior identical to the old code so existing DBs decrypt
+        # key - behavior identical to the old code so existing DBs decrypt
         return Fernet(_derive_kek(db_path, passphrase))
     key = _load_or_create(db_path, _KEY_FILE, Fernet.generate_key)
     return Fernet(key)
@@ -770,8 +770,8 @@ Add at the end of the file:
 
 ```python
 def rotate_master(db_path: str, old_passphrase: str, new_passphrase: str) -> bool:
-    """Re-wrap a store's data key under a new master passphrase. The data key —
-    and therefore every encrypted blob — is untouched. Returns False for stores
+    """Re-wrap a store's data key under a new master passphrase. The data key -
+    and therefore every encrypted blob - is untouched. Returns False for stores
     that have no wrapped key (legacy derived / plain key-file stores)."""
     wrapped = os.path.join(db_path, _WRAPPED_KEY_FILE)
     if not (_AVAILABLE and os.path.exists(wrapped)):
@@ -828,7 +828,7 @@ git commit -m "feat(trust): KEK-wrapped store data keys + master rotation + cryp
 
 **Interfaces:**
 - Consumes: `envelope.encode/decode/is_envelope` (Task 1), `crypto.erase_keys` (Task 4).
-- Produces: `TemplateStore(db_path, ..., modality: str = "face")` — new keyword;
+- Produces: `TemplateStore(db_path, ..., modality: str = "face")` - new keyword;
   all stored blobs are now `BE1(kind="raw", data=<FT2 bytes>)`; reads accept
   envelope, FT2, FT1, and legacy JSON. CLI: `python manage_templates.py wrap|erase-keys`.
 
@@ -906,7 +906,7 @@ def test_wrap_command_rewrites_legacy_rows(tmp_path):
 - [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_store_envelope.py -v`
-Expected: FAIL — `TemplateStore` has no `modality` kwarg / blobs are bare FT2.
+Expected: FAIL - `TemplateStore` has no `modality` kwarg / blobs are bare FT2.
 
 - [x] **Step 3: Modify the store**
 
@@ -1126,7 +1126,7 @@ def test_rotate_requires_confirm_and_retires_old(client, make_key):
 - [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_issuer_keys_api.py -v`
-Expected: FAIL — 404 on the new routes.
+Expected: FAIL - 404 on the new routes.
 
 - [x] **Step 3: Add the endpoints**
 
@@ -1138,7 +1138,7 @@ In `face_service/v1.py`, extend the package import line that already pulls in `a
 @bp.get("/tenant/keys")
 @require_scope("manage")
 def tenant_keys():
-    """This tenant's issuer signing keys — the keys the platform signs
+    """This tenant's issuer signing keys - the keys the platform signs
     credentials/bundles with on the tenant's behalf. Active key first."""
     return jsonify({"success": True, "tenant": g.tenant or "default",
                     "keys": issuer_keys.public_keys(g.tenant)})
@@ -1175,7 +1175,7 @@ top of `app.py`.
 - [x] **Step 5: Document in OpenAPI**
 
 In `openapi.yaml`, add under `paths:` (match the file's existing indentation and
-security-scheme names — copy the style of the `/v1/users` entries):
+security-scheme names - copy the style of the `/v1/users` entries):
 
 ```yaml
   /v1/tenant/keys:
@@ -1284,7 +1284,7 @@ def portal_issuer_keys_rotate():
 ```
 
 Note: `_enabled_or_402` is defined at `face_service/portal.py:213` but the issuer-keys
-section sits earlier in the file — either place the new routes after it or reference it
+section sits earlier in the file - either place the new routes after it or reference it
 lazily; simplest is to add the new section after the invites section at the end.
 
 - [x] **Step 3: Admin UI**
@@ -1409,7 +1409,7 @@ Run: `python serve.py` (or the project's usual launch command), open
 `http://localhost:5000/admin` → Security tab: load keys for `default`, rotate, see the
 retired row appear. Open `/portal`, log in as a tenant, confirm the signing-key card
 renders and rotation works. (Per project preference: launch the server for manual
-UI checks — no headless screenshot loops.)
+UI checks - no headless screenshot loops.)
 
 Also run: `python -m pytest tests/test_portal.py tests/test_admin_gate.py -q`
 Expected: PASS.
@@ -1467,13 +1467,13 @@ def test_sdk_methods_call_expected_paths(monkeypatch):
 ```
 
 Note: check the actual client class name at the top of `sdk/python/faceverify.py`
-(`FaceVerify` per its README usage) and the `_call` signature at line 62 — adjust the
+(`FaceVerify` per its README usage) and the `_call` signature at line 62 - adjust the
 test import/signature to match exactly what the file defines.
 
 - [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_sdk_issuer_keys.py -v`
-Expected: FAIL — `AttributeError: tenant_keys`.
+Expected: FAIL - `AttributeError: tenant_keys`.
 
 - [x] **Step 3: Add the SDK methods**
 
@@ -1551,7 +1551,7 @@ items use the new key. Rotate immediately if you suspect exposure.
 
     python -c "from biometric.core import crypto; print(crypto.rotate_master('face_db/tenants/acme', 'OLD', 'NEW'))"
 
-Only the wrapped key is re-encrypted — templates are untouched. Stores created
+Only the wrapped key is re-encrypted - templates are untouched. Stores created
 before wrapped keys existed return False (they derive keys directly; migrate by
 re-enrolling or leave as-is).
 
@@ -1613,6 +1613,6 @@ git commit -m "feat(trust): SDK issuer-key methods + security foundations docs"
 
 ## After Phase 0
 
-Phase 1 (protected templates) gets its own plan once M0 is demoed — its projection-seed
+Phase 1 (protected templates) gets its own plan once M0 is demoed - its projection-seed
 design consumes `issuer_keys`, `envelope`, and the KEK machinery exactly as named in the
 Interfaces blocks above. Do not start Phase 1 tasks from this document.

@@ -1,4 +1,4 @@
-"""PIN second factor — add "something you know" to "something you are".
+"""PIN second factor - add "something you know" to "something you are".
 
 Biometrics answer *who*, but for the highest-consequence actions a site may want
 a second, independent factor so a coerced or spoofed match alone is not enough.
@@ -6,9 +6,9 @@ This subsystem lets a person set a PIN; a verify against a PIN-required scope mu
 present the matching PIN or it is refused, *after* the biometric already matched.
 Unlike [[duress]] (a silent alarm code), this is an overt access requirement.
 
-  * ``set_pin`` / ``clear`` — per-identity PIN, stored only as a salted hash.
-  * ``require_scope``       — mark a scope as needing the second factor.
-  * ``gate``                — enforce it on a verify result.
+  * ``set_pin`` / ``clear`` - per-identity PIN, stored only as a salted hash.
+  * ``require_scope``       - mark a scope as needing the second factor.
+  * ``gate``                - enforce it on a verify result.
 
 A PIN-required scope with no PIN on file for that person fails closed
 (``pin_not_set``): security scopes should never silently drop the second factor.

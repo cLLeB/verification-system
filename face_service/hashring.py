@@ -1,9 +1,9 @@
-"""Consistent hashing ring — map keys to nodes with minimal reshuffling.
+"""Consistent hashing ring - map keys to nodes with minimal reshuffling.
 
 Sharding the gallery (or any workload) across several nodes needs a mapping from key →
 node that stays stable when nodes join or leave: a naive ``hash(key) % n`` remaps almost
 everything on a membership change. A consistent hashing ring remaps only the keys near the
-changed node. This subsystem implements that ring with virtual nodes for even balance —
+changed node. This subsystem implements that ring with virtual nodes for even balance -
 the technique behind Dynamo, Cassandra and memcached clients.
 
   * ``add_node``   place a node on the ring with ``vnodes`` virtual points (weight).

@@ -1,9 +1,9 @@
-"""Cron expression parser — validate schedules and compute next run times.
+"""Cron expression parser - validate schedules and compute next run times.
 
 Scheduled work in the platform (digest sends, access reviews, report generation, key
 rotation reminders) is naturally expressed as cron. Rather than depend on a scheduler
 library, this subsystem parses standard 5-field cron expressions, tests whether a given
-minute matches, and computes the next run time after an instant — enough to drive any of
+minute matches, and computes the next run time after an instant - enough to drive any of
 the pull-based schedulers ([[reminders]], [[jobs]]) deterministically.
 
   * ``parse``     validate an expression into per-field allowed-value sets.
@@ -14,9 +14,9 @@ the pull-based schedulers ([[reminders]], [[jobs]]) deterministically.
 Supports ``*``, single values, ``a-b`` ranges, ``a,b,c`` lists, and ``*/n`` or ``a-b/n``
 steps, across minute (0-59), hour (0-23), day-of-month (1-31), month (1-12), and
 day-of-week (0-6, Sunday=0). When both day-of-month and day-of-week are restricted, a
-minute matches if *either* does — the standard Vixon-cron OR semantics.
+minute matches if *either* does - the standard Vixon-cron OR semantics.
 
-Pure/stateless — no registry.
+Pure/stateless - no registry.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# Service subsystems — full-platform integration plan (2026-07-15)
+# Service subsystems - full-platform integration plan (2026-07-15)
 
 The five subsystems (policies, guests, devices, guardians, consent) shipped
 server-first. This plan spreads each to every surface it naturally belongs on.
@@ -7,7 +7,7 @@ Invariant throughout: **gates run strictly after the biometric decision**
 
 ## 1. Access policies
 - Web kiosk (`static/app.js`): `access_denied` gets its own result screen
-  ("Recognised — not allowed right now") instead of the misleading generic
+  ("Recognised - not allowed right now") instead of the misleading generic
   "not recognised". Widget (`static/face-verify.js`): same copy.
 - Portal UI: tenants manage their own mode/rules/groups (mirrors admin tab).
 - Android: policy document ships in `/v1/service-state`; `ServiceGates.kt`
@@ -26,21 +26,21 @@ Invariant throughout: **gates run strictly after the biometric decision**
 
 ## 3. Device registry
 - Portal UI: fleet card (pair, last-seen, disable).
-- Android (hybrid): "Pair this device" in Sync settings — enter the code, the
+- Android (hybrid): "Pair this device" in Sync settings - enter the code, the
   app stores its device identity + device key and heartbeats after every
   successful sync/test, so the console's last-seen is real.
 
 ## 4. Guardianship
 - Portal UI: links card.
 - Web kiosk: after a granted verify, if the person is a guardian the result
-  notes who they may collect for (server includes `wards` — added to verify
+  notes who they may collect for (server includes `wards` - added to verify
   response when non-empty).
 - Android: links ship in `/v1/service-state`; a granted on-device verify for
   a guardian appends "may collect for: …" to the result.
 
 ## 5. Consent & data-subject rights
 - Invite self-enrol (`/api/invite` + `templates/enroll.html`): the enrollee
-  SEES the tenant's consent statement before capturing — the recorded
+  SEES the tenant's consent statement before capturing - the recorded
   "method: self" consent is then informed, not silent.
 - Kiosk + widget: `consent_withdrawn` / `consent_missing` result copy.
 - Home page footer links to `/my-data`.
@@ -55,4 +55,4 @@ Invariant throughout: **gates run strictly after the biometric decision**
 ## Verification per phase
 Targeted pytest for touched areas during each phase; `node --check` on every
 JS file touched; full suite + one Android hybrid-debug compile at the end.
-No commits (per instruction — GPG window unattended).
+No commits (per instruction - GPG window unattended).

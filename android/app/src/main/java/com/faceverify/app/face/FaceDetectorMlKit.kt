@@ -30,7 +30,7 @@ data class DetectedFace(
     }
 }
 
-/** On-device face detection (ML Kit, bundled model — no network/download). */
+/** On-device face detection (ML Kit, bundled model - no network/download). */
 class FaceDetectorMlKit {
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()

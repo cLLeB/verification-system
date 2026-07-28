@@ -1,4 +1,4 @@
-"""Site directory — register locations and find the nearest / in-range ones.
+"""Site directory - register locations and find the nearest / in-range ones.
 
 A multi-site deployment needs a spatial directory: where each site is, which site a
 coordinate is closest to (route a mobile enrolment to the right branch), and which sites
@@ -9,7 +9,7 @@ directory, using the haversine great-circle distance so results are correct glob
   * ``nearest``   the closest site to a coordinate, with distance in km.
   * ``within``    all sites within ``radius_km`` of a coordinate, nearest first.
   * ``distance``  km between two registered sites.
-  * ``remove`` / ``list_sites`` — manage the directory.
+  * ``remove`` / ``list_sites`` - manage the directory.
 
 Distances are computed on demand from stored coordinates, so there is nothing to
 recompute when sites are added or moved. Coordinates are validated on registration.

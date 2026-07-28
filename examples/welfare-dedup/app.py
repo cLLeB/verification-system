@@ -1,4 +1,4 @@
-"""Welfare de-dup + payout — registers beneficiaries WITHOUT duplicates and verifies
+"""Welfare de-dup + payout - registers beneficiaries WITHOUT duplicates and verifies
 them at payout, using the backbone.
 
     Register:  before enrolling, ask the backbone "is this face already someone?"
@@ -35,7 +35,7 @@ def register():
     if not name or not image:
         return jsonify({"ok": False, "message": "Name and a capture are required."}), 400
 
-    # 1) Biometric duplicate check — is this person already enrolled (any name)?
+    # 1) Biometric duplicate check - is this person already enrolled (any name)?
     hit = fv.identify(image)
     if hit.get("success") and hit.get("user_id") and hit["user_id"] != name:
         return jsonify({"ok": False, "code": "duplicate_beneficiary",

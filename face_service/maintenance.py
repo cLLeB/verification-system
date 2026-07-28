@@ -1,4 +1,4 @@
-"""Maintenance mode — deliberately take a reader or scope out of service.
+"""Maintenance mode - deliberately take a reader or scope out of service.
 
 Cleaning a lens, swapping a kiosk, servicing a door: while that work happens the
 reader should refuse verifies with a clear "under maintenance" reason rather than
@@ -9,7 +9,7 @@ auto-clear time so a forgotten flag doesn't strand a door offline forever.
   * ``enter`` / ``exit`` maintenance for a target (device id or scope).
   * ``is_down``  the check a reader makes before serving.
   * ``gate``     post-match: block a verify routed through a down target.
-  * ``active``   everything currently in maintenance — the ops board.
+  * ``active``   everything currently in maintenance - the ops board.
 
 Registry: ``maintenance.json`` (env ``FACE_MAINTENANCE_FILE``).
 """

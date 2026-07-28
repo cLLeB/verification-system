@@ -1,15 +1,15 @@
-"""Country-level geo rules — allow or deny verification by country of origin.
+"""Country-level geo rules - allow or deny verification by country of origin.
 
 Some deployments must restrict where access requests may originate: "verifications are
 only accepted from Ghana and Nigeria", or "block requests from these embargoed
 countries". IP rules ([[iprules]]) work at the address level; this operates at the
 country level, which is what compliance and licensing constraints are usually written
-in. The caller supplies an ISO-3166 alpha-2 country code (resolved however it likes —
+in. The caller supplies an ISO-3166 alpha-2 country code (resolved however it likes -
 GeoIP, SIM, declared) and this decides.
 
   * ``set_mode``     ``allowlist`` (only listed countries pass) or ``denylist``
                      (listed countries are blocked; everything else passes).
-  * ``add`` / ``remove`` — countries in the active list.
+  * ``add`` / ``remove`` - countries in the active list.
   * ``check``        allow/deny for a country code, with the reason.
   * ``gate``         post-match helper: deny a verification from a blocked country.
 

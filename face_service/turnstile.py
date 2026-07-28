@@ -1,10 +1,10 @@
-"""Turnstile — one pass per person per cycle at a lane, anti-tailgate.
+"""Turnstile - one pass per person per cycle at a lane, anti-tailgate.
 
 A turnstile grants one physical passage per authorisation. Two failure modes
 matter: a second person slipping through on the same rotation (tailgating), and a
 double-read letting one person's single verify open the gate twice. This subsystem
 models a lane as a gate that, after granting a pass, is *busy* for a short
-mechanical cycle during which no further pass is granted at that lane — the arm has
+mechanical cycle during which no further pass is granted at that lane - the arm has
 to reset. It also enforces the lane's fixed direction, so an entry lane can't be
 walked backwards.
 

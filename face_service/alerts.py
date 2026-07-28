@@ -1,18 +1,18 @@
-"""Alert routing — decide who hears about which events, and queue the notices.
+"""Alert routing - decide who hears about which events, and queue the notices.
 
 Many features raise signals (a honeytoken hit, a down device, an impossible-travel
-flag, a budget threshold). Someone has to be told — but not everyone about
+flag, a budget threshold). Someone has to be told - but not everyone about
 everything. This subsystem is the routing table: subscriptions map an event type
 to a recipient and channel, with optional minimum severity. When an event is
 raised, it fans out to every matching subscription as a queued notice the caller's
 transport (email/SMS/webhook worker) drains. It is deliberately transport-agnostic
-— it decides *who and what*, not *how to send*.
+- it decides *who and what*, not *how to send*.
 
-  * ``subscribe`` / ``unsubscribe`` — recipient + channel for an event type
+  * ``subscribe`` / ``unsubscribe`` - recipient + channel for an event type
     (``"*"`` = all events), with a minimum severity.
   * ``raise_event`` fan an event out to matching subscribers; returns the notices
     queued and appends them to the outbox.
-  * ``outbox`` / ``drain`` — read and clear queued notices.
+  * ``outbox`` / ``drain`` - read and clear queued notices.
 
 Severities: info < warning < critical (ordered).
 

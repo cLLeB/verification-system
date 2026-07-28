@@ -1,7 +1,7 @@
-"""Guardianship — one enrolled person may verify ON BEHALF OF a linked other.
+"""Guardianship - one enrolled person may verify ON BEHALF OF a linked other.
 
 The verticals this platform targets (welfare distribution, clinics, schools)
-constantly hit the same case: the entitled person cannot present a biometric —
+constantly hit the same case: the entitled person cannot present a biometric -
 a child, an elderly parent, a patient. Today that forces operators to either
 turn the person away or fall back to no verification at all. Guardianship
 closes the gap without weakening anything:
@@ -9,8 +9,8 @@ closes the gap without weakening anything:
   * A **link** is an explicit, audited, admin/tenant-created record:
     ``beneficiary <- guardian (relationship)``. Nothing is inferred.
   * A **proxy verification** is the guardian's OWN full biometric check (the
-    untouched face/palm pipeline — liveness and all), after which the service
-    asserts "guardian G, verified live, is acting for beneficiary B" — only if
+    untouched face/palm pipeline - liveness and all), after which the service
+    asserts "guardian G, verified live, is acting for beneficiary B" - only if
     the link exists. The beneficiary's templates are never involved, so a
     beneficiary with no biometrics at all can still be served.
   * The response and audit trail always carry BOTH identities, so a collection
@@ -77,7 +77,7 @@ def link(tenant: Optional[str], beneficiary: str, guardian: str,
         existing = next((l for l in links if l["guardian"] == g), None)
         if existing is None and len(links) >= MAX_GUARDIANS_PER_BENEFICIARY:
             raise ValueError(f"'{b}' already has {MAX_GUARDIANS_PER_BENEFICIARY} "
-                             f"guardians — unlink one first.")
+                             f"guardians - unlink one first.")
         rec = {"guardian": g, "relationship": (relationship or "").strip()[:60],
                "created": int(time.time()), "created_by": by or ""}
         if existing is not None:
@@ -180,7 +180,7 @@ def resolve_proxy(tenant: Optional[str], beneficiary: str,
 
     ``match_result`` is the untouched verify/identify envelope for whoever stood
     at the camera. Rules, in order:
-      * the biometric itself must have granted (liveness, threshold — all as-is),
+      * the biometric itself must have granted (liveness, threshold - all as-is),
       * the matched person must hold a link to ``beneficiary``.
     The returned dict is a NEW envelope: ``success`` means "proxy collection
     approved"; ``proxy`` carries both identities for the ledger."""

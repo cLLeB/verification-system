@@ -10,10 +10,10 @@ and returns an allow/deny decision, supporting both IPv4 and IPv6 CIDR blocks.
   * ``check``      evaluate an IP: first matching rule wins; a default applies
                    when nothing matches (``allow`` unless the tenant is in
                    default-deny mode, i.e. any allow rule exists).
-  * ``list_rules`` / ``remove`` — manage the rule set.
+  * ``list_rules`` / ``remove`` - manage the rule set.
 
 Default policy is deliberate: with no rules everything is allowed (opt-in), but as
-soon as a tenant adds *any* allow rule the default flips to deny — the presence of
+soon as a tenant adds *any* allow rule the default flips to deny - the presence of
 an allowlist means "only these", which is the least-surprise behaviour for an
 allowlist. Explicit deny rules always take precedence by ordering.
 

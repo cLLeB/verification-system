@@ -3,7 +3,7 @@ package com.faceverify.app.data
 import java.security.MessageDigest
 import kotlin.math.sqrt
 
-/** Cancelable template protection — port of the server's `biometric/core/protect.py`.
+/** Cancelable template protection - port of the server's `biometric/core/protect.py`.
  *
  *  Synced/bundled templates arrive PROTECTED: projected into a revocable domain by
  *  three rounds of {seeded +/-1 sign flips -> orthonormal fast Walsh–Hadamard

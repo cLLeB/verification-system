@@ -1,11 +1,11 @@
-"""Dedupe — detect the same person enrolling under two identities.
+"""Dedupe - detect the same person enrolling under two identities.
 
 Benefit fraud, double-shifting, and ban evasion all look the same to a biometric
 system: one human, several user_ids. This subsystem keeps a compact signature
 (the enrolment embedding) per identity and, before a new enrolment is committed,
 searches for an existing identity whose signature is suspiciously close. If one is
 found above the duplicate threshold, the caller can block the enrolment or route
-it for review — the person is likely already enrolled under another name.
+it for review - the person is likely already enrolled under another name.
 
   * ``register``   store an identity's signature (call on successful enrolment).
   * ``check``      given a candidate embedding, return the closest identity and
@@ -14,7 +14,7 @@ it for review — the person is likely already enrolled under another name.
 
 Similarity is cosine over the provided vectors; the threshold is tenant-tunable
 (default 0.92, appropriate for face embeddings). This stores a mathematical
-signature only — the same protected artefact enrolment already keeps.
+signature only - the same protected artefact enrolment already keeps.
 
 Registry: ``dedupe.json`` (env ``FACE_DEDUPE_FILE``).
 """

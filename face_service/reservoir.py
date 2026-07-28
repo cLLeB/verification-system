@@ -1,19 +1,19 @@
-"""Reservoir sampling — keep a uniform random sample of an unbounded stream.
+"""Reservoir sampling - keep a uniform random sample of an unbounded stream.
 
 To review "a representative sample of today's verifications" or audit a fair slice of a
 huge event stream, you can't keep everything. Reservoir sampling (Algorithm R) maintains a
 fixed-size sample where every item seen so far is equally likely to be included, in one
-pass and constant memory — without knowing the stream length in advance. This subsystem
+pass and constant memory - without knowing the stream length in advance. This subsystem
 provides that, with a seedable RNG so tests and reproducible audits are deterministic.
 
   * ``create``    a reservoir of a fixed ``size`` (optionally seeded).
-  * ``offer`` / ``offer_many`` — present items; each is kept with the correct
+  * ``offer`` / ``offer_many`` - present items; each is kept with the correct
                 probability so the reservoir stays a uniform sample.
   * ``sample``    the current sample (up to ``size`` items).
   * ``seen``      total items offered so far.
 
 While fewer than ``size`` items have been seen the reservoir holds them all; after that,
-item ``n`` replaces a random existing slot with probability ``size/n`` — the standard
+item ``n`` replaces a random existing slot with probability ``size/n`` - the standard
 guarantee that yields an unbiased sample.
 
 Registry: ``reservoir.json`` (env ``FACE_RESERVOIR_FILE``).

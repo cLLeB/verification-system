@@ -1,6 +1,6 @@
 """Attendance's OWN domain data: a punch log (who clocked in/out, when).
 
-The backbone never sees this — it only answers "who is this?". The vertical owns the
+The backbone never sees this - it only answers "who is this?". The vertical owns the
 business record. This separation is the whole point: swap this file for exam
 seatings / a payout ledger / patient visits and you have a different product on the
 same identity layer.

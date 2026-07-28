@@ -4,7 +4,7 @@ Templates and exports need to be encrypted with a key ([[secretsharing]] escrows
 [[keyrotation]] rotates it). Python's standard library ships no block cipher, so rather than
 pull in a dependency this module builds authenticated encryption from the primitives it
 does have: an HMAC-SHA256 keystream (CTR-style) for confidentiality and a separate
-HMAC-SHA256 tag for integrity — the standard encrypt-then-MAC construction, with the two
+HMAC-SHA256 tag for integrity - the standard encrypt-then-MAC construction, with the two
 keys derived from the master key and a random nonce via HKDF so keys are never reused.
 
   * ``seal``   encrypt ``plaintext`` under ``key`` with optional associated data (AAD);
@@ -13,7 +13,7 @@ keys derived from the master key and a random nonce via HKDF so keys are never r
   * ``rewrap`` re-seal an opened payload under a new key (for key rotation).
 
 Encrypt-then-MAC means a modified ciphertext, nonce, or AAD fails authentication *before*
-any decryption, and a wrong key fails the tag check — the token never decrypts to garbage
+any decryption, and a wrong key fails the tag check - the token never decrypts to garbage
 silently. This is a pragmatic construction for dependency-free environments, not a
 replacement for AES-GCM where a vetted cipher is available.
 """

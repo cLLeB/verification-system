@@ -1,4 +1,4 @@
-"""High-level palm engine API — plain dict envelopes for the Flask service.
+"""High-level palm engine API - plain dict envelopes for the Flask service.
 
 Mirrors ``face.api`` (same envelope shape, same duplicate + self-consistency
 guards, same adaptive-enrolment behaviour) but for the palm modality, reusing the
@@ -21,21 +21,21 @@ from .errors import PalmError
 from .profile import PALM_PROFILE
 
 _HINTS = {
-    "no_hand": "No hand detected — show an open hand to the camera in good light.",
-    "palm_too_small": "Hand too small — move your hand closer to the camera.",
-    "palm_blurry": "Image is blurry — hold steady and keep your hand in focus.",
+    "no_hand": "No hand detected - show an open hand to the camera in good light.",
+    "palm_too_small": "Hand too small - move your hand closer to the camera.",
+    "palm_blurry": "Image is blurry - hold steady and keep your hand in focus.",
     "fingers_not_spread": "Spread your fingers and open your hand fully.",
     "palm_not_facing": "Show the inside of your hand, not the back.",
-    "multiple_hands": "More than one hand in view — show one open hand at a time.",
-    "palm_enroll_blurry": "Enrolment needs a crisp shot — brace your arm, add light, let the camera focus.",
-    "palm_enroll_too_far": "Bring your hand closer — fill most of the frame to enrol.",
-    "palm_enroll_too_dark": "Too dark to enrol — face a window or add light.",
-    "palm_enroll_too_bright": "Too bright to enrol — avoid direct glare on your hand.",
-    "palm_liveness": "Liveness failed — use a real, live hand (not a photo or screen).",
+    "multiple_hands": "More than one hand in view - show one open hand at a time.",
+    "palm_enroll_blurry": "Enrolment needs a crisp shot - brace your arm, add light, let the camera focus.",
+    "palm_enroll_too_far": "Bring your hand closer - fill most of the frame to enrol.",
+    "palm_enroll_too_dark": "Too dark to enrol - face a window or add light.",
+    "palm_enroll_too_bright": "Too bright to enrol - avoid direct glare on your hand.",
+    "palm_liveness": "Liveness failed - use a real, live hand (not a photo or screen).",
     "palm_unavailable": "Print recognition is not available on this server.",
-    "not_enrolled": "This user has no print enrolment yet — enrol them first.",
+    "not_enrolled": "This user has no print enrolment yet - enrol them first.",
     "duplicate": "This print is already enrolled under a different name.",
-    "inconsistent": "This capture doesn't match the earlier ones — use the same hand.",
+    "inconsistent": "This capture doesn't match the earlier ones - use the same hand.",
 }
 
 
@@ -67,7 +67,7 @@ def _quality(sample) -> dict:
 
 def _hand_sides(st: TemplateStore, user_id: str) -> list:
     """The sides ('Left'/'Right') of the hands already enrolled for this user, from the
-    template's meta (best-effort — empty if unknown, e.g. bulk-imported users)."""
+    template's meta (best-effort - empty if unknown, e.g. bulk-imported users)."""
     return list(st.load_meta(user_id).get("hands", []))
 
 
@@ -82,7 +82,7 @@ def _record_side(st: TemplateStore, user_id: str, sides: list, side: str) -> Non
 
 def _dupe_check(emb, user_id: str, st: TemplateStore, cfg: PalmConfig):
     """This palm must not already belong to a DIFFERENT identity, whichever hand it
-    is. Returns a duplicate-failure dict, or None. (Cross-user only — matching one of
+    is. Returns a duplicate-failure dict, or None. (Cross-user only - matching one of
     *this* user's own enrolled hands is expected and handled by the enrol flow.)
 
     See ``matcher.duplicate_check`` for why this is a stricter, anchors-only
@@ -143,10 +143,10 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
     verify). ``hand``:
       * ``"auto"`` (default): a capture matching an already-enrolled hand tops it up;
         a capture matching NEITHER enrolled hand returns a soft ``different_hand``
-        prompt instead of enrolling — the caller confirms before a second hand is
+        prompt instead of enrolling - the caller confirms before a second hand is
         bound (so a wrong-person palm isn't silently mixed in). Best for interactive
         UIs (one capture at a time).
-      * ``"other"`` / ``"any"``: no prompt — a non-matching capture is bound as the
+      * ``"other"`` / ``"any"``: no prompt - a non-matching capture is bound as the
         person's second hand automatically. Best for automation / bulk dataset
         upload, where grouping images under a ``user_id`` IS the authorization.
     Either way the cross-user duplicate guard still runs and a THIRD distinct hand is
@@ -181,7 +181,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
         _record_side(st, user_id, [], sample.handedness)
         return _enrolled(user_id, 1, 1, cfg, sample)
 
-    # Grouping this user's own anchors into hands is an intra-identity question —
+    # Grouping this user's own anchors into hands is an intra-identity question -
     # see PalmConfig.same_hand_threshold for why it must not use the identify bar.
     hands = _clusters.group(anchors, cfg.same_hand_threshold)
     matched = _clusters.matched_hand(probe, anchors, cfg.same_hand_threshold)
@@ -198,20 +198,20 @@ def enroll(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
 
     # Matches no enrolled hand -> a DIFFERENT hand.
     if len(hands) >= cfg.max_hands_per_user:
-        return _fail(f"'{user_id}' already has both hands enrolled — no more hands "
+        return _fail(f"'{user_id}' already has both hands enrolled - no more hands "
                      f"can be added to this name.", "hands_full", user_id=user_id)
     # No one has two right (or two left) hands: a different hand on the SAME side as an
-    # already-enrolled one is not this person's other palm — refuse it outright.
+    # already-enrolled one is not this person's other palm - refuse it outright.
     sides = _hand_sides(st, user_id)
     side = sample.handedness
     if cfg.reject_same_side_hand and side and side in sides:
         # Nobody has two right hands, so this is far more likely a WEAK CAPTURE of
-        # the hand already enrolled than a second one. Lead with the retake — the
+        # the hand already enrolled than a second one. Lead with the retake - the
         # old wording ("use a different name if this is someone else") accused a
         # real person of being an impostor over what was usually just a soft frame.
         return _fail(
             f"That capture didn't match the {side.lower()} hand already enrolled for "
-            f"'{user_id}' — hold the same hand steadier, fill the frame, and try again. "
+            f"'{user_id}' - hold the same hand steadier, fill the frame, and try again. "
             f"(To add the other hand, present it instead.)",
             "same_hand_side", user_id=user_id, side=side)
     if not allow_new_hand:
@@ -249,9 +249,9 @@ def verify(user_id: str, image: np.ndarray, cfg: PalmConfig = CONFIG,
            "user_id": user_id, "score": round(dec.score, 4),
            "threshold": cfg.match_threshold, "quality": _quality(sample)}
     if not dec.granted:
-        # Left and right palms are different biometrics — the most common genuine
+        # Left and right palms are different biometrics - the most common genuine
         # failure is presenting the hand that was never enrolled.
-        out["hint"] = ("Use the SAME hand you enrolled (left and right hands differ) — "
+        out["hint"] = ("Use the SAME hand you enrolled (left and right hands differ) - "
                        "or enrol both hands under your name.")
     return _maybe_adapt(out, sample.embedding, user_id, st, cfg)
 

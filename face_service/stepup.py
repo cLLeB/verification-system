@@ -1,8 +1,8 @@
-"""Adaptive step-up authentication — demand more factors when risk is higher.
+"""Adaptive step-up authentication - demand more factors when risk is higher.
 
 A face match is enough for a routine entry, but not for a high-risk one: off-hours, a
 new device, an impossible-travel flag, or a sensitive door. Step-up authentication
-raises the bar adaptively — the riskier the context, the more additional factors
+raises the bar adaptively - the riskier the context, the more additional factors
 required. This subsystem is the policy engine that maps a risk score to a required
 factor set and tracks which factors a given attempt has satisfied. It composes with
 [[otp]], [[pinfactor]] and [[challenge]] (the actual factors) and consumes risk from

@@ -1,4 +1,4 @@
-"""Built-in palm-print encoder — Gabor texture descriptor (NO trained weights).
+"""Built-in palm-print encoder - Gabor texture descriptor (NO trained weights).
 
 Palm-print recognition has a strong classical baseline that needs no learned model:
 a bank of Gabor filters captures the oriented ridge/crease texture of the palm, and
@@ -6,7 +6,7 @@ the pooled responses form a discriminative descriptor. This is the same signal t
 competition-code / CompCode family is built on, reduced to a fixed-length real
 vector so it matches with the shared cosine matcher.
 
-This makes the palm modality **work out of the box** — no ONNX file required. When a
+This makes the palm modality **work out of the box** - no ONNX file required. When a
 trained CCNet→ONNX encoder is installed (``palm.engine`` prefers it), accuracy goes
 up; until then palm is fully functional on this classical encoder, not disabled.
 

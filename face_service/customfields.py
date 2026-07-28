@@ -1,4 +1,4 @@
-"""Per-tenant custom fields — typed, validated metadata on identities.
+"""Per-tenant custom fields - typed, validated metadata on identities.
 
 Every deployment wants to attach its own attributes to an enrolled identity:
 employee number, department, badge colour, clearance level, cost centre. Hard-coding
@@ -10,7 +10,7 @@ values that are coerced and checked before they're stored.
   * ``define_field``   add a field to the tenant schema (string/int/bool/enum/date).
   * ``set_values``     validate a value map for a subject against the schema; stores
                        only when the whole map is valid (all-or-nothing).
-  * ``get_values`` / ``schema`` — read back.
+  * ``get_values`` / ``schema`` - read back.
   * ``validate``       dry-run a value map, returning per-field errors.
 
 Types: ``string`` (optional ``max_len``), ``int`` (optional ``min``/``max``),

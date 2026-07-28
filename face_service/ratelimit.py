@@ -3,7 +3,7 @@
 Endpoints need protection from bursts and sustained abuse alike. A token bucket is the
 standard primitive: a bucket holds up to ``burst`` tokens and refills at ``rate`` tokens
 per second; each request spends tokens and is allowed only if enough are available. It
-permits short bursts (up to the bucket size) while bounding the long-run average — more
+permits short bursts (up to the bucket size) while bounding the long-run average - more
 forgiving than a fixed window and smoother than a sliding count. This complements the
 sliding-window [[velocity]] control with a different shape of limit.
 

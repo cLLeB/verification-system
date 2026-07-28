@@ -1,18 +1,18 @@
-"""Holiday calendars — recognise non-working days per region.
+"""Holiday calendars - recognise non-working days per region.
 
 Access policy and scheduling both care about holidays: a site may be closed on public
 holidays, alert routing may differ, and "business hours" should skip them. This
 subsystem is a per-region holiday calendar supporting both one-off dated holidays
 (``2026-12-25``) and annually-recurring ones (every ``12-25``), so a calendar defined
 once keeps working in future years. It complements [[timezone]] (which handles
-local-time) — feed it dates already resolved to the site's local day.
+local-time) - feed it dates already resolved to the site's local day.
 
   * ``add_holiday``   add a fixed (``YYYY-MM-DD``) or recurring (``MM-DD``) holiday.
   * ``is_holiday``    is a given ISO date a holiday in a region? Returns the name.
   * ``next_holiday``  the next holiday on/after a date, resolving recurring ones.
   * ``between``       all holidays in an inclusive date range.
   * ``gate``          post-match helper: annotate a verify result taken on a holiday
-                      (advisory flag — closures are enforced by the caller's policy).
+                      (advisory flag - closures are enforced by the caller's policy).
 
 Regions are independent namespaces; a ``default`` region gives a tenant-wide calendar.
 Recurring holidays are matched on month/day so they need no per-year maintenance.

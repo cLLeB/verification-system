@@ -15,13 +15,13 @@ The path is resolved on every access (not cached at import), so setting the env
 var inside a test fixture takes effect immediately. Files are written 0600.
 
 Durability & concurrency guarantees:
-  * **Atomic writes** — ``save`` writes a sibling temp file and ``os.replace``s it
+  * **Atomic writes** - ``save`` writes a sibling temp file and ``os.replace``s it
     over the target, so a reader never observes a half-written file and a crash
     mid-write leaves the previous good file intact (no truncation/corruption).
-  * **Corruption is surfaced, not swallowed** — ``load`` on a damaged file moves it
+  * **Corruption is surfaced, not swallowed** - ``load`` on a damaged file moves it
     aside to ``<path>.corrupt.<ts>`` and returns ``{}`` rather than silently
     discarding it, so the bad data can be recovered and the failure is visible.
-  * **Cross-process safe** — ``mutate`` holds both an in-process lock and an OS
+  * **Cross-process safe** - ``mutate`` holds both an in-process lock and an OS
     advisory file lock (fcntl/msvcrt), so concurrent workers on the same file
     serialise their read-modify-write instead of losing updates.
 

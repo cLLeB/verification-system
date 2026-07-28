@@ -5,7 +5,7 @@ import com.faceverify.app.face.Matcher
 /** Group a palm identity's stored anchors into distinct hands. Mirrors the server's
  *  palm/clusters.py. One identity may enrol both palms; left and right score like
  *  impostors against each other (well below MATCH_THRESHOLD) while repeat captures of
- *  the same hand score well above it, so anchors form tight, well-separated clusters —
+ *  the same hand score well above it, so anchors form tight, well-separated clusters -
  *  one per hand. Used so enrolment can count hands (cap at two), size each hand, and
  *  tell a genuine "other hand" from an accidental wrong-person capture. */
 object PalmClusters {

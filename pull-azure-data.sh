@@ -40,5 +40,5 @@ echo "Field-data events + images summary:"
 if [ -f "$DEST/fielddata/events.jsonl" ]; then
     echo "  events: $(wc -l < "$DEST/fielddata/events.jsonl" | tr -d ' ')"
 else
-    echo "  (no events.jsonl yet — no captures recorded during the session)"
+    echo "  (no events.jsonl yet - no captures recorded during the session)"
 fi

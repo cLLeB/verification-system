@@ -1,10 +1,10 @@
-"""Notification digests — batch low-priority events into periodic summaries.
+"""Notification digests - batch low-priority events into periodic summaries.
 
 A stream of individual "door opened", "visitor arrived" notifications is noise; most
 recipients want them rolled up into a periodic digest ("47 events since 8am"). This
 subsystem accumulates events per recipient and flushes them into a single digest when
 their cadence is due. It complements [[quiethours]] (which suppresses) and the alerts
-router (which sends immediately) — digest defers and coalesces.
+router (which sends immediately) - digest defers and coalesces.
 
   * ``subscribe``   a recipient opts into digests on a cadence (period seconds).
   * ``add_event``   queue an event for one or more recipients.
@@ -14,7 +14,7 @@ router (which sends immediately) — digest defers and coalesces.
 
 Events carry a category and payload; the digest groups counts by category so the
 summary is useful, not just a dump. A recipient with an empty queue does not produce
-a digest even when due — no point mailing "0 events".
+a digest even when due - no point mailing "0 events".
 
 Registry: ``digest.json`` (env ``FACE_DIGEST_FILE``).
 """

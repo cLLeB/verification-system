@@ -1,9 +1,9 @@
-"""Phonetic name matching — catch names that sound alike but spell differently.
+"""Phonetic name matching - catch names that sound alike but spell differently.
 
 Transliterated and mis-heard names ("Mohammed"/"Muhammad", "Catherine"/"Kathryn") defeat
 exact matching and even trip up character-level fuzzy matching. Phonetic algorithms encode
 a name by how it *sounds*, so variants collapse to the same code. This subsystem provides
-Soundex and NYSIIS encoders and a match helper — a useful pre-filter or signal for
+Soundex and NYSIIS encoders and a match helper - a useful pre-filter or signal for
 [[sanctions]] screening and duplicate-enrolment detection. Pure and stateless.
 
   * ``soundex``   the classic 4-char Soundex code (Robert/Rupert → ``R163``).
@@ -11,7 +11,7 @@ Soundex and NYSIIS encoders and a match helper — a useful pre-filter or signal
                   handles more cases than Soundex.
   * ``sounds_like`` do two names share a phonetic code (Soundex by default)?
 
-These are coarse by design — they group plausibly-similar names and will occasionally
+These are coarse by design - they group plausibly-similar names and will occasionally
 group unrelated ones; use them to *widen* a candidate set, then confirm with a stronger
 comparison.
 """

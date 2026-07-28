@@ -5,7 +5,7 @@ holds on to what they do, and how you get all of it onto your machine for tuning
 
 ## 1. What the server now records
 
-Every real attempt — enrol, verify, identify, self-enrol step-up — writes:
+Every real attempt - enrol, verify, identify, self-enrol step-up - writes:
 
 | | |
 |---|---|
@@ -28,7 +28,7 @@ with and by how little**. That is exactly the "Caleb's right hand comes back as
 Edwina" case, captured with the image that caused it.
 
 It lives under `FACE_PERSIST_DIR`, so on Hugging Face it rides the existing private
-Dataset sync — a Space restart or rebuild doesn't lose it.
+Dataset sync - a Space restart or rebuild doesn't lose it.
 
 ## 2. Settings that must be on
 
@@ -38,7 +38,7 @@ Set these as **Space secrets** (Settings → Variables and secrets), then restar
 |---|---|---|
 | `FACE_ANALYTICS_TOKEN` | any long random string | **Required to pull.** Without it every export endpoint 404s and the data just piles up on the server. |
 | `FACE_PERSIST_DATASET` | `kyereboatengcaleb/faceverify-data` | Durability. Without it a Space restart wipes templates *and* field data. |
-| `HF_TOKEN` | an HF token with **write** access | Same — needed for the Dataset sync. |
+| `HF_TOKEN` | an HF token with **write** access | Same - needed for the Dataset sync. |
 
 Already baked into the image (`Dockerfile`), no action needed:
 
@@ -78,7 +78,7 @@ new, in batches, and never re-downloads or duplicates a row.
 | `_analytics/templates.json` | face + palm embeddings for threshold analysis |
 | `pad_data/` | the hand-labeled LIVE/SPOOF set from `/collect` |
 
-All git-ignored — this is biometric data and never gets committed.
+All git-ignored - this is biometric data and never gets committed.
 
 Useful flags: `--since 0` re-pulls everything, `--wipe` clears the server copy once
 the pull has landed, `--report-only` re-analyses local data with no network call.
@@ -89,7 +89,7 @@ the pull has landed, `--report-only` re-analyses local data with no network call
 `python -c "from _field_report import report; report()"`):
 
 * accept/deny rates and score spreads per modality
-* **closest pairs** — identities whose top-1 and top-2 sit within 0.08 of each
+* **closest pairs** - identities whose top-1 and top-2 sit within 0.08 of each
   other, ranked by how often it happens. Your impostor set, discovered from real
   traffic.
 * attempts granted under a **different** name than the one claimed, with the image path
@@ -108,5 +108,5 @@ Set `FACE_OPEN_ENROLL=0` → the operator password is required to enrol again.
 Palm **adaptive enrolment** is on (`adaptive_enabled`, `palm/config.py`): a
 confident grant folds the probe into that user's template. If a false accept slips
 through, it becomes permanent and self-reinforcing. Given the pilot is exactly about
-chasing false accepts, consider setting `PALM_ADAPTIVE=0` — but note it changes
+chasing false accepts, consider setting `PALM_ADAPTIVE=0` - but note it changes
 matching behaviour mid-pilot, so decide before the data set gets large.

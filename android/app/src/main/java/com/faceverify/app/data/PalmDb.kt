@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Palm templates in their OWN encrypted SQLite file (`palmverify.db`), fully
  *  isolated from face (`faceverify.db`). Reuses the same Person/Embedding entities
- *  and DAO — Room keeps the tables separate because the database files differ — so
+ *  and DAO - Room keeps the tables separate because the database files differ - so
  *  palm and face data are never mixed and never cross-matched. */
 @Database(entities = [Person::class, Embedding::class], version = 2, exportSchema = false)
 abstract class PalmDb : RoomDatabase() {

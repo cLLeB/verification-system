@@ -1,7 +1,7 @@
-"""Identity quarantine — freeze verification for a subject pending review.
+"""Identity quarantine - freeze verification for a subject pending review.
 
-When something looks wrong with an identity — a suspected spoof, a duplicate-enrolment
-alert, a fraud report — you often want to *pause* it rather than delete it: block
+When something looks wrong with an identity - a suspected spoof, a duplicate-enrolment
+alert, a fraud report - you often want to *pause* it rather than delete it: block
 verification, record why, and require a human to release it after investigation. This
 subsystem is that hold. It is a reversible, audited freeze distinct from the permanent
 [[watchlist]]/[[threatfeed]] blocks.

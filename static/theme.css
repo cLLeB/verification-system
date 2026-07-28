@@ -1,5 +1,5 @@
 /* ============================================================================
-   "Verified" — the one design language for the whole platform.
+   "Verified" - the one design language for the whole platform.
    Deep ink base + biometric teal accent. Trustworthy, precise, modern, dark-first.
    Single source of truth for the admin console, docs, offline page, and widget.
    (The phone client in app.css mirrors these tokens and adds a light theme.)
@@ -16,10 +16,10 @@
     --txt: oklch(0.98 0.003 250);
     --txt-2: oklch(0.7 0.02 258);
     --txt-muted: oklch(0.56 0.02 258);
-    /* brand + semantics — "iris blue" */
-    --brand: oklch(0.7 0.2 262);           /* iris blue — accents, rings, highlights, icons */
-    --brand-2: oklch(0.78 0.15 262);       /* light — glow / gradient pair */
-    --brand-fill: oklch(0.62 0.2 262);     /* deeper — button + active fills */
+    /* brand + semantics - "iris blue" */
+    --brand: oklch(0.7 0.2 262);           /* iris blue - accents, rings, highlights, icons */
+    --brand-2: oklch(0.78 0.15 262);       /* light - glow / gradient pair */
+    --brand-fill: oklch(0.62 0.2 262);     /* deeper - button + active fills */
     --brand-strong: oklch(0.55 0.2 262);   /* pressed */
     --on-brand: oklch(0.14 0.02 260);      /* text on bright fills */
     --ok: oklch(0.72 0.17 155); --bad: oklch(0.65 0.2 22); --warn: oklch(0.8 0.16 85); --info: oklch(0.7 0.15 230);

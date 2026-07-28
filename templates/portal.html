@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0B1020">
-    <title>Biometric Verify — Developer Portal</title>
+    <title>Biometric Verify - Developer Portal</title>
     <link rel="stylesheet" href="/static/theme.css?v=1">
     <link rel="stylesheet" href="/static/admin.css?v=3">
 </head>
@@ -33,7 +33,7 @@
             <div class="card" id="ent-card">
                 <h2>Your plan</h2>
                 <div class="stats" id="ent-stats"></div>
-                <p id="disabled-note" class="err hidden">Your account is disabled — you can't
+                <p id="disabled-note" class="err hidden">Your account is disabled - you can't
                     create keys until the provider re-activates it. Existing keys won't work either.</p>
                 <div class="row" id="policy-row">
                     <label class="muted" for="match-policy">Face + print match policy</label>
@@ -48,7 +48,7 @@
 
             <div class="card">
                 <h2>Create API keys</h2>
-                <p class="muted">Keys are shown once — download them now. Give browser/kiosk apps a
+                <p class="muted">Keys are shown once - download them now. Give browser/kiosk apps a
                     <b>verify</b> key; keep <b>admin</b> keys on your server.</p>
                 <input id="key-name" class="field" type="text" placeholder="Label (e.g. Kiosk 1)">
                 <div class="row">
@@ -92,7 +92,7 @@
 
             <div class="card" id="portal-credentials">
                 <h2>ID credentials <span class="muted">(offline QR cards)</span></h2>
-                <p class="muted">Issue your people <b>signed QR credentials</b> — printed or on
+                <p class="muted">Issue your people <b>signed QR credentials</b> - printed or on
                     their phone, anyone you authorise verifies them in seconds, <b>fully
                     offline</b>, without touching your database. Revocable and expiring.</p>
                 <div class="row">
@@ -113,7 +113,7 @@
                 <p class="muted">Verification says <b>who</b>; a policy says whether they're
                     <b>allowed right now</b> (schedules, groups, bans). <b>Advise</b> only
                     reports; <b>Enforce</b> denies with <code>access_denied</code>. Off by
-                    default — nothing changes until you switch it on.</p>
+                    default - nothing changes until you switch it on.</p>
                 <div class="row">
                     <select id="ppol-mode" class="field">
                         <option value="off">Mode: off</option>
@@ -185,7 +185,7 @@
             <div class="card" id="portal-guardians">
                 <h2>Guardians <span class="muted">(verify on someone's behalf)</span></h2>
                 <p class="muted">For people who can't present a biometric (children, elderly,
-                    patients): link a guardian — their own live verification then counts
+                    patients): link a guardian - their own live verification then counts
                     <b>for</b> the beneficiary. Your integration passes
                     <code>on_behalf_of</code> to <code>/v1/verify</code>.</p>
                 <div class="row">
@@ -203,7 +203,7 @@
             <div class="card" id="portal-consent">
                 <h2>Consent <span class="muted">(lawful basis &amp; withdrawal)</span></h2>
                 <p class="muted">Every enrolment records the person's consent against your
-                    statement below (versioned — history stays pinned to the text they saw).
+                    statement below (versioned - history stays pinned to the text they saw).
                     A <b>withdrawal</b> blocks their verification immediately and revokes
                     their QR cards.</p>
                 <textarea id="pcns-text" class="field" rows="3" placeholder="Consent statement shown to enrollees"></textarea>
@@ -225,7 +225,7 @@
             <div class="card" id="portal-trust">
                 <h2>Trusted organisations <span class="muted">(accept their cards)</span></h2>
                 <p class="muted">Add another organisation to accept the credentials <b>they</b>
-                    issue — your verifiers then check their cards too. No data import, no
+                    issue - your verifiers then check their cards too. No data import, no
                     integration: trust the issuer, scan their cards.</p>
                 <div class="row">
                     <input id="ptrust-issuer" class="field" type="text" placeholder="Their tenant id">

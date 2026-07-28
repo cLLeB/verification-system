@@ -1,7 +1,7 @@
 """Entry point for a Hugging Face **Gradio** Space.
 
 Free accounts can no longer create Docker Spaces, but a Gradio Space just runs
-``python <app_file>`` and publishes whatever binds port 7860 — so the real Flask
+``python <app_file>`` and publishes whatever binds port 7860 - so the real Flask
 app runs there unchanged. The differences a Gradio Space forces, all handled here:
 
   * **No image build step.** The Dockerfile bakes the ArcFace pack, the CCNet palm
@@ -48,7 +48,7 @@ def gpu_batch_embed(images_b64, modality: str = "palm") -> dict:
 
     The GPU-shaped job in this app: producing the (N, D) matrix
     ``palm/training/eval_eer.py`` needs for threshold calibration and encoder
-    evaluation. Live verification stays on CPU on purpose — it is one small image
+    evaluation. Live verification stays on CPU on purpose - it is one small image
     per request, and a per-call GPU allocation would make it slower."""
     from space_gpu import batch_embed
     return batch_embed(images_b64, modality)
@@ -62,7 +62,7 @@ def writable_state_dir() -> str:
     """A directory this Space may actually write to.
 
     The container images use /data (the Dockerfile creates and chowns it), but a
-    Gradio Space has no such path and cannot create it — the app dies on the first
+    Gradio Space has no such path and cannot create it - the app dies on the first
     store access with EACCES. Honour FACE_PERSIST_DIR when it works, else fall back
     to somewhere under $HOME, so a fresh Space boots without hand-set paths."""
     for candidate in (os.environ.get("FACE_PERSIST_DIR"),

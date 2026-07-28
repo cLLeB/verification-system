@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Camera only. NOTE: there is intentionally NO android.permission.INTERNET,
-         so this app is 100% offline by construction — it cannot send data anywhere. -->
+         so this app is 100% offline by construction - it cannot send data anywhere. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
 

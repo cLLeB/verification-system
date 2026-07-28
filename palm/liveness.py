@@ -1,17 +1,17 @@
-"""Passive anti-spoofing for palm captures — screen/print re-presentation cues.
+"""Passive anti-spoofing for palm captures - screen/print re-presentation cues.
 
 Returns a 0..1 "live palm" probability from a single ROI, built from cues a
 re-presented palm shows and a live one doesn't:
 
-  * **moiré** — a phone/monitor re-capture adds a narrow, very strong periodic
+  * **moiré** - a phone/monitor re-capture adds a narrow, very strong periodic
     spike in the frequency domain (the display's pixel grid). Organic palm
     ridges are broadband and stay well under the floor.
-  * **specular** — screens and glossy prints throw a small, near-saturated
+  * **specular** - screens and glossy prints throw a small, near-saturated
     highlight blob; live skin under normal light doesn't.
 
 **Deliberately NOT a cue: sharpness/texture.** Softness is a CAPTURE-QUALITY
 problem (dim light, motion, focus hunting on a close palm), not evidence of a
-spoof — the encoder still matches soft palms reliably (measured 2026-07-02:
+spoof - the encoder still matches soft palms reliably (measured 2026-07-02:
 a motion-ghosted live palm at variance-of-Laplacian 35 matched its enrolment at
 0.846; even Gaussian-blurred to 14 it matched at 0.868). Treating low texture as
 "not live" falsely rejected genuine users with a misleading "use a real palm"
@@ -19,7 +19,7 @@ message. Blur is gated by ``roi.quality_ok`` (``min_sharpness``) with an
 actionable "hold steady / add light" message instead.
 
 Honest limitation: a flat matte PRINT without moiré or specular is not caught by
-these heuristics. Real presentation-attack detection needs a trained PAD model —
+these heuristics. Real presentation-attack detection needs a trained PAD model -
 this module keeps the same ``available``/``real_score`` interface so one can drop
 in behind it later.
 """
@@ -73,7 +73,7 @@ def _moire_penalty(gray: np.ndarray) -> float:
 
 def real_score(roi_bgr: np.ndarray, cfg: PalmConfig = CONFIG) -> float:
     """Probability (0..1) that the ROI is a live palm rather than a re-presentation.
-    Driven by spoof CUES only (moiré + specular) — a soft-but-live palm scores 1.0
+    Driven by spoof CUES only (moiré + specular) - a soft-but-live palm scores 1.0
     (softness is handled by the quality gate, with an actionable message)."""
     if roi_bgr is None or roi_bgr.size == 0:
         return 0.0

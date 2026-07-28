@@ -1,11 +1,11 @@
 """Issued-credential registry + revocation lists (trust platform Phase 2).
 
-Tracks WHAT was issued (metadata only — the QR itself is regenerable from the
+Tracks WHAT was issued (metadata only - the QR itself is regenerable from the
 store's raw template and is never persisted) and which credentials are revoked.
 Revocation ships to offline verifiers inside the trust store: an exact cid list
 while small, a Bloom filter (no false negatives; verifiers fail closed on a
 positive) once large. Reissuing ONE user's templates (spec 5.3) auto-revokes
-their credentials — the leak that motivated the reissue taints them too.
+their credentials - the leak that motivated the reissue taints them too.
 
 Registry file lives in ``BIO_CREDENTIALS_DIR`` (default ``secrets/credentials``),
 read at call time so tests and deploys can repoint it via the environment.
@@ -176,12 +176,12 @@ def issue(tenant: Optional[str], face_cfg, palm_enabled: bool, user_id: str,
 
     if not 1 <= int(expiry_days) <= 3650:
         raise IssueError("bad_request", "'expiry_days' must be between 1 and 3650.")
-    # Consent gate: a withdrawn person's data must not be processed — and a
+    # Consent gate: a withdrawn person's data must not be processed - and a
     # self-contained QR card is the most portable processing there is.
     from . import consent as _consent
     if _consent.status(tenant, user_id) == "withdrawn":
         raise IssueError("consent_withdrawn",
-                         f"'{user_id}' has withdrawn consent — no credential can "
+                         f"'{user_id}' has withdrawn consent - no credential can "
                          f"be issued until they re-consent (re-enrol).")
     requested = list(modalities or ["face", "palm"])
     cid = _cred.new_cid()
@@ -250,7 +250,7 @@ def _bloom_positions(cid_hex: str, m: int, k: int):
 def build_revocation_list(tenant: Optional[str]) -> dict:
     """The compact, versioned revocation object shipped inside the trust store.
     ``{version, count, exact:[cid...]}`` while small; ``{version, count, bloom:
-    {m, k, bits}}`` once large (no false negatives — a bloom hit means REVOKED,
+    {m, k, bits}}`` once large (no false negatives - a bloom hit means REVOKED,
     fail closed)."""
     cids = revoked_cids(tenant)
     out = {"version": int(time.time()), "count": len(cids)}

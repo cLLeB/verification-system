@@ -1,4 +1,4 @@
-"""Credential revocation list — invalidate issued credentials before they expire.
+"""Credential revocation list - invalidate issued credentials before they expire.
 
 Issued credentials (offline QR badges, signed tokens, device certs) carry an expiry, but
 sometimes must be killed *early*: a lost badge, a terminated employee, a compromised key.

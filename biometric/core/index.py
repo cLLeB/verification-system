@@ -2,13 +2,13 @@
 
 Modality-agnostic: the embedding dimension is a parameter, so the same index
 serves 512-d face vectors and palm vectors of whatever dimension the palm encoder
-produces. The per-tenant cache is keyed by ``db_path`` — and each modality stores
-under its own directory — so face and palm indexes never share a cache entry and
+produces. The per-tenant cache is keyed by ``db_path`` - and each modality stores
+under its own directory - so face and palm indexes never share a cache entry and
 are never cross-searched.
 
 Two interchangeable backends behind one interface:
-  * Numpy  — exact, vectorized brute force (one matmul + per-user max). ACTIVE.
-  * Hnsw   — approximate nearest neighbour (hnswlib). OFF (slow build on Windows).
+  * Numpy  - exact, vectorized brute force (one matmul + per-user max). ACTIVE.
+  * Hnsw   - approximate nearest neighbour (hnswlib). OFF (slow build on Windows).
 
 Per-user score = the MAX similarity over that user's embeddings.
 
@@ -326,7 +326,7 @@ class TenantIndex:
                 self._build()
 
     def _domain_tag(self) -> str:
-        """The store's current protection domain — a persisted index from a
+        """The store's current protection domain - a persisted index from a
         different domain (raw pre-upgrade, or pre-reissue) must be rebuilt."""
         return getattr(self._store, "protection_tag", lambda: "off")() if self._store else "off"
 

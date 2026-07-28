@@ -1,6 +1,6 @@
-# `face/` — recognition core
+# `face/` - recognition core
 
-Pure-Python, framework-agnostic face recognition. No web/HTTP concerns — the web
+Pure-Python, framework-agnostic face recognition. No web/HTTP concerns - the web
 service (`face_service/`) and `app.py` use this as a library. Tuning here is mirrored
 by the Android app (`android/.../Config.kt`).
 
@@ -21,7 +21,7 @@ by the Android app (`android/.../Config.kt`).
 
 ## Key invariants
 - Embeddings are 512-d, **L2-normalised**; matching is cosine (dot).
-- **Anchors are permanent**; adaptive is a capped rolling set — the anti-drift design.
+- **Anchors are permanent**; adaptive is a capped rolling set - the anti-drift design.
 - Person score = **max** cosine over their stored embeddings.
 - Templates are **encrypted at rest**; the index is encrypted too (`index/`).
 

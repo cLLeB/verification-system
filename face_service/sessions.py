@@ -1,4 +1,4 @@
-"""Sessions — trade one successful verify for a short-lived access token.
+"""Sessions - trade one successful verify for a short-lived access token.
 
 Re-running a biometric match on every single request is wasteful and, at a busy
 door or in an app, slow. The usual pattern is: verify once, then carry a session.
@@ -10,9 +10,9 @@ phone, a fired employee) and refreshed while still valid.
   * ``issue``    after a verify, mint {token, user_id, expires}.
   * ``resolve``  token -> {user_id, ...} or None if unknown/expired/revoked.
   * ``refresh``  extend a live session's expiry.
-  * ``revoke`` / ``revoke_user`` — kill one session or every session for a person.
+  * ``revoke`` / ``revoke_user`` - kill one session or every session for a person.
 
-Tokens are random (not JWTs) so revocation is authoritative — a stateless JWT
+Tokens are random (not JWTs) so revocation is authoritative - a stateless JWT
 cannot be un-issued. Nothing biometric is stored on the session.
 
 Registry: ``sessions.json`` (env ``FACE_SESSIONS_FILE``).

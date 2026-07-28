@@ -1,13 +1,13 @@
-"""Biometric Verification Backbone — Python SDK (zero dependencies, stdlib only).
+"""Biometric Verification Backbone - Python SDK (zero dependencies, stdlib only).
 
 Face AND palm in one API: the server AUTO-DETECTS whether each image is a face or a
-palm and routes it — you never declare the modality. A user can enrol either or both
+palm and routes it - you never declare the modality. A user can enrol either or both
 under one ``user_id``; presenting either one verifies them ("a match is a match").
 
     from faceverify import FaceVerifyClient
     fv = FaceVerifyClient("https://your-host:5000", "fk_yourkey")
 
-    # Managed — image can be a face or a palm; auto-detected.
+    # Managed - image can be a face or a palm; auto-detected.
     fv.enroll("alice", ["a1.jpg", "a2.jpg", "a3.jpg"])   # faces
     fv.enroll("alice", ["palm1.jpg"])                    # ...also her palm, same id
     r = fv.verify("alice", "probe.jpg")                  # face OR palm
@@ -108,16 +108,16 @@ class FaceVerifyClient:
     def enroll(self, user_id: str, images: Union[Image, List[Image]],
                modality: Optional[str] = None, hand: Optional[str] = None) -> dict:
         """Enrol a user from one or more images. By default the server AUTO-DETECTS
-        whether each image is a face or a palm and routes it accordingly — the same
+        whether each image is a face or a palm and routes it accordingly - the same
         ``user_id`` can hold both. Pass ``modality='face'|'palm'`` only to pin it
         (e.g. enrolling a combined photo as just one modality).
 
         Palm supports BOTH hands under one id (present either to verify). Uploading
-        several palm images at once auto-binds up to two hands with no round-trip —
+        several palm images at once auto-binds up to two hands with no round-trip -
         ideal for bulk/dataset upload. ``hand``:
-          * ``'any'`` — bind a second hand automatically (default for multi-image);
-          * ``'other'`` — confirm a second hand after a ``different_hand`` prompt;
-          * ``'auto'`` — one-at-a-time UI: a non-matching hand returns
+          * ``'any'`` - bind a second hand automatically (default for multi-image);
+          * ``'other'`` - confirm a second hand after a ``different_hand`` prompt;
+          * ``'auto'`` - one-at-a-time UI: a non-matching hand returns
             ``code='different_hand'`` for you to confirm (default for a single image).
         A third distinct hand is refused (``code='hands_full'``)."""
         imgs = images if isinstance(images, list) else [images]
@@ -255,7 +255,7 @@ class FaceVerifyClient:
         return self._call("GET", "/v1/trust")
 
     def trust_issuer(self, tenant: str) -> dict:
-        """Accept credentials issued by another tenant (cross-org verification —
+        """Accept credentials issued by another tenant (cross-org verification -
         no data import needed). Admin key required."""
         return self._call("POST", f"/v1/trust/{tenant}")
 

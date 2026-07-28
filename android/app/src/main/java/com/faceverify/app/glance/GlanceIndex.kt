@@ -9,14 +9,14 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Base64
 
-/** The on-device 1:N "glance" index (trust platform Phase 3) — one int8,
+/** The on-device 1:N "glance" index (trust platform Phase 3) - one int8,
  *  protection-domain vector per person, brute-force matched in memory
  *  (100k x 512 multiply-adds well under a second on a phone).
  *
  *  Parsed from the server's `faceverify-glance-index` payload
  *  (`GET /v1/sync/index`, or the encrypted `/v1/export/glance-index` file for
  *  air-gapped devices). The 1:N threshold arrives calibrated but is CLAMPED
- *  on-device to [GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND] — a bad or hostile
+ *  on-device to [GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND] - a bad or hostile
  *  calibration can never loosen matching below the floor. */
 class GlanceIndex private constructor(
     val users: List<String>,
@@ -99,7 +99,7 @@ class GlanceIndex private constructor(
     }
 }
 
-/** File persistence for glance indexes — one file per modality (face / palm). */
+/** File persistence for glance indexes - one file per modality (face / palm). */
 object GlanceIndexStore {
     private fun file(modality: String) = "glance_index_$modality.json"
 

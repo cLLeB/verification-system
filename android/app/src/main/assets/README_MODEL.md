@@ -11,7 +11,7 @@ Easiest way (from the `android/` folder):
 
 That copies it from your InsightFace cache
 (`%USERPROFILE%\.insightface\models\buffalo_l\w600k_r50.onnx`). If you don't have it
-yet, run the Python service once — InsightFace downloads it on first start.
+yet, run the Python service once - InsightFace downloads it on first start.
 
 The model is git-ignored (large binary). The build will fail to run face matching
 until this file is present. Face *detection* uses ML Kit's bundled model and needs

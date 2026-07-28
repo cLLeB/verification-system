@@ -57,7 +57,7 @@ def measure() -> dict:
         face["paths"].append(os.path.basename(p))
         face["emb"].append(np.asarray(d.embedding, dtype=np.float32).tolist())
         face["embed_ms"].append(round(t, 1))
-    # genuine pair cosines (all same person here) — should be stable across changes
+    # genuine pair cosines (all same person here) - should be stable across changes
     E = np.asarray(face["emb"], dtype=np.float32)
     gen = []
     for i in range(len(E)):
@@ -136,7 +136,7 @@ def _compare(cur: dict, base: dict):
             drift = [_cos(a, b) for a, b in zip(bp["emb"], cp["emb"])]
             print(f"PALM embedding identity: {len(drift)} imgs cos min={min(drift):.6f} "
                   f"mean={np.mean(drift):.6f}  "
-                  f"{'IDENTICAL [OK]' if min(drift) >= 0.9999 else 'drift present — verify EER held'}")
+                  f"{'IDENTICAL [OK]' if min(drift) >= 0.9999 else 'drift present - verify EER held'}")
 
 
 def main():

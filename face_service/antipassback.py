@@ -1,9 +1,9 @@
-"""Anti-passback — a person may not enter twice without exiting in between.
+"""Anti-passback - a person may not enter twice without exiting in between.
 
 Classic access-control control against credential sharing and tailgating: once
 someone verifies at an *entry* reader, the same identity cannot verify at another
 entry until they have verified at an *exit*. If Ama badges in and hands her phone
-to Kofi to badge in too, the second entry is refused — the system knows Ama is
+to Kofi to badge in too, the second entry is refused - the system knows Ama is
 already inside.
 
 The subsystem tracks each user's last direction per tenant. A verify carries a
@@ -80,7 +80,7 @@ def gate(tenant: Optional[str], result: dict, direction: str = "in") -> dict:
     if cur == direction:
         result["success"] = False
         result["code"] = f"passback_{direction}"
-        result["message"] = (f"'{uid}' is already '{direction}' — a matching "
+        result["message"] = (f"'{uid}' is already '{direction}' - a matching "
                              f"'{'out' if direction == 'in' else 'in'}' is required first.")
         return result
     _advance(t, uid, direction)

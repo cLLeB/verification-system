@@ -1,4 +1,4 @@
-"""Durable background job queue — lease-based, with retries and dead-lettering.
+"""Durable background job queue - lease-based, with retries and dead-lettering.
 
 Long tasks (bulk enrolment, dataset export, re-embedding a gallery) must run out of band
 and survive worker restarts. This subsystem is a small persistent job queue with
@@ -9,7 +9,7 @@ worker) makes the job claimable again; too many attempts send it to a dead-lette
   * ``enqueue``    add a job (type + payload), optionally scheduled for later.
   * ``claim``      lease the next due job for a worker for ``lease_seconds``.
   * ``heartbeat``  extend a held lease while still working.
-  * ``complete`` / ``fail`` — finish a job, or fail it (retry with backoff, else DLQ).
+  * ``complete`` / ``fail`` - finish a job, or fail it (retry with backoff, else DLQ).
   * ``reap``       return expired-lease jobs to the queue (run on a timer).
   * ``stats``      counts by state, for a dashboard.
 

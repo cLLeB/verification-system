@@ -1,4 +1,4 @@
-"""Modality profile — the handle that plugs a specific biometric into the core.
+"""Modality profile - the handle that plugs a specific biometric into the core.
 
 A ``Profile`` bundles everything the shared core needs to store and match one
 modality's templates: its embedding dimension, where its data lives (a per-modality
@@ -28,7 +28,7 @@ from .core.store import TemplateStore
 
 @dataclass(frozen=True)
 class Profile:
-    name: str                       # "face" | "palm" — also the modality tag in APIs/audit
+    name: str                       # "face" | "palm" - also the modality tag in APIs/audit
     dim: int                        # embedding dimension (512 for ArcFace)
     db_file: str                    # SQLite file name within the modality's directory
     subdir: str                     # per-modality subdir under a tenant dir ("" = tenant root)

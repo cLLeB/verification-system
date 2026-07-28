@@ -1,4 +1,4 @@
-"""Finite state machines — a reusable engine for constrained lifecycles.
+"""Finite state machines - a reusable engine for constrained lifecycles.
 
 Many subsystems here have a lifecycle with legal and illegal transitions: [[tickets]]
 (open→in_progress→resolved→closed), [[appeals]], [[invoicing]], [[kyc]], [[circuitbreaker]].
@@ -10,7 +10,7 @@ illegal transitions rejected and a full transition history kept for audit.
                         ``{"from": s, "event": e, "to": t}``.
   * ``create_instance`` start an instance of a machine at its initial state.
   * ``fire``            apply an event to an instance; advances state or rejects.
-  * ``state`` / ``allowed_events`` / ``history`` — inspect an instance.
+  * ``state`` / ``allowed_events`` / ``history`` - inspect an instance.
 
 A wildcard ``from`` of ``*`` makes an event valid from any state (e.g. a ``cancel`` that can
 happen anytime). Transitions are validated at ``define`` time against the declared states so

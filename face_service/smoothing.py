@@ -1,4 +1,4 @@
-"""Streaming smoothing — tame noisy real-time signals.
+"""Streaming smoothing - tame noisy real-time signals.
 
 Live signals (match scores, per-minute latency, queue depth) are jittery; acting on a raw
 reading causes flapping. Smoothing turns a noisy stream into a stable trend line. This

@@ -10,7 +10,7 @@ import com.faceverify.app.Config
 
 /** Aligns a detected face to the canonical ArcFace 112x112 layout using the 5
  *  landmarks and a least-squares 2D similarity transform (the same "norm_crop"
- *  insightface uses — uniform scale + rotation + translation, no shear). */
+ *  insightface uses - uniform scale + rotation + translation, no shear). */
 object FaceAligner {
 
     // Canonical destination points for a 112x112 ArcFace crop (insightface standard).

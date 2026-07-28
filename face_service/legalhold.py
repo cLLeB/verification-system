@@ -1,6 +1,6 @@
-"""Legal holds — preserve specific identities against erasure.
+"""Legal holds - preserve specific identities against erasure.
 
-Data-protection law grants a right to erasure, and this platform honours it — but
+Data-protection law grants a right to erasure, and this platform honours it - but
 that right yields when the data is under a **legal hold**: an active investigation,
 litigation, or a regulator's preservation order. Deleting held data can itself be
 an offence (spoliation). This subsystem lets a tenant place a named hold on a
@@ -15,7 +15,7 @@ user_id; while any hold is active, erasure/offboarding paths must refuse.
 
 A user can carry several concurrent holds (different matters); all must be
 released before the data may go. Enforcement is at the erasure boundary, never
-at verify — a held person still authenticates normally.
+at verify - a held person still authenticates normally.
 
 Registry: ``legalhold.json`` (env ``FACE_LEGALHOLD_FILE``).
 """

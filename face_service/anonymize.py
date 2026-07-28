@@ -1,8 +1,8 @@
 """Pseudonymization and redaction for analytics and data sharing.
 
 Operational data (audit logs, verify records) is useful for analytics but carries
-personal identifiers. Before it leaves the trust boundary — a BI export, a support
-bundle, a shared dataset — the identifiers must be removed or replaced. This subsystem
+personal identifiers. Before it leaves the trust boundary - a BI export, a support
+bundle, a shared dataset - the identifiers must be removed or replaced. This subsystem
 does two GDPR-relevant transforms: **pseudonymization** (replace an identifier with a
 stable token so records can still be correlated without exposing who they are) and
 **redaction** (drop or mask configured sensitive fields entirely).
@@ -14,11 +14,11 @@ stable token so records can still be correlated without exposing who they are) a
                         sensitive fields, pass the rest through.
   * ``scrub_many``      apply ``scrub`` across a list.
 
-Pseudonyms are keyed HMAC-SHA256 truncated to a short prefix — reversible only by
+Pseudonyms are keyed HMAC-SHA256 truncated to a short prefix - reversible only by
 someone holding the tenant secret, satisfying "pseudonymization" under Art. 4(5) while
 keeping the mapping out of the exported data itself.
 
-Registry: ``anonymize.json`` (env ``FACE_ANONYMIZE_FILE``) — stores only secrets.
+Registry: ``anonymize.json`` (env ``FACE_ANONYMIZE_FILE``) - stores only secrets.
 """
 
 from __future__ import annotations

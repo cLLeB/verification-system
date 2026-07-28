@@ -36,7 +36,7 @@ object BundleImporter {
 
     class BundleException(message: String) : Exception(message)
 
-    /** Decrypt any server-packed file (`bundle.pack`) to its JSON payload —
+    /** Decrypt any server-packed file (`bundle.pack`) to its JSON payload -
      *  template bundles AND glance-index exports share this envelope. Throws
      *  [BundleException] on a bad passphrase, tampering, or malformed content. */
     fun decryptToJson(raw: ByteArray, passphrase: String): JSONObject {

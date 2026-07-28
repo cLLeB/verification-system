@@ -12,7 +12,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Encryption-at-rest for biometric embeddings, keyed by a non-exportable key held
  *  in the Android Keystore (hardware-backed where available). Embeddings are never
- *  stored in the clear — same posture as the server's encrypted store. */
+ *  stored in the clear - same posture as the server's encrypted store. */
 object Crypto {
     private const val ALIAS = "faceverify_master"
     private const val IV_LEN = 12

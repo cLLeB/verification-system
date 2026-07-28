@@ -1,12 +1,12 @@
 """Export a trained CCNet palm-print checkpoint to ONNX for the server/Android.
 
 CCNet (https://github.com/Zi-YuanYang/CCNet) is PyTorch-only with no public ONNX, so
-this converts an official pretrained checkpoint (Tongji / IITD) — or your own
-fine-tuned one — into the ONNX the palm engine loads.
+this converts an official pretrained checkpoint (Tongji / IITD) - or your own
+fine-tuned one - into the ONNX the palm engine loads.
 
 What it exports: the **feature extractor** (``getFeatureCode``), NOT the close-set
 ArcMargin classifier head. Output is a 2048-d L2-normalised embedding matched by
-cosine — exactly what open-set verification needs. Input is the same as the palm
+cosine - exactly what open-set verification needs. Input is the same as the palm
 engine serves: grayscale, 128x128, [0,1], NCHW.
 
 Usage (run offline, where torch is installed):

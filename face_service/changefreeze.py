@@ -1,9 +1,9 @@
-"""Change freezes — block risky changes during sensitive windows.
+"""Change freezes - block risky changes during sensitive windows.
 
 Before a major event, an audit, or a peak period, operations teams declare a change
 freeze: no config edits, no threshold tweaks, no bulk enrolments, so the system stays
 predictable when it matters most. This subsystem manages those windows and answers "is
-this category of change allowed right now" — a guardrail the admin API consults before
+this category of change allowed right now" - a guardrail the admin API consults before
 mutating anything. It complements [[maintenance]] (which takes hardware out of service)
 by governing *software/config* changes.
 

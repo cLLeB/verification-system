@@ -1,8 +1,8 @@
-"""Sliding-window rate counting — accurate limits without per-event storage.
+"""Sliding-window rate counting - accurate limits without per-event storage.
 
 Fixed-window counters allow bursts at window edges (2x the limit across a boundary); storing
-every timestamp is accurate but unbounded. The sliding-window-counter technique — used by
-Cloudflare — keeps just the current and previous fixed-window counts and interpolates by how
+every timestamp is accurate but unbounded. The sliding-window-counter technique - used by
+Cloudflare - keeps just the current and previous fixed-window counts and interpolates by how
 far into the current window we are, giving a smooth, near-exact rate in constant memory. This
 subsystem implements it, complementing the burst-shaped token bucket ([[ratelimit]]) with a
 true rolling-rate limit.
@@ -14,7 +14,7 @@ true rolling-rate limit.
   * ``reset``    clear a key's counters.
 
 The estimate is ``current_count + previous_count * (1 - elapsed_fraction)`` where
-``elapsed_fraction`` is how far into the current fixed window ``now`` sits — the standard
+``elapsed_fraction`` is how far into the current fixed window ``now`` sits - the standard
 weighted approximation, accurate to a few percent for steady traffic.
 
 Registry: ``slidingwindow.json`` (env ``FACE_SLIDINGWINDOW_FILE``).

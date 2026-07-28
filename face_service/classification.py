@@ -1,4 +1,4 @@
-"""Data classification — label fields by sensitivity and gate sharing.
+"""Data classification - label fields by sensitivity and gate sharing.
 
 Governance needs to know how sensitive each piece of data is and to stop
 over-classified data leaving to under-cleared destinations. This subsystem assigns a
@@ -10,11 +10,11 @@ by deciding *whether* sharing is allowed at all.
   * ``set_field_level``  classify a field name (public/internal/confidential/restricted).
   * ``classify``         a record's overall level and the fields driving it.
   * ``can_share``        may a record go to a destination cleared to ``clearance``?
-  * ``redactable``       fields above a clearance — the ones [[anonymize]] must drop
+  * ``redactable``       fields above a clearance - the ones [[anonymize]] must drop
                          for the record to become shareable.
 
 Levels are ordered ``public < internal < confidential < restricted``. An unclassified
-field defaults to ``internal`` (safe middle ground — visible internally, not shared
+field defaults to ``internal`` (safe middle ground - visible internally, not shared
 externally by default). Sharing is allowed only when the record's level is at or below the
 destination's clearance.
 

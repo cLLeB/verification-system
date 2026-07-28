@@ -1,9 +1,9 @@
-"""Identity tags — arbitrary labels on identities, and queries over them.
+"""Identity tags - arbitrary labels on identities, and queries over them.
 
 Deployments constantly need to group people: "contractor", "vip", "floor-3",
 "nightshift", "under-18". Rather than bolt a fixed schema onto the identity
 record, this subsystem lets a tenant attach free tags to any user_id and query
-them back — the primitive that per-group policies, reports and bulk actions build
+them back - the primitive that per-group policies, reports and bulk actions build
 on. Tags are plain lowercased strings; a person can carry many.
 
   * ``add`` / ``remove`` tags on an identity.

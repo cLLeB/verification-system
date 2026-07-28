@@ -3,7 +3,7 @@
 Counts billable calls (enroll / verify / identify / embed / compare) per tenant
 per calendar month, so you can show customers their usage and optionally cap it.
 Stored as JSON (``usage.json``); fine for the single-worker deployment. For very
-high volume, move these counters to Redis/a DB — the interface stays the same.
+high volume, move these counters to Redis/a DB - the interface stays the same.
 """
 
 from __future__ import annotations

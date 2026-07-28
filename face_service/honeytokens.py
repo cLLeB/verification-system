@@ -1,8 +1,8 @@
-"""Honeytokens — decoy identities/credentials that must never be used legitimately.
+"""Honeytokens - decoy identities/credentials that must never be used legitimately.
 
 A honeytoken is bait: a fake user_id, an unused invite code, a dummy API subject
 that no real person or integration should ever touch. Because legitimate traffic
-never references it, *any* hit is by definition suspicious — a leaked dataset being
+never references it, *any* hit is by definition suspicious - a leaked dataset being
 probed, a stolen credential list being sprayed, an insider poking around. This
 subsystem registers such tokens and, when one is seen at verify (or any lookup),
 records the hit and flags the result so the caller can silently alert and trace.
@@ -10,7 +10,7 @@ records the hit and flags the result so the caller can silently alert and trace.
   * ``plant``   register a honeytoken with a note.
   * ``trip``    record a hit (who/where) and return the accumulated hit record.
   * ``gate``    post-match: if the subject is a honeytoken, tag the result
-                ``honeytoken`` and count the hit — never a normal success.
+                ``honeytoken`` and count the hit - never a normal success.
   * ``hits``    the tripwire log for review.
 
 Registry: ``honeytokens.json`` (env ``FACE_HONEYTOKENS_FILE``).

@@ -10,7 +10,7 @@ same endpoints the console does. The password is asked for interactively so it
 never lands in your shell history; ``--password`` or FACE_ADMIN_PASSWORD also work
 for scripting.
 
-Deleting is PERMANENT and covers BOTH modalities — a person's face and palm
+Deleting is PERMANENT and covers BOTH modalities - a person's face and palm
 templates go together, along with any credential issued to them. It prints exactly
 who it is about to remove and waits for you to type ``yes``.
 

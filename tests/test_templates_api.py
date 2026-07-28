@@ -56,7 +56,7 @@ def test_pull_carries_protection_and_protected_vectors(client, fresh_keys):
     seed = base64.b64decode(prot["seed"])
     stored = np.asarray(d["templates"][0]["embeddings"][0], np.float32)
     # stored vector is NOT the raw embedding, but projecting raw with the
-    # shipped seed reproduces it — exactly what a device does with a live capture
+    # shipped seed reproduces it - exactly what a device does with a live capture
     from biometric.core import protect
     assert abs(float(stored @ raw)) < 0.3
     assert float(protect.transform(seed, raw)[0] @ stored) > 0.999

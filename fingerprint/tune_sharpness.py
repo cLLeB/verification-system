@@ -64,7 +64,7 @@ def main():
         suggested = (min(good) + max(bad)) / 2
         ok = min(good) > max(bad)
         print(f"\nSuggested min_sharpness ≈ {suggested:.0f} "
-              f"({'clean separation' if ok else 'WARNING: overlap — captures not consistent'})")
+              f"({'clean separation' if ok else 'WARNING: overlap - captures not consistent'})")
         return
 
     results = scan(args.folder)

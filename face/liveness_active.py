@@ -2,8 +2,8 @@
 
 The server issues a short-lived signed challenge ("turn your head"). The client
 captures a burst of frames during the motion and posts them back. We confirm a
-genuine 3D head turn happened — a frontal frame AND a clearly turned frame, a
-sufficient yaw swing, the same identity throughout — none of which a flat printed
+genuine 3D head turn happened - a frontal frame AND a clearly turned frame, a
+sufficient yaw swing, the same identity throughout - none of which a flat printed
 photo can fake. The most frontal frame's embedding is then used for matching.
 """
 
@@ -95,7 +95,7 @@ def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
     budget = max(int(getattr(cfg, "live_max_analyze", _MAX_ANALYZE)), cfg.live_min_frames)
     if len(images) > budget:
         # Span first..last INCLUSIVE. The old `int(i * len/budget)` walk stopped
-        # short of the end — for an 11-frame burst it sampled 0,2,4,6,8 and never
+        # short of the end - for an 11-frame burst it sampled 0,2,4,6,8 and never
         # reached the closing frames. Those are the "look straight at the camera"
         # ones, i.e. where the frontal frame that actually gets MATCHED comes from,
         # so recognition ran on a half-turned face.
@@ -121,7 +121,7 @@ def analyze(images: List[np.ndarray], cfg: FaceConfig = CONFIG) -> LiveResult:
         return LiveResult(False, "Turn your head a bit more, side to side.")
 
     # Recognition only on the two frames that matter: the frontal frame (used for
-    # matching) and the most-turned frame — they must be the SAME person, so an
+    # matching) and the most-turned frame - they must be the SAME person, so an
     # attacker can't combine their own head-turn with a victim's frontal photo.
     emb_front = _engine.embed_pose_frame(frontal, cfg)
     if getattr(cfg, "live_identity_check", True):

@@ -1,16 +1,16 @@
-"""Hash chain — a tamper-evident, append-only ledger for critical events.
+"""Hash chain - a tamper-evident, append-only ledger for critical events.
 
 The audit log records what happened, but a plain log can be edited after the
 fact: delete the line that shows the door opened at 3am and nobody knows. This
 subsystem lets any surface append events into a per-tenant chain where each entry
 carries the SHA-256 of the previous entry plus its own payload. Change, remove,
-or reorder any past entry and every following hash stops matching — so tampering
+or reorder any past entry and every following hash stops matching - so tampering
 is *detectable* even if the file is writable.
 
   * ``append``  add an event; returns its sequence number and hash.
   * ``verify``  walk the chain and confirm every link; returns the first break
                 (or None if intact).
-  * ``head``    the current tip hash — publish/anchor it elsewhere (a webhook,
+  * ``head``    the current tip hash - publish/anchor it elsewhere (a webhook,
                 a second store) and even wholesale file replacement is caught.
 
 This is a genuine ledger, not a cache: entries are never rewritten, only

@@ -1,4 +1,4 @@
-"""Guest (time-boxed) identities — enrolments that stop verifying at expiry.
+"""Guest (time-boxed) identities - enrolments that stop verifying at expiry.
 
 Nothing in the store ages: a template enrolled once verifies forever. That is
 right for staff and wrong for visitors, contractors, exam candidates and event
@@ -9,7 +9,7 @@ underlying pipeline stays byte-for-byte untouched.
 
 Expired guests remain in the store (auditable, re-extendable) until purged.
 ``due_for_purge`` + the admin/API purge hooks erase them properly through the
-normal delete path (both modalities + credential revocation — handled by the
+normal delete path (both modalities + credential revocation - handled by the
 caller, which owns those services).
 
 Registry: ``guests.json`` (env ``FACE_GUESTS_FILE``), the same JSON/lock/env
@@ -137,7 +137,7 @@ def list_for(tenant: Optional[str], now: Optional[float] = None) -> List[dict]:
 
 def due_for_purge(tenant: Optional[str], grace_hours: float = 0,
                   now: Optional[float] = None) -> List[str]:
-    """Guests expired for longer than ``grace_hours`` — the purge candidates."""
+    """Guests expired for longer than ``grace_hours`` - the purge candidates."""
     now = time.time() if now is None else now
     cutoff = grace_hours * 3600
     return [g["user_id"] for g in list_for(tenant, now=now)

@@ -1,4 +1,4 @@
-"""Device provisioning — onboard readers with one-time claim codes.
+"""Device provisioning - onboard readers with one-time claim codes.
 
 Rolling out a fleet of capture devices needs a safe bootstrap: an operator pre-creates a
 provisioning code, the device is powered on and claims the code once to receive its
@@ -13,8 +13,8 @@ handing back the config a device needs to join a [[devicegroups]] policy set.
   * ``revoke``   invalidate an unclaimed code.
   * ``devices``  list provisioned devices; ``pending`` lists unclaimed codes.
 
-A claimed code is bound to the claiming device id, so re-presenting it — even by the same
-device — returns the stored config idempotently rather than provisioning a second device.
+A claimed code is bound to the claiming device id, so re-presenting it - even by the same
+device - returns the stored config idempotently rather than provisioning a second device.
 
 Registry: ``provisioning.json`` (env ``FACE_PROVISIONING_FILE``).
 """

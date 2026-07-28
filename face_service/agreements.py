@@ -1,9 +1,9 @@
-"""Policy / document acceptance — versioned agreements a person must accept.
+"""Policy / document acceptance - versioned agreements a person must accept.
 
 People must often accept documents before or during access: an NDA, a site safety
 briefing, acceptable-use terms, a privacy notice. Compliance needs proof of *which
 version* each person accepted and *when*, and access may be gated on having accepted the
-*current* version — re-consent is required when the document changes. This subsystem is
+*current* version - re-consent is required when the document changes. This subsystem is
 that attestation register.
 
   * ``publish``     publish (or re-publish) a document, bumping its version.
@@ -14,7 +14,7 @@ that attestation register.
   * ``pending``     given a set of subjects, who has not accepted the current version.
 
 Re-publishing a document increments its version, which silently invalidates prior
-acceptances for gating purposes — exactly the "you must re-accept the updated terms"
+acceptances for gating purposes - exactly the "you must re-accept the updated terms"
 behaviour. Acceptance history is retained per subject for audit.
 
 Registry: ``agreements.json`` (env ``FACE_AGREEMENTS_FILE``).

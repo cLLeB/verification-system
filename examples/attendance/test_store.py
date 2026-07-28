@@ -1,4 +1,4 @@
-"""Punch-toggle logic for the attendance vertical (pure SQLite — no backbone/models).
+"""Punch-toggle logic for the attendance vertical (pure SQLite - no backbone/models).
 
     python -m pytest examples/attendance/test_store.py -q
 """

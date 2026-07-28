@@ -1,4 +1,4 @@
-"""Parking — permits and live occupancy for identity-authorised parking.
+"""Parking - permits and live occupancy for identity-authorised parking.
 
 Barrier-free parking opens the boom by face (or by a plate tied to an identity).
 This subsystem issues parking permits scoped to a lot, tracks which permit-holders

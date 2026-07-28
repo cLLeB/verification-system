@@ -4,7 +4,7 @@
    group photo must be LOW.
 2) Robustness: the SAME face under realistic capture variation (brightness,
    small rotation, blur, JPEG recompression) must stay HIGH similarity to the
-   original — i.e. the same person re-captured still matches.
+   original - i.e. the same person re-captured still matches.
 """
 from __future__ import annotations
 import cv2

@@ -4,7 +4,7 @@ This is the bridge between "I have some palm photos" and a correct, safe
 ``palm/calibration.json``. It runs the **exact serving path** (palm.roi ROI +
 palm.engine encoder), so the calibrated threshold matches what production sees.
 
-Layout — identity is taken from the immediate parent folder name::
+Layout - identity is taken from the immediate parent folder name::
 
     captures/
         caleb_right/   img1.jpg img2.jpg img3.jpg
@@ -44,7 +44,7 @@ _IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 def _collect(root: str) -> List[Tuple[str, str]]:
     """(identity, path) for every image under root. Identity is the image's folder
-    path RELATIVE to root — so a nested layout like ``friend2/left_hand`` and
+    path RELATIVE to root - so a nested layout like ``friend2/left_hand`` and
     ``friend3/left_hand`` are DISTINCT hands (using only the basename would collapse
     both to ``left_hand`` and fabricate genuine pairs across different people)."""
     items: List[Tuple[str, str]] = []
@@ -127,7 +127,7 @@ def main() -> None:
     print(f"\ngenuine  (same hand):     {stats(gen)}")
     print(f"impostor (different hand): {stats(imp)}")
     overlap = float(gen.min()) <= float(imp.max())
-    print(f"distributions {'OVERLAP — palm is not reliably separable on this data' if overlap else 'are cleanly separated'}")
+    print(f"distributions {'OVERLAP - palm is not reliably separable on this data' if overlap else 'are cleanly separated'}")
 
     res = evaluate(emb, labels)
     print(f"\nEER = {res.eer:.4f}   EER-threshold = {res.threshold:.4f}")
@@ -151,7 +151,7 @@ def main() -> None:
             json.dump(data, fh, indent=2)
         print(f"\nwrote match_threshold={chosen:.4f} -> {cal_path}")
     else:
-        print("\n(report only — re-run with --write to save match_threshold to calibration.json)")
+        print("\n(report only - re-run with --write to save match_threshold to calibration.json)")
 
 
 if __name__ == "__main__":

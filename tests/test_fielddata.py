@@ -154,7 +154,7 @@ def test_open_enrollment_needs_no_password(client, monkeypatch):
     monkeypatch.setattr(app, "OPEN_ENROLL", True)
     client.post("/admin/logout")
     r = client.post("/api/enroll", json={"user_id": "walkup", "image": _img_b64()})
-    assert r.status_code == 200                  # not 401 — no login demanded
+    assert r.status_code == 200                  # not 401 - no login demanded
     assert client.get("/admin/session").get_json()["open_enroll"] is True
 
 

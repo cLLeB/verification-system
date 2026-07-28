@@ -111,13 +111,13 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
             }, { Text("Check card") })
             FilterChip(vm.mode == Mode.GLANCE, {
                 vm.selectMode(Mode.GLANCE)
-                // glance points at OTHER people — back camera
+                // glance points at OTHER people - back camera
                 lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
             }, { Text("Glance") })
         }
         Spacer(Modifier.height(12.dp))
         if (vm.mode == Mode.CREDENTIAL && vm.credPayload != null && vm.result == null) {
-            // card accepted — the live person is captured with the front camera
+            // card accepted - the live person is captured with the front camera
             LaunchedEffect(vm.credPayload) {
                 lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_FRONT
             }
@@ -173,7 +173,7 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                 }
             }
             vm.result?.let { ResultOverlay(it) { vm.scanAgain() } }
-            // Glance: a live name chip instead of a frozen verdict — batch friendly
+            // Glance: a live name chip instead of a frozen verdict - batch friendly
             if (vm.mode == Mode.GLANCE && vm.glanceHit != null) {
                 Surface(
                     color = Ok, shape = MaterialTheme.shapes.large,
@@ -343,14 +343,14 @@ private fun SettingsScreen(vm: ScannerViewModel) {
         InfoRow("People enrolled", vm.people.size.toString())
         InfoRow("Match threshold", com.faceverify.app.Config.MATCH_THRESHOLD.toString())
         InfoRow("Storage", "Encrypted, on-device only")
-        InfoRow("Network", if (vm.isHybrid) "Hybrid — optional server sync" else "None — fully offline")
+        InfoRow("Network", if (vm.isHybrid) "Hybrid - optional server sync" else "None - fully offline")
         Spacer(Modifier.height(20.dp))
         if (vm.isHybrid) {
             SyncSection(vm, ctx)
         } else {
             Text(
                 "Face Verify runs entirely on this device. Faces are turned into an encrypted " +
-                    "mathematical template — no photos and no data ever leave the phone.",
+                    "mathematical template - no photos and no data ever leave the phone.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -374,7 +374,7 @@ private fun GlanceIndexSection(vm: ScannerViewModel) {
     }
     Text("Glance index", style = MaterialTheme.typography.titleMedium)
     Text(
-        "\"Glance\" identifies people continuously against this index — every enrolled " +
+        "\"Glance\" identifies people continuously against this index - every enrolled " +
             "identity, matched on this phone in under a second, fully offline.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -416,7 +416,7 @@ private fun TrustStoreSection(vm: ScannerViewModel) {
     Text("Credential trust list", style = MaterialTheme.typography.titleMedium)
     Text(
         "\"Check card\" verifies signed QR credentials against this list of issuers " +
-            "and their revocations — fully offline. Refresh it when you can so " +
+            "and their revocations - fully offline. Refresh it when you can so " +
             "revoked cards are rejected promptly.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -442,7 +442,7 @@ private fun TrustStoreSection(vm: ScannerViewModel) {
 
 /** Offline provisioning: import a passphrase-encrypted template bundle the admin
  *  exported on the server and moved here out-of-band (USB / MDM). No network is
- *  used — the airgap is preserved. PIN-gated like the sync settings. */
+ *  used - the airgap is preserved. PIN-gated like the sync settings. */
 @Composable
 private fun BundleImportSection(vm: ScannerViewModel, ctx: android.content.Context) {
     val adminGate = remember { AdminGate(ctx) }
@@ -460,7 +460,7 @@ private fun BundleImportSection(vm: ScannerViewModel, ctx: android.content.Conte
     Text("Bulk import (offline)", style = MaterialTheme.typography.titleMedium)
     Text(
         "Load a roster the administrator exported on the server. The file is decrypted " +
-            "here with its passphrase — no network is used, the device stays offline.",
+            "here with its passphrase - no network is used, the device stays offline.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(12.dp))
@@ -535,7 +535,7 @@ private fun SyncSection(vm: ScannerViewModel, ctx: android.content.Context) {
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = key, onValueChange = { key = it },
-            label = { Text(if (vm.syncApiKeySet()) "API key (set — blank keeps it)" else "API key") },
+            label = { Text(if (vm.syncApiKeySet()) "API key (set - blank keeps it)" else "API key") },
             singleLine = true, visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
         )

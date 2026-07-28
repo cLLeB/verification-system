@@ -2,7 +2,7 @@
 
 When a tenant configures a webhook URL, enrol/verify/identify events are POSTed
 to it as JSON, signed with that tenant's webhook secret so the receiver can trust
-them. Delivery is fire-and-forget on a background thread and best-effort — it never
+them. Delivery is fire-and-forget on a background thread and best-effort - it never
 blocks or fails the API request.
 
 This is the ONLY outbound network call in the system, and only happens when a

@@ -1,17 +1,17 @@
-"""Attestation nonces — prove a capture is fresh, not a replayed recording.
+"""Attestation nonces - prove a capture is fresh, not a replayed recording.
 
 A stateless verify endpoint can be attacked by replay: capture a legitimate frame
 (or its embedding) once, then submit it again later. A server-issued nonce closes
 that door. The flow: the client asks for a challenge, the server mints a short-
 lived single-use nonce, the client binds it into the capture session, and the
 verify presents it back. The server accepts the nonce exactly once, within its
-window — a replayed request carries a nonce that is already spent or expired.
+window - a replayed request carries a nonce that is already spent or expired.
 
   * ``issue``   mint a nonce (per tenant, short TTL).
   * ``redeem``  consume a nonce; returns True only on first use inside the window.
   * ``gate``    post-match: refuse a verify whose nonce is missing/spent/expired.
 
-This is a freshness proof, not device identity — pair it with [[devices]] for the
+This is a freshness proof, not device identity - pair it with [[devices]] for the
 latter. Nonces are opaque random tokens; nothing biometric is stored.
 
 Registry: ``attestation.json`` (env ``FACE_ATTESTATION_FILE``).

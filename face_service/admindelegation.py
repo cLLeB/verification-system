@@ -1,4 +1,4 @@
-"""Scoped admin delegation — grant admin rights over a slice, not the whole tenant.
+"""Scoped admin delegation - grant admin rights over a slice, not the whole tenant.
 
 In a multi-site deployment you don't want every administrator to be a super-admin. A
 site manager should administer *their* site; a department lead *their* people. This
@@ -15,7 +15,7 @@ by being the binding between an admin, a scope, and what they may do there.
   * ``admins_of`` who may administer a given scope value.
 
 Grants are additive; a principal may hold several across different scopes. There is no
-implicit inheritance across the org tree here — callers that want roll-up expand the
+implicit inheritance across the org tree here - callers that want roll-up expand the
 target's ancestors ([[orgunits]].ancestors) and check each.
 
 Registry: ``admindelegation.json`` (env ``FACE_ADMINDELEGATION_FILE``).

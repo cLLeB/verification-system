@@ -1,8 +1,8 @@
 """Ed25519 signing primitives for the trust platform.
 
 Raw-bytes API (32-byte keys, 64-byte signatures) so callers never touch
-``cryptography`` objects. ``verify`` returns False on ANY failure — malformed
-key, malformed signature, or mismatch — so verification code can never be
+``cryptography`` objects. ``verify`` returns False on ANY failure - malformed
+key, malformed signature, or mismatch - so verification code can never be
 crashed by attacker-controlled bytes.
 """
 

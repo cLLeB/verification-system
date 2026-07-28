@@ -1,16 +1,16 @@
-"""Timezone — give the time-based gates a correct local clock per tenant.
+"""Timezone - give the time-based gates a correct local clock per tenant.
 
 Several gates ([[schedules]], [[blackout]], [[timesheet]]) deliberately take the
 local weekday/minute/date from the caller so the core stays timezone-agnostic.
 That pushes the burden onto every caller. This subsystem centralises it: a tenant
 registers its IANA timezone (``Africa/Accra``, ``Europe/London``) once, and this
 converts a UTC epoch into the tenant-local weekday, minute-of-day, and date that
-those gates expect — including daylight-saving, via the standard library's
+those gates expect - including daylight-saving, via the standard library's
 ``zoneinfo``. One place to get local time right, reused everywhere.
 
   * ``set_zone``   register the tenant's IANA zone (validated).
   * ``local``      {weekday, minute, date, hour, iso} for a UTC epoch (or now).
-  * ``weekday`` / ``minute`` / ``date`` — the individual pieces the gates want.
+  * ``weekday`` / ``minute`` / ``date`` - the individual pieces the gates want.
 
 Falls back to UTC when no zone is set, so it is always safe to call.
 

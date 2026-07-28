@@ -4,14 +4,14 @@ Story it acts out, using the REAL store + matcher code (no camera/models):
 
   * Alice enrols today (3 permanent "anchor" captures).
   * Over ~2 years she signs in periodically; her face gradually changes
-    (a random walk in embedding space — beard, weight, ageing, ...).
+    (a random walk in embedding space - beard, weight, ageing, ...).
   * Each confident live sign-in is folded into her template via the SAME gate
     the live API uses (face/api.py::_maybe_adapt + storage.add_adaptive).
   * Two impostors keep trying the whole time.
 
 What it proves:
   1. WITHOUT adaptation, year-later-Alice fails against today's anchors
-     (the drift is real — a static template would lock her out).
+     (the drift is real - a static template would lock her out).
   2. WITH adaptation, year-later-Alice is still accepted.
   3. Impostors are rejected throughout, AND never get folded into Alice's
      template (anti-drift: the system tracks new-Alice without ever sliding
@@ -74,7 +74,7 @@ def main() -> None:
 
         # --- 1. Control: no adaptation, verify year-later Alice -------------
         # (probes are projected into the store's protection domain, exactly as
-        # the live API does — matching math is unchanged by protection)
+        # the live API does - matching math is unchanged by protection)
         later = capture(faces[-1])
         s_static = matcher.best_score(store.protect_probe(later), anchors_day0)
         print(f"[1] WITHOUT adaptation  year-later Alice vs day-0 anchors only:")

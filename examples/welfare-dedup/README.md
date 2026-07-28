@@ -1,13 +1,13 @@
 # Welfare de-dup + payout
 
 Registers social-protection beneficiaries **without ghosts or duplicates**, and
-verifies them at payout — by **face or palm**, so worn fingerprints don't exclude
+verifies them at payout - by **face or palm**, so worn fingerprints don't exclude
 the poorest (a real failure of fingerprint-only welfare rolls).
 
 ## The problem it kills
-- **Ghost / duplicate beneficiaries** — the same person collecting under several
+- **Ghost / duplicate beneficiaries** - the same person collecting under several
   names drains programs. A biometric de-dup at registration stops it.
-- **Exclusion at payout** — fingerprint failure denies real people their money.
+- **Exclusion at payout** - fingerprint failure denies real people their money.
   Contactless face-or-palm includes them.
 
 ## How it uses the backbone
@@ -27,4 +27,4 @@ pip install flask
 python examples/welfare-dedup/app.py                      # http://localhost:8001
 ```
 `POST /api/register {name, program, image}` · `POST /api/payout {amount, image}` · `GET /api/summary`.
-The camera UI is the same pattern as `examples/attendance/` — swap the endpoints.
+The camera UI is the same pattern as `examples/attendance/` - swap the endpoints.

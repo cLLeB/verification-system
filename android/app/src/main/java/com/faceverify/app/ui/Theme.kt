@@ -7,7 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// "Verified" design language — deep ink + iris violet, matching the web product.
+// "Verified" design language - deep ink + iris violet, matching the web product.
 private val Violet = Color(0xFF8B7CF6)
 private val VioletFill = Color(0xFF6D4DE6)
 private val VioletLight = Color(0xFFA78BFA)

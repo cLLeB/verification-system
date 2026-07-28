@@ -12,7 +12,7 @@ that register, rounding out the compliance suite alongside [[ropa]], [[breach]] 
   * ``add_risk``      a risk with likelihood/severity (→ a computed risk level).
   * ``mitigate``      attach a mitigation to a risk and set its residual level.
   * ``sign_off``      the DPO/controller approves; blocked while any risk's residual
-                      level is ``high`` (must consult the authority first — Art. 36).
+                      level is ``high`` (must consult the authority first - Art. 36).
   * ``status``        completeness, highest residual risk, and consultation flag.
 
 Risk level is a 3×3 matrix of likelihood × severity (low/medium/high). ``sign_off``

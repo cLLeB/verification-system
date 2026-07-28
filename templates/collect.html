@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0d0f16">
-    <title>Collect — liveness test set</title>
+    <title>Collect - liveness test set</title>
     <style>
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -71,7 +71,7 @@ async function startCamera() {
         stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
         video.srcObject = stream; try { await video.play(); } catch(e){} keepVideoAlive(video);
-    } catch (e) { $('gate').innerHTML = '<p class="warn">Camera unavailable — allow access and reload.</p>'; }
+    } catch (e) { $('gate').innerHTML = '<p class="warn">Camera unavailable - allow access and reload.</p>'; }
 }
 function grab() {
     const vw = video.videoWidth, vh = video.videoHeight; if (!vw || !vh) return null;
@@ -94,7 +94,7 @@ async function capture(kind) {
         const d = await fetch('/api/collect', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: TOKEN, label, image: img }) }).then(r => r.json()).catch(() => ({}));
         if (d.success) { count[label] = d.count; renderTally(); $('gate').innerHTML = ''; }
-        else if (d.code === 'forbidden') $('gate').innerHTML = '<p class="warn">Not saving — sign in at /admin first (or open /collect?token=YOUR_SECRET).</p>';
+        else if (d.code === 'forbidden') $('gate').innerHTML = '<p class="warn">Not saving - sign in at /admin first (or open /collect?token=YOUR_SECRET).</p>';
     } finally { busy = false; }
 }
 $('cap-live').onclick = () => capture('live');

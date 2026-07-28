@@ -1,8 +1,8 @@
-"""Zone graph — only allow physically-possible movements between zones.
+"""Zone graph - only allow physically-possible movements between zones.
 
 A site is a graph of zones connected by doors: lobby -> corridor -> lab, but no
 door from the street straight into the lab. If someone's last verified zone was
-the lobby and they suddenly verify inside the lab, they did not walk there — a
+the lobby and they suddenly verify inside the lab, they did not walk there - a
 credential was cloned, or a door was propped and they tailgated. This subsystem
 holds the adjacency of zones and each person's current zone, and refuses a verify
 whose implied move is not along a defined edge.

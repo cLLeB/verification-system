@@ -3,7 +3,7 @@
 **Date:** 2026-06-23
 **Status:** Phase A implemented 2026-06-23. **Tenant self-service portal also implemented
 2026-06-23** (`/portal`, `face_service/portal.py`). Off-box KEK/KMS and real billing remain
-deliberately out (KMS disproportionate for a single host; billing needs a payment provider —
+deliberately out (KMS disproportionate for a single host; billing needs a payment provider -
 the `enabled` flag is the hook a biller flips).
 
 ## Problem / context
@@ -11,10 +11,10 @@ the `enabled` flag is the hook a biller flips).
 The platform serves a first-party app (via `/admin`) **and** 3rd-party companies (via
 `/v1` API keys). Customer concerns, analysed against the code:
 
-- Are tenants' enrolments separate? **Yes already** — each `/v1` request stores under
+- Are tenants' enrolments separate? **Yes already** - each `/v1` request stores under
   `face_db/tenants/<tenant>/` (own encrypted SQLite + index); `/admin` uses the
   `face_db/` root ("first_party"). Different tenants/keys can't address each other.
-- We store **embeddings, not images** — the raw photo is never persisted server-side.
+- We store **embeddings, not images** - the raw photo is never persisted server-side.
 - Per-tenant **crypto separation already exists**: `crypto.get_cipher(db_path)` runs per
   tenant dir, so each has its own `.salt`/`.key` (distinct derived key even under a
   shared master passphrase). No KMS is added (disproportionate for a single-box host).
@@ -30,13 +30,13 @@ The platform serves a first-party app (via `/admin`) **and** 3rd-party companies
 | 3 | **Paywall hook = `enabled` flag + limits** enforced per request | One flag/billing check gates access; no rearchitecting |
 | 4 | **Two planes**: admin manages *access/limits*; data screens stay first-party only | Shrinks blast radius of an admin compromise |
 
-## Design (Phase A — this spec)
+## Design (Phase A - this spec)
 
 ### Entitlements (`face_service/tenants.py`)
 Per-tenant record gains: `enabled: bool=True`, `plan: str="standard"`,
 `max_keys: int=0` (0 = unlimited), `allowed_roles: [str]=["admin","verify"]`.
 New: `entitlement(tenant)`, `set_entitlement(...)`, `is_enabled(tenant)`. Backward
-compatible — unknown tenants default to enabled/unlimited so existing keys keep working.
+compatible - unknown tenants default to enabled/unlimited so existing keys keep working.
 
 ### Enforcement
 - **Request time** (`face_service/auth.py`): after authenticating, if the tenant is

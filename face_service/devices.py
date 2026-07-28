@@ -1,21 +1,21 @@
-"""Device registry — kiosks and verifier phones as first-class citizens.
+"""Device registry - kiosks and verifier phones as first-class citizens.
 
 Until now the platform only knew *keys*: any number of kiosks could share one
 verify key, and nothing recorded which physical device did what, when it was
 last alive, or how to cut ONE stolen kiosk off without rotating a whole fleet.
 This registry gives every device its own identity:
 
-  * **Pairing** — an admin/portal mints a short-lived, single-use pairing code
-    (``pc_`` + 160-bit token, stored hashed — the invite pattern). The device
+  * **Pairing** - an admin/portal mints a short-lived, single-use pairing code
+    (``pc_`` + 160-bit token, stored hashed - the invite pattern). The device
     redeems it once at ``POST /v1/devices/pair`` (the code IS the auth) and
     receives its ``device_id`` plus its OWN freshly-minted verify key. Raw
     code and key are returned exactly once each.
-  * **Device-bound key** — the key is created via [[keys]] with the device
+  * **Device-bound key** - the key is created via [[keys]] with the device
     name, so audit ``actor`` fields already attribute traffic per device.
-  * **Heartbeat** — devices report in on ``/v1/devices/heartbeat`` (app
+  * **Heartbeat** - devices report in on ``/v1/devices/heartbeat`` (app
     version, platform, battery, whatever fits in ``info``); the console shows
     last-seen so a dead kiosk is visible before someone walks up to it.
-  * **Disable = revoke** — disabling a device revokes its key immediately
+  * **Disable = revoke** - disabling a device revokes its key immediately
     (via ``keys.revoke_key``), with zero added cost on the request path: an
     unpaired/disabled device simply has no valid key.
 
@@ -95,7 +95,7 @@ def redeem(code: str, key_minter) -> Optional[dict]:
     """Exchange a live pairing code for the device record + its own verify key.
     ``key_minter(name, tenant)`` mints the key (injected so this module stays
     free of a hard [[keys]] dependency and tests can fake it). Returns None for
-    an unknown / expired / already-used code — the caller answers 404 and the
+    an unknown / expired / already-used code - the caller answers 404 and the
     failed attempt costs an attacker one rate-limited request."""
     if not code:
         return None
@@ -160,7 +160,7 @@ def list_for(tenant: Optional[str]) -> List[dict]:
 
 
 def disable(device_id: str, tenant: Optional[str], key_revoker) -> Optional[dict]:
-    """Disable a device and revoke its key via ``key_revoker(key_id)`` — the
+    """Disable a device and revoke its key via ``key_revoker(key_id)`` - the
     kiosk is cut off at the next request. The row stays for the audit trail.
     Returns the updated record, or None if the device isn't this tenant's."""
     t = _norm(tenant)

@@ -1,6 +1,6 @@
 """Credential suite: integrity, quantization cost, size budget, crypto speed.
 
-Dataset-free (synthetic unit embeddings) — measures the exact issue/verify code
+Dataset-free (synthetic unit embeddings) - measures the exact issue/verify code
 paths from ``biometric.core.credential``.
 """
 

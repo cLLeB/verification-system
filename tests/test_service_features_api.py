@@ -1,5 +1,5 @@
 """API surface of the five service subsystems (policies, guests, devices,
-guardians, consent) through /v1 — management flows that need no camera."""
+guardians, consent) through /v1 - management flows that need no camera."""
 
 from __future__ import annotations
 
@@ -206,7 +206,7 @@ def test_service_state_mirror(client, make_key):
     assert s["withdrawn"] == ["kofi"] and s["consented"] == ["ama"]
     assert s["enforce_withdrawal"] is True
     assert s["guardians"]["baby"][0]["guardian"] == "ama"
-    # devices hold verify keys — the mirror needs a manage key
+    # devices hold verify keys - the mirror needs a manage key
     verify = make_key("verify", tenant="t_state")
     assert client.get("/v1/service-state", headers=_h(verify)).status_code == 403
 

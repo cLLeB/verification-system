@@ -12,7 +12,7 @@ import kotlinx.coroutines.sync.withLock
 /** On-device source of truth for PALM enrolment + matching. Mirrors FaceRepository
  *  exactly, but backed by the isolated PalmDb and palm-tuned thresholds, with its
  *  own in-memory index (palm embeddings per user) for fast 1:N. Palm and face share
- *  only the `user_id` namespace conceptually — their vectors live apart and are
+ *  only the `user_id` namespace conceptually - their vectors live apart and are
  *  matched only against their own kind (`Matcher` is dimension-agnostic).
  *
  *  Protected templates: bundled/synced palm rows arrive projected into a revocable
@@ -22,7 +22,7 @@ class PalmRepository(context: Context) {
     private val dao = PalmDb.get(context).dao()
     private val index = LinkedHashMap<String, MutableList<FloatArray>>()
     private val userSeeds = HashMap<String, ByteArray>()
-    // Non-sensitive per-user hand sides (e.g. "Right,Left") for the same-side guard —
+    // Non-sensitive per-user hand sides (e.g. "Right,Left") for the same-side guard -
     // isolated in prefs so no DB migration is needed. Cleared on delete.
     private val sidesPrefs = context.applicationContext
         .getSharedPreferences("palm_hand_sides", Context.MODE_PRIVATE)
@@ -116,14 +116,14 @@ class PalmRepository(context: Context) {
 
         // Matches no enrolled hand -> a DIFFERENT hand.
         if (hands.size >= PalmConfig.MAX_HANDS_PER_USER) {
-            return@withLock EnrollResult(false, "'$id' already has both hands enrolled — no more hands can be added.", "hands_full")
+            return@withLock EnrollResult(false, "'$id' already has both hands enrolled - no more hands can be added.", "hands_full")
         }
         // No one has two right (or two left) hands: refuse a different hand on the SAME
         // side as one already enrolled.
         val sides = handSidesOf(id)
         if (PalmConfig.REJECT_SAME_SIDE_HAND && handedness.isNotEmpty() && handedness in sides) {
             return@withLock EnrollResult(false,
-                "'$id' already has a ${handedness.lowercase()} hand — a person has only one ${handedness.lowercase()} hand. Enrol the OTHER hand.",
+                "'$id' already has a ${handedness.lowercase()} hand - a person has only one ${handedness.lowercase()} hand. Enrol the OTHER hand.",
                 "same_hand_side")
         }
         if (!allowNewHand) {

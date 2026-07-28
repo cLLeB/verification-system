@@ -1,4 +1,4 @@
-# `face_service/` — web API layer
+# `face_service/` - web API layer
 
 Everything that turns the recognition core (`face/`) into a multi-tenant web service.
 Mounted by `app.py`. HTTP-aware; depends on `face/` for the actual recognition.
@@ -16,8 +16,8 @@ Mounted by `app.py`. HTTP-aware; depends on `face/` for the actual recognition.
 | `metrics.py` | In-process Prometheus counters (`/metrics`): requests by endpoint/status, latency, uptime. |
 | `security.py` | Rate limiting (`hit()` → limit/remaining/reset) + security headers. |
 | `tenants.py` | Per-tenant settings: CORS origins + webhook URL/secret/events. |
-| `webhooks.py` | Outbound signed event delivery (opt-in, async, best-effort) — the only outbound call. |
-| `idempotency.py` | `@idempotent` — cache+replay responses for an `Idempotency-Key` (safe retries). |
+| `webhooks.py` | Outbound signed event delivery (opt-in, async, best-effort) - the only outbound call. |
+| `idempotency.py` | `@idempotent` - cache+replay responses for an `Idempotency-Key` (safe retries). |
 | `persistence.py` | Durable state on ephemeral hosts: restore from / sync to a private HF Dataset. |
 
 ## Conventions

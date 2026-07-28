@@ -7,7 +7,7 @@ fix orientation and scale, then warp out a fixed-size ROI. Also reports the sign
 the quality gate needs (hand confidence, ROI size, sharpness, finger spread, palm
 vs. back of hand).
 
-Uses the MediaPipe **Tasks** ``HandLandmarker`` (the current, supported API — the
+Uses the MediaPipe **Tasks** ``HandLandmarker`` (the current, supported API - the
 same one the Android app uses), loaded lazily from a bundled ``hand_landmarker.task``
 model and guarded by a lock (one detector reused across Flask worker threads). If
 MediaPipe Tasks or the model file is unavailable, ``available()`` is False and the
@@ -52,7 +52,7 @@ def ensure_hand_model(cfg: PalmConfig = CONFIG) -> bool:
     from the configured Hugging Face repo if not.
 
     Mirrors ``engine.ensure_model`` for the CCNet encoder. It matters on hosts with
-    no image build step — the Dockerfile bakes this file in, but a Space installs
+    no image build step - the Dockerfile bakes this file in, but a Space installs
     from requirements only, and without the file palm ROI reports unavailable and
     the whole palm modality quietly disappears. Fails soft and only ever tries once
     per process, so a network problem costs one attempt, not one per request."""
@@ -77,7 +77,7 @@ def ensure_hand_model(cfg: PalmConfig = CONFIG) -> bool:
 
 def available(cfg: PalmConfig = CONFIG) -> bool:
     """True only if the MediaPipe Tasks HandLandmarker is importable AND its model
-    file is present. Returns False — rather than crashing — otherwise, so the router
+    file is present. Returns False - rather than crashing - otherwise, so the router
     just treats palm as absent."""
     try:
         from mediapipe.tasks.python.vision import HandLandmarker  # noqa: F401
@@ -141,7 +141,7 @@ def _finger_spread(pts: np.ndarray) -> float:
 def _palm_facing(pts: np.ndarray, handedness: str) -> bool:
     """Heuristic palm-vs-dorsal from landmark chirality. The signed area of
     (wrist → index_mcp → pinky_mcp) flips between palm and back of hand; combine it
-    with the MediaPipe handedness label. Best-effort — tunable via the quality gate."""
+    with the MediaPipe handedness label. Best-effort - tunable via the quality gate."""
     a = pts[_INDEX_MCP] - pts[_WRIST]
     b = pts[_PINKY_MCP] - pts[_WRIST]
     cross = float(a[0] * b[1] - a[1] * b[0])
@@ -174,12 +174,12 @@ def _extract_roi(image: np.ndarray, pts: np.ndarray, roi_size: int
     cx, cy = float(center[0]), float(center[1])
     half = int(round(side / 2.0))
     if half <= 0:
-        raise PalmError("Your hand is out of frame — center your open hand.", code="palm_too_small")
+        raise PalmError("Your hand is out of frame - center your open hand.", code="palm_too_small")
     # Warp ONLY the ROI region straight to a (2*half)² crop, instead of rotating the
-    # whole frame (which is huge waste on multi-MP phone photos — a 3840×2160 shot
+    # whole frame (which is huge waste on multi-MP phone photos - a 3840×2160 shot
     # warped in full just to keep a ~few-hundred-px ROI). The rotation, INTER_LINEAR
     # interpolation and REFLECT_101 border are unchanged, so the ROI pixels are the
-    # same as the old warp-then-crop for any palm inside the frame — accuracy-neutral,
+    # same as the old warp-then-crop for any palm inside the frame - accuracy-neutral,
     # verified by _bench_speed_accuracy.py (palm EER + per-embedding cosine drift).
     M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
     M[0, 2] -= (cx - half)                            # shift ROI top-left -> output (0,0)
@@ -188,7 +188,7 @@ def _extract_roi(image: np.ndarray, pts: np.ndarray, roi_size: int
     crop = cv2.warpAffine(image, M, (size, size), flags=cv2.INTER_LINEAR,
                           borderMode=cv2.BORDER_REFLECT_101)
     if crop.size == 0:
-        raise PalmError("Your hand is out of frame — center your open hand.", code="palm_too_small")
+        raise PalmError("Your hand is out of frame - center your open hand.", code="palm_too_small")
     roi = cv2.resize(crop, (roi_size, roi_size), interpolation=cv2.INTER_AREA)
     return roi, size, (int(cx), int(cy))
 
@@ -202,14 +202,14 @@ def _sharpness(roi: np.ndarray) -> float:
 # One palm request runs the hand landmarker over the SAME frames several times:
 # the router probes for a hand, best_palm_frame/best_enroll_frame scores every
 # frame of the burst to pick the sharpest, the modality layer routes again on the
-# chosen frame, and finally the engine embeds it — six to seven detections for a
+# chosen frame, and finally the engine embeds it - six to seven detections for a
 # three-frame burst, all recomputing identical results. Detection is ~58 ms on a
 # fast box and several times that on the 2-vCPU container, so this was most of
 # what made palm feel slower than face.
 #
 # Keyed on the frame's CONTENT (hashing ~2 MB costs well under a millisecond
 # against a ~58 ms detection) plus the config fields that change the result, so
-# it can never return another frame's landmarks. Small and bounded — it exists to
+# it can never return another frame's landmarks. Small and bounded - it exists to
 # collapse the duplicate calls within a single request, not to persist anything.
 _CACHE_MAX = 8
 _cache: "collections.OrderedDict[tuple, List[PalmDetection]]" = collections.OrderedDict()
@@ -217,7 +217,7 @@ _cache_lock = threading.Lock()
 
 
 def _cache_key(image: np.ndarray, cfg: PalmConfig) -> tuple:
-    # Hash the buffer in place — cv2.imread/imdecode already returns a C-contiguous
+    # Hash the buffer in place - cv2.imread/imdecode already returns a C-contiguous
     # array, so this avoids copying ~2 MB per lookup just to hash it. sha256 is
     # hardware-accelerated here (4 ms for a 720p frame vs 15 ms for blake2b) and
     # covers EVERY byte: a cheaper strided sample would risk two different frames
@@ -279,7 +279,7 @@ def detect_all(image: np.ndarray, cfg: PalmConfig = CONFIG) -> List[PalmDetectio
 
 def has_palm(image: np.ndarray, cfg: PalmConfig = CONFIG) -> Tuple[bool, float]:
     """Fast presence probe for the auto-router: is there a hand, and how confident?
-    Fails soft — if MediaPipe isn't installed or anything goes wrong, returns
+    Fails soft - if MediaPipe isn't installed or anything goes wrong, returns
     ``(False, 0.0)`` so the router simply treats palm as absent."""
     if not available(cfg):
         return False, 0.0
@@ -295,7 +295,7 @@ def has_palm(image: np.ndarray, cfg: PalmConfig = CONFIG) -> Tuple[bool, float]:
 
 def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmDetection:
     """The prominent palm's normalised ROI, with detect/size/count gates (no
-    quality-pass / liveness — those are layered by ``quality_ok`` and the engine)."""
+    quality-pass / liveness - those are layered by ``quality_ok`` and the engine)."""
     dets = [d for d in _detect_raw(image, cfg) if d.hand_score >= cfg.min_hand_score]
     if not dets:
         raise PalmError("No hand detected. Hold an open hand to the camera, in good light.",
@@ -309,9 +309,9 @@ def detect(image: np.ndarray, cfg: PalmConfig = CONFIG) -> PalmDetection:
 def quality_ok(det: PalmDetection, cfg: PalmConfig = CONFIG) -> Optional[Tuple[str, str]]:
     """Capture-quality gate. Returns ``(code, message)`` on failure, else None."""
     if det.roi_px < cfg.min_roi_px:
-        return ("palm_too_small", "Hand too small — move your hand closer to the camera.")
+        return ("palm_too_small", "Hand too small - move your hand closer to the camera.")
     if det.sharpness < cfg.min_sharpness:
-        return ("palm_blurry", "Image is blurry — hold steady and keep your hand in focus.")
+        return ("palm_blurry", "Image is blurry - hold steady and keep your hand in focus.")
     if det.finger_spread < cfg.min_finger_spread:
         return ("fingers_not_spread", "Spread your fingers and open your hand fully.")
     if cfg.require_palm_facing and not det.palm_facing:
@@ -327,17 +327,17 @@ def enroll_quality_ok(det: PalmDetection, image: np.ndarray,
     person exactly what to fix. Returns ``(code, message)`` on failure, else None."""
     if det.sharpness < cfg.enroll_min_sharpness:
         return ("palm_enroll_blurry",
-                "Enrolment needs a crisp capture — brace your arm, hold still, add "
+                "Enrolment needs a crisp capture - brace your arm, hold still, add "
                 "light (face a window), let the camera focus, then try again.")
     frame_short = float(min(image.shape[:2])) if image is not None else 0.0
     if frame_short > 0 and det.roi_px < cfg.enroll_min_roi_frac * frame_short:
         return ("palm_enroll_too_far",
-                "Bring your hand closer — it should fill most of the frame to enrol.")
+                "Bring your hand closer - it should fill most of the frame to enrol.")
     gray_mean = float(cv2.cvtColor(det.roi, cv2.COLOR_BGR2GRAY).mean())
     if gray_mean < cfg.enroll_min_brightness:
         return ("palm_enroll_too_dark",
-                "Too dark to enrol — move near a window or add light, then try again.")
+                "Too dark to enrol - move near a window or add light, then try again.")
     if gray_mean > cfg.enroll_max_brightness:
         return ("palm_enroll_too_bright",
-                "Too bright / washed out to enrol — avoid direct glare on your hand.")
+                "Too bright / washed out to enrol - avoid direct glare on your hand.")
     return None

@@ -1,9 +1,9 @@
-"""Password hashing for admin credentials — PBKDF2-HMAC-SHA256.
+"""Password hashing for admin credentials - PBKDF2-HMAC-SHA256.
 
 Admin console logins need passwords stored as slow, salted hashes so a leaked store can't
 be trivially reversed. This subsystem wraps ``hashlib.pbkdf2_hmac`` in a self-describing,
 constant-time-verified format, and flags hashes that should be upgraded when the iteration
-count is raised over time. It is stateless (no registry) — callers persist the returned
+count is raised over time. It is stateless (no registry) - callers persist the returned
 string alongside the account.
 
   * ``hash_password``  derive a salted PBKDF2 hash, encoded as
@@ -13,7 +13,7 @@ string alongside the account.
   * ``strength``       a quick heuristic score of a candidate password (advisory).
 
 A per-password random salt means identical passwords hash differently, and the encoded
-iteration count lets the cost be raised in future without invalidating old hashes — verify
+iteration count lets the cost be raised in future without invalidating old hashes - verify
 reads the parameters from the stored string.
 """
 

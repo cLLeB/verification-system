@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0d0f16">
-    <title>My data — what this system holds about you</title>
+    <title>My data - what this system holds about you</title>
     <style>
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -44,17 +44,17 @@
 </head>
 <body>
     <h1>My data</h1>
-    <p class="sub">See exactly what this system holds about <b>you</b> — and withdraw your consent
+    <p class="sub">See exactly what this system holds about <b>you</b> - and withdraw your consent
         if you wish. First, confirm it's really you (nobody can view anyone else's record).</p>
 
     <!-- Phase 1: prove who you are -->
     <div id="gate-area">
         <div class="stage"><video id="video" autoplay playsinline muted class="mirror"></video></div>
         <div class="row" style="margin-top:10px">
-            <button class="btn" id="verify-btn">It's me — verify</button>
+            <button class="btn" id="verify-btn">It's me - verify</button>
             <button class="btn ghost" id="flip-btn">Flip camera</button>
         </div>
-        <p class="hint" id="hint">Show your face — or your open hand — then tap verify</p>
+        <p class="hint" id="hint">Show your face - or your open hand - then tap verify</p>
     </div>
 
     <!-- Phase 2: your record -->
@@ -62,7 +62,7 @@
         <div class="card">
             <h2 id="who"></h2>
             <div class="kv"><b>Biometrics stored</b><span id="mods"></span></div>
-            <div class="kv"><b>What is stored</b><span class="muted">encrypted templates only — never photos</span></div>
+            <div class="kv"><b>What is stored</b><span class="muted">encrypted templates only - never photos</span></div>
             <div class="kv"><b>Consent</b><span id="consent-status"></span></div>
             <div class="kv"><b>Consent given</b><span id="consent-when" class="muted"></span></div>
             <div class="kv"><b>Guest pass</b><span id="guest" class="muted"></span></div>
@@ -127,7 +127,7 @@ async function startCamera() {
         try { await video.play(); } catch (e) {}
         keepVideoAlive(video);
         video.classList.toggle('mirror', facing === 'user');
-    } catch (e) { setHint('Camera unavailable — allow access and reload.', 'warn'); }
+    } catch (e) { setHint('Camera unavailable - allow access and reload.', 'warn'); }
 }
 
 function grab() {
@@ -145,14 +145,14 @@ async function verifyMe() {
     try {
         await ensureLiveVideo(video);
         const img0 = grab();
-        if (!img0) { setHint('Camera not ready — try again.', 'warn'); return; }
+        if (!img0) { setHint('Camera not ready - try again.', 'warn'); return; }
         let modality = 'face';
         try {
             const d = await (await fetch('/api/detect', { method: 'POST',
                 headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: img0 }) })).json();
             modality = d.modality || 'face';
         } catch (e) {}
-        if (modality === 'none') { setHint('Show your face — or your open hand — clearly.', 'warn'); return; }
+        if (modality === 'none') { setHint('Show your face - or your open hand - clearly.', 'warn'); return; }
         let body;
         if (modality === 'palm') {
             const frames = [];
@@ -163,7 +163,7 @@ async function verifyMe() {
             let ch = null;
             try { ch = await (await fetch('/api/challenge')).json(); } catch (e) {}
             if (ch && ch.active) {
-                // Guided head-turn — instruction BEFORE its frames, and paced so a
+                // Guided head-turn - instruction BEFORE its frames, and paced so a
                 // person can actually perform it (see static/app.js).
                 const frames = [];
                 const phases = [
@@ -187,20 +187,20 @@ async function verifyMe() {
         setHint('Checking…');
         const r = await (await fetch('/api/subject/session', { method: 'POST',
             headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
-        if (!r.success) { setHint(r.message || 'Not recognised — try again.', 'warn'); return; }
+        if (!r.success) { setHint(r.message || 'Not recognised - try again.', 'warn'); return; }
         session = r.session;
         await loadData();
     } catch (e) {
-        setHint('Network error — try again.', 'warn');
+        setHint('Network error - try again.', 'warn');
     } finally { busy = false; $('verify-btn').disabled = false; }
 }
 
-const fmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+const fmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '-';
 
 async function loadData() {
     const r = await (await fetch('/api/subject/data', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session }) })).json();
-    if (!r.success) { setHint(r.message || 'Session expired — verify again.', 'warn'); return; }
+    if (!r.success) { setHint(r.message || 'Session expired - verify again.', 'warn'); return; }
     report = r;
     if (stream) stream.getTracks().forEach(t => t.stop());
     $('gate-area').classList.add('hidden');
@@ -218,7 +218,7 @@ async function loadData() {
         if (c.status === 'withdrawn') $('withdraw-btn').disabled = true;
     } else {
         $('consent-status').innerHTML = '<span class="muted">no record</span>';
-        $('consent-when').textContent = '—';
+        $('consent-when').textContent = '-';
     }
     $('guest').textContent = r.guest ? ('expires ' + fmt(r.guest.expires)) : 'not a guest (permanent)';
     $('creds').textContent = (r.credentials || []).length
@@ -253,7 +253,7 @@ async function withdraw() {
         $('withdraw-btn').disabled = true;
         setHint(r.message, 'ok', 'hint2');
     } else {
-        setHint(r.message || 'Could not withdraw — try again.', 'warn', 'hint2');
+        setHint(r.message || 'Could not withdraw - try again.', 'warn', 'hint2');
     }
 }
 

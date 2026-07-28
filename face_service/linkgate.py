@@ -16,7 +16,7 @@ Set ``FACE_LINK_TOKEN`` and share ``https://<host>/?k=<token>``.
     clean URL, so the secret leaves the address bar immediately and the person can
     bookmark / re-open the page normally.
   * Every later request is authorised by that cookie.
-  * Anything without either gets a plain 404 — no login form, no hint that an app
+  * Anything without either gets a plain 404 - no login form, no hint that an app
     is here, nothing for a crawler or scanner to find.
 
 Unset (the default) the whole thing is a no-op, so local dev and the test suite
@@ -44,8 +44,8 @@ TOKEN = os.environ.get("FACE_LINK_TOKEN", "").strip()
 # own credential and are reached by tools rather than browsers:
 #   /healthz,/readyz  the host's probes (a gated 404 reads as "unhealthy" and gets
 #                     the service killed)
-#   /v1/              the integration API — authenticated per request by API key
-#   /api/analytics/   the data-pull surface — gated on FACE_ANALYTICS_TOKEN, and
+#   /v1/              the integration API - authenticated per request by API key
+#   /api/analytics/   the data-pull surface - gated on FACE_ANALYTICS_TOKEN, and
 #                     404s outright when that secret is unset, so opening it here
 #                     grants nothing. Without this the pull tooling cannot reach a
 #                     link-gated deployment at all.

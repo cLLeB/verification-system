@@ -1,7 +1,7 @@
 """Idempotency-Key support for write endpoints.
 
 If a client sends an ``Idempotency-Key`` header, the first response for that
-(tenant, key) is cached and replayed for any retry within the TTL — so a network
+(tenant, key) is cached and replayed for any retry within the TTL - so a network
 retry can't enrol the same person twice or double-charge usage. Per-process and
 in-memory (fine for the single-worker model deployment); move to Redis for multi-worker.
 """

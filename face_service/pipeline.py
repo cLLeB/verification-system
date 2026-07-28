@@ -1,4 +1,4 @@
-"""Policy pipeline — run many gates in a configured order, as one decision.
+"""Policy pipeline - run many gates in a configured order, as one decision.
 
 This package now has a whole family of post-match gates (consent, watchlist,
 schedules, geofence, risk, cooldown, and many more), each a function that takes a
@@ -6,8 +6,8 @@ verify result and returns it, possibly flipping ``success``. In production a
 deployment wants to apply *several* of them, in a defined order, and stop at the
 first hard denial. This subsystem is that orchestrator.
 
-Gates register themselves by name as small adapters — ``fn(tenant, result,
-context) -> result`` — so the pipeline stays decoupled from every module's exact
+Gates register themselves by name as small adapters - ``fn(tenant, result,
+context) -> result`` - so the pipeline stays decoupled from every module's exact
 signature (the adapter pulls what it needs out of ``context``). A tenant then
 configures which steps run and in what order. ``apply`` walks them:
 
@@ -18,7 +18,7 @@ configures which steps run and in what order. ``apply`` walks them:
 
 This is what turns twenty independent gates into one coherent access policy.
 
-Registry: ``pipeline.json`` (env ``FACE_PIPELINE_FILE``) — per-tenant step order.
+Registry: ``pipeline.json`` (env ``FACE_PIPELINE_FILE``) - per-tenant step order.
 The step *implementations* live in a process-local registry populated by
 ``register`` at startup, never persisted.
 """

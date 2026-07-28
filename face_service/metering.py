@@ -1,11 +1,11 @@
-"""Usage metering — aggregate metered events into billing-period rollups.
+"""Usage metering - aggregate metered events into billing-period rollups.
 
 Usage-based billing needs metered quantities aggregated by period and dimension: "how
 many verifications did tenant X do in July, broken down by site". This subsystem records
 metered events into period buckets (keyed by a caller-supplied period label such as
 ``2026-07``) and rolls them up per metric and per dimension. It feeds [[invoicing]] (turn
 a rollup into line items) and [[wallet]]/[[plans]] (enforce limits), while staying a pure
-counter store — no clock of its own.
+counter store - no clock of its own.
 
   * ``record``    add ``quantity`` of a ``metric`` in a ``period``, tagged with
                   dimensions (e.g. ``{"site": "accra"}``).
@@ -18,7 +18,7 @@ none still contributes to the metric total. This keeps the model flexible while 
 rollups stay exact.
 
 Storage is nested (``tenant -> metric -> period``), which keeps tenants and metric/period
-labels in separate namespaces — no flat delimiter to collide across, and no fragile
+labels in separate namespaces - no flat delimiter to collide across, and no fragile
 string-prefix scanning.
 
 Registry: ``metering.json`` (env ``FACE_METERING_FILE``).

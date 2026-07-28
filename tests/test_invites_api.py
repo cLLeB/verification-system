@@ -20,7 +20,7 @@ def _wipe(client):
 
 
 def test_invite_blocked_when_already_fully_enrolled(client, fresh_invites, monkeypatch):
-    """No invite for someone who already holds every modality — there's nothing to
+    """No invite for someone who already holds every modality - there's nothing to
     add and a link would only refresh/burn. Admin gets a clear 409."""
     from face_service import modality as _m
     _login(client)

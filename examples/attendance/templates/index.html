@@ -22,7 +22,7 @@
   </style>
 </head>
 <body>
-  <header>🟣 Attendance kiosk <span style="color:#9aa4bd;font-weight:400">— face or palm, no scanner</span></header>
+  <header>🟣 Attendance kiosk <span style="color:#9aa4bd;font-weight:400">- face or palm, no scanner</span></header>
   <main>
     <video id="video" autoplay playsinline muted></video>
     <button class="primary" id="clock">Clock in / out</button>
@@ -70,7 +70,7 @@
         const d = await post('/api/clock', { image: grab() });
         setMsg(d.message, d.ok ? 'ok' : 'warn');
         if (d.ok) loadToday();
-      } catch (e) { setMsg('Network error — is the kiosk online?', 'warn'); }
+      } catch (e) { setMsg('Network error - is the kiosk online?', 'warn'); }
       finally { busy = false; }
     }
 

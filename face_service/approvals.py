@@ -5,17 +5,17 @@ admin, exporting a gallery, disabling liveness for a scope, offboarding a tenant
 This subsystem is a reusable maker-checker workflow. A requester opens a request
 describing the action; designated approvers vote; the request is granted when the
 approval rule is met and denied the moment anyone rejects. It is deliberately
-domain-agnostic — the ``action``/``payload`` are opaque, so any caller can gate any
+domain-agnostic - the ``action``/``payload`` are opaque, so any caller can gate any
 operation behind it.
 
   * ``open_request``  who wants to do what, plus the approval rule.
-  * ``approve`` / ``reject`` — an approver's vote (one vote per approver).
+  * ``approve`` / ``reject`` - an approver's vote (one vote per approver).
   * ``decision``      current outcome: pending / approved / rejected.
   * ``list_pending``  requests still awaiting a decision, for an approver's queue.
 
 Two rules are supported: ``sequential`` (an ordered list of approvers, each must
 sign in turn) and ``quorum`` (any ``threshold`` of an approver set). A single
-rejection is final in both — maker-checker fails closed.
+rejection is final in both - maker-checker fails closed.
 
 Registry: ``approvals.json`` (env ``FACE_APPROVALS_FILE``).
 """

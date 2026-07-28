@@ -1,4 +1,4 @@
-"""Recovery codes — a break-in-case-of-emergency backup for identity.
+"""Recovery codes - a break-in-case-of-emergency backup for identity.
 
 Biometrics can fail a legitimate person: an injury changes a palm, a camera
 breaks, a template is lost in a migration. Without a fallback the person is locked

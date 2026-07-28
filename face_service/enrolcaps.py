@@ -1,4 +1,4 @@
-"""Enrolment caps — bound how many, and how fast, identities can be added.
+"""Enrolment caps - bound how many, and how fast, identities can be added.
 
 Enrolment writes a permanent biometric template, so it deserves guardrails the
 entitlement paywall doesn't cover. Two are useful here. A **hard cap** on total
@@ -11,7 +11,7 @@ before the template is written.
   * ``configure``  max_total (0 = unlimited) and max_per_window / window seconds.
   * ``check``      would an enrolment be allowed now? (does not consume).
   * ``record``     count an enrolment that happened (advances both counters).
-  * ``release``    an identity was deleted — free a slot from the total.
+  * ``release``    an identity was deleted - free a slot from the total.
 
 Registry: ``enrolcaps.json`` (env ``FACE_ENROLCAPS_FILE``).
 """

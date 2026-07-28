@@ -2,7 +2,7 @@
 
 Lets each integrating customer:
   * register the web origins their browser app calls from (so the API can be used
-    directly from any web app, securely — combined with the API key), and
+    directly from any web app, securely - combined with the API key), and
   * receive signed event callbacks (enroll / verify / identify) at a URL of theirs.
 
 Stored as JSON (``tenants.json``). Read at request time, so changes take effect
@@ -119,7 +119,7 @@ def set_entitlement(tenant: str, enabled=None, plan=None, max_keys=None,
 def can_mint(tenant: str, roles: list, adding: int, current_count: int):
     """Policy shared by the admin console and the tenant self-service portal: may
     this tenant be granted ``adding`` more keys of ``roles``? Returns (ok, message).
-    (Does not check ``enabled`` — callers decide if a disabled tenant may still mint;
+    (Does not check ``enabled`` - callers decide if a disabled tenant may still mint;
     the portal blocks it, admin provisioning does not.)"""
     if not tenant:
         return True, ""

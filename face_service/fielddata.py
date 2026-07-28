@@ -1,11 +1,11 @@
-"""Field-data recorder for the live pilot — every real capture, kept for tuning.
+"""Field-data recorder for the live pilot - every real capture, kept for tuning.
 
 Why this exists
 ---------------
 Accuracy work needs REAL data: the exact frame a person presented, next to the
 decision the engine made about it (score, margin, runner-up candidates, quality,
 liveness). ``/collect`` only captures hand-labeled LIVE/SPOOF shots; this records
-the ordinary traffic — every enrol, verify and identify — with no operator action.
+the ordinary traffic - every enrol, verify and identify - with no operator action.
 
 What is written
 ---------------
@@ -18,7 +18,7 @@ private-Dataset sync as the templates and survives a Space restart or rebuild.
 Pulling it down
 ---------------
 ``/api/analytics/field/manifest`` (summary) and ``/api/analytics/field.zip``
-(incremental, cursor-paged) — both gated on FACE_ANALYTICS_TOKEN. See
+(incremental, cursor-paged) - both gated on FACE_ANALYTICS_TOKEN. See
 ``pull_production.py``.
 
 Switches (all optional)
@@ -59,7 +59,7 @@ QUALITY = int(os.environ.get("FACE_FIELD_QUALITY", "88"))
 
 # Salt for the coarse client fingerprint. Stable across a deployment when
 # FACE_SECRET_KEY is set (so repeat visits from one device group together),
-# random otherwise — a raw IP is never stored either way.
+# random otherwise - a raw IP is never stored either way.
 _SALT = (os.environ.get("FACE_SECRET_KEY") or secrets.token_hex(16)).encode()
 
 _lock = threading.Lock()
@@ -67,7 +67,7 @@ _bytes = -1.0                       # lazy total-size cache; -1 = not scanned ye
 _full_warned = False
 # Last stamp handed out. The export cursor pages with ``ts > since``, so two events
 # sharing a millisecond would make the second one unreachable once a batch boundary
-# landed between them — a silent hole in the pulled data. Stamps are therefore
+# landed between them - a silent hole in the pulled data. Stamps are therefore
 # forced strictly increasing rather than merely "now in ms".
 _last_stamp = 0
 
@@ -95,7 +95,7 @@ def _budget_left(add: int) -> bool:
         _bytes = _scan_bytes()
     if (_bytes + add) > MAX_MB * 1024 * 1024:
         if not _full_warned:
-            print(f"[fielddata] budget reached ({MAX_MB} MB) — pull + wipe to resume.",
+            print(f"[fielddata] budget reached ({MAX_MB} MB) - pull + wipe to resume.",
                   flush=True)
             _full_warned = True
         return False
@@ -157,7 +157,7 @@ def _sub(result: dict, key: str) -> dict:
 # ``conflict_user_id``/``self_score`` matter as much as ``candidates`` do for a
 # 1:N miss: a refused enrolment used to record only "duplicate" plus a score, so
 # the 2026-07-27 pilot failure could not be explained from the pulled data at all
-# — WHICH identity claimed the palm, and how the claimant's own score compared,
+# - WHICH identity claimed the palm, and how the claimant's own score compared,
 # had to be reconstructed offline from the raw frames.
 _KEEP = ("success", "code", "score", "margin", "threshold", "identify_margin",
          "user_id", "conflict_user_id", "self_score", "quality", "liveness",
@@ -175,7 +175,7 @@ def _slice(r: dict) -> dict:
 def _detail(result: dict) -> dict:
     """The engine detail worth keeping: the decisive numbers, per modality.
 
-    Candidates (the 1:N top-5 with scores) are the single most useful field —
+    Candidates (the 1:N top-5 with scores) are the single most useful field -
     they show WHO a capture was confused with and by how little. Falls back to
     the top level for the flattened single-modality results (self-enrolment)."""
     out = {m: _slice(_sub(result, m)) for m in ("face", "palm") if _sub(result, m)}
@@ -188,7 +188,7 @@ def record(event: str, images, result: dict, *, tenant: str = "first_party",
            claimed_user_id: str = "", actor: str = "", extra: dict = None) -> None:
     """Append one attempt (frames + decision) to the field-data set. Never raises.
 
-    ``images`` is a single frame or a capture burst with the DECIDED frame last —
+    ``images`` is a single frame or a capture burst with the DECIDED frame last -
     that's the one kept when FACE_FIELD_FRAMES is off. A burst that already ends
     with its decided frame is de-duplicated, not written twice."""
     if not ENABLED:
@@ -207,7 +207,7 @@ def record(event: str, images, result: dict, *, tenant: str = "first_party",
             stamp = max(int(now * 1000), _last_stamp + 1)   # strictly increasing
             _last_stamp = stamp
             paths = _save_images(kept, event, day, stamp)
-            if not paths:                       # over budget / unencodable — skip
+            if not paths:                       # over budget / unencodable - skip
                 return
             rec = {"ts": stamp,
                    "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
@@ -264,7 +264,7 @@ def events(since: int = 0) -> list:
 
 
 def stats() -> dict:
-    """Summary for the manifest endpoint / health check — no image bytes read."""
+    """Summary for the manifest endpoint / health check - no image bytes read."""
     evs = events(0)
     by_event, by_modality = {}, {}
     for r in evs:
@@ -283,7 +283,7 @@ def archive(since: int = 0, limit: int = 300) -> tuple:
     """Zip up to ``limit`` events newer than ``since`` (with their images).
 
     Returns ``(zip_bytes, meta)`` where meta carries the cursor to pass as
-    ``since`` next time plus how many events are still waiting — so a pull can
+    ``since`` next time plus how many events are still waiting - so a pull can
     loop until drained without ever holding the whole set in memory."""
     pending = events(since)
     batch = pending[:max(1, limit)]

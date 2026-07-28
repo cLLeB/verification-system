@@ -1,4 +1,4 @@
-"""Face recognition engine — ArcFace embeddings (InsightFace, CPU/ONNX).
+"""Face recognition engine - ArcFace embeddings (InsightFace, CPU/ONNX).
 
 Mirrors the fingerprint package's shape: an engine produces a template (here a
 512-d embedding) from an image, a matcher compares by cosine similarity, an

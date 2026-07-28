@@ -8,7 +8,7 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 import kotlin.math.sqrt
 
-/** Offline verification of FV1 credentials — port of the server's
+/** Offline verification of FV1 credentials - port of the server's
  *  `biometric/core/credential.py` pipeline:
  *
  *      scan -> base45 -> CBOR [payload bytes, sig] -> Ed25519 over the exact
@@ -64,7 +64,7 @@ object CredentialVerifier {
                 "Issuer '${payload.issuer}' is not trusted here.")
         if (!ed25519Verify(pk, payloadBytes, sig)) {
             throw CredentialException("bad_signature",
-                "Signature check failed — tampered or forged.")
+                "Signature check failed - tampered or forged.")
         }
         if (nowSec > payload.expires) {
             throw CredentialException("credential_expired", "This credential has expired.")
@@ -76,7 +76,7 @@ object CredentialVerifier {
         return payload
     }
 
-    /** The credential's protection-domain seed — a PUBLIC function of the cid
+    /** The credential's protection-domain seed - a PUBLIC function of the cid
      *  (mirrors credential.py cred_seed). */
     fun credSeed(cid: ByteArray): ByteArray =
         MessageDigest.getInstance("SHA-256").digest(SEED_LABEL + cid)

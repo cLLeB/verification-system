@@ -1,4 +1,4 @@
-"""/v1 REST API — the integration surface for other apps.
+"""/v1 REST API - the integration surface for other apps.
 
 Managed (we store templates, per tenant):
     POST /v1/enroll     {user_id, images[]|image}
@@ -127,7 +127,7 @@ def _resolve_embedding(item, cfg):
     if img is None:
         raise FaceError("Each probe/reference needs an 'image' or 'embedding'.")
     # Auto-route: a face embeds as a face, a palm as a palm. (Only compare within the
-    # same modality — face and palm are different vector spaces.)
+    # same modality - face and palm are different vector spaces.)
     out = _modality.embed(img, cfg, palm_enabled=True)
     if not out.get("success"):
         raise FaceError(out.get("message", "No face or palm detected."),
@@ -233,7 +233,7 @@ def enroll():
         return _err("'image' or 'images' is required.")
     # Auto-route every image (face vs palm vs both); a face+palm shot enrols both
     # under this user_id. ``modality`` pins it when the caller wants to; ``hand``
-    # (auto/other/any) lets one identity enrol both palms — ``any`` binds a second
+    # (auto/other/any) lets one identity enrol both palms - ``any`` binds a second
     # hand automatically (bulk upload), ``other`` confirms one, ``auto`` prompts.
     results = []
     for b in images:
@@ -297,7 +297,7 @@ def enroll_bulk():
         return _err("'people' (non-empty list) is required.")
     # Bulk import skips the per-capture guards by default (speed). Set ``dedupe: true``
     # to reject a person whose biometric already belongs to a DIFFERENT enrolled name
-    # (fix D — bulk paths otherwise silently create duplicate identities).
+    # (fix D - bulk paths otherwise silently create duplicate identities).
     dedupe = bool(data.get("dedupe"))
     results, ok = [], 0
     for person in people:
@@ -313,7 +313,7 @@ def enroll_bulk():
                 face_embs.append(_resolve_embedding({"embedding": e}, cfg))
             except FaceError:
                 pass
-        # Images auto-route by content (no duplicate/consistency guards — this is a
+        # Images auto-route by content (no duplicate/consistency guards - this is a
         # bulk import): a face -> face store, a palm -> palm store, same user_id.
         for b in (person.get("images") or []):
             img = _decode(b)
@@ -388,7 +388,7 @@ def enroll_bulk():
 def _verify_dispatch(cfg, store, data, user_id):
     # Frame bursts: a face burst runs the active-liveness head-turn (face-specific
     # challenge, unchanged); a PALM burst is verified on its sharpest frame so one
-    # soft frame (dim light / motion) doesn't sink the attempt — mirrors /api/verify.
+    # soft frame (dim light / motion) doesn't sink the attempt - mirrors /api/verify.
     frames = data.get("frames")
     if frames:
         imgs = [im for im in (_decode(f) for f in frames) if im is not None]
@@ -407,7 +407,7 @@ def _verify_dispatch(cfg, store, data, user_id):
         if cfg.active_liveness:
             if not _active.valid_token(data.get("token", "")):
                 return {"success": False, "code": "liveness",
-                        "message": "Challenge expired — request a new one."}
+                        "message": "Challenge expired - request a new one."}
             return _api.verify_live(user_id, imgs, cfg, store)
         img = mid                                   # face, liveness off: single shot
     else:
@@ -545,7 +545,7 @@ def delete_user():
     results = {uid: bool(_modality.delete_user(uid, cfg, palm_enabled).get("success")) for uid in ids}
     deleted = sum(1 for ok in results.values() if ok)
     # A credential carries its own template, so deleting the store copy does NOT
-    # invalidate an already-issued card — revoke them, or a removed (e.g. fired)
+    # invalidate an already-issued card - revoke them, or a removed (e.g. fired)
     # person's QR keeps verifying.
     revoked_creds = sum(_credreg.revoke_for_user(g.tenant, uid) for uid in ids)
     # A deleted person leaves no dangling service state: guest expiry, consent
@@ -588,7 +588,7 @@ def export_user():
 @bp.get("/sync/pull")
 @require_scope("manage")
 def sync_pull():
-    """Hybrid sync — stream this tenant's templates (embeddings) for offline matching.
+    """Hybrid sync - stream this tenant's templates (embeddings) for offline matching.
     Incremental: pass ``since`` (the previous ``next_seq``) to fetch only changes;
     deletions come back as ``deleted:true`` so a device mirror stays in step. Gated by
     the tenant's ``allow_export`` entitlement (admin opt-in) on top of the admin scope."""
@@ -625,7 +625,7 @@ def sync_pull():
                "next_seq": last, "current_seq": cur, "done": last >= cur}
     if store.protection_enabled:
         # Devices match against these rows offline, so they get the DOMAIN seed
-        # (derived per domain — never the store secret). Individually reissued
+        # (derived per domain - never the store secret). Individually reissued
         # users carry their own domain seed on their row.
         payload["protection"] = _protection_block(store)
         off = dict(store.off_domain_users())
@@ -692,7 +692,7 @@ def export_glance_index():
 def export_bundle():
     """Export this tenant's templates as a passphrase-encrypted, integrity-protected
     bundle for provisioning an AIR-GAPPED device (embeddings only, never images).
-    Gated by the tenant's ``allow_export`` entitlement on top of the manage scope —
+    Gated by the tenant's ``allow_export`` entitlement on top of the manage scope -
     same posture as ``/sync/pull``. The offline device imports the file with the same
     passphrase; no network path to it is opened."""
     if not tenants.entitlement(g.tenant).get("allow_export"):
@@ -727,7 +727,7 @@ def export_bundle():
 @bp.post("/sync/push")
 @require_scope("enroll")
 def sync_push():
-    """Hybrid sync — upload on-device templates into this tenant. Cross-identity dedupe:
+    """Hybrid sync - upload on-device templates into this tenant. Cross-identity dedupe:
     a face that matches an EXISTING but DIFFERENTLY-NAMED person is a conflict, resolved by
     ``on_conflict`` = skip (default) | merge (fold into the existing person) | force."""
     cfg = _cfg()
@@ -783,7 +783,7 @@ def sync_push():
 @bp.get("/tenant/keys")
 @require_scope("manage")
 def tenant_keys():
-    """This tenant's issuer signing keys — the keys the platform signs
+    """This tenant's issuer signing keys - the keys the platform signs
     credentials/bundles with on the tenant's behalf. Active key first."""
     return jsonify({"success": True, "tenant": g.tenant or "default",
                     "keys": issuer_keys.public_keys(g.tenant)})
@@ -805,7 +805,7 @@ def tenant_keys_rotate():
 
 
 def _filter_subject_rows(tenant: str, rows: list) -> list:
-    """Bundle-export hygiene: drop consent-withdrawn users and expired guests —
+    """Bundle-export hygiene: drop consent-withdrawn users and expired guests -
     an air-gapped device provisioned today must not carry people whose
     processing has stopped."""
     return [r for r in rows
@@ -814,7 +814,7 @@ def _filter_subject_rows(tenant: str, rows: list) -> list:
 
 
 def _protection_block(store) -> dict:
-    """Domain seed for trusted verifier devices (sync/bundle — both already
+    """Domain seed for trusted verifier devices (sync/bundle - both already
     gated by the allow_export entitlement). Never the store secret."""
     ref, seed = store.domain_seed()
     return {"scheme": _protect.SCHEME, "seedref": ref,
@@ -868,7 +868,7 @@ def templates_reissue():
                     code="protection_disabled", status=409)
     if user_id and not any(counts.values()):
         return _err(f"User '{user_id}' is not enrolled.", code="not_found", status=404)
-    # Reissuing ONE user means their template leaked — their issued credentials
+    # Reissuing ONE user means their template leaked - their issued credentials
     # are tainted too, so revoke them (spec 5.3/6.5). Tenant-wide reissue leaves
     # credentials alone (they carry their own domains) unless explicitly asked.
     revoked_creds = 0
@@ -892,7 +892,7 @@ _ROOT_TENANT = "__server_root__"     # signs the published trust store
 def _issuer_key_resolver(verifier_tenant):
     """resolve_key(iss, kid) for credential verification: accept this tenant's
     own credentials plus its explicitly trusted issuers' (cross-org, spec 6.5).
-    Only issuers that already HAVE a signing identity resolve — public_keys()
+    Only issuers that already HAVE a signing identity resolve - public_keys()
     creates keys on demand, and a forged iss must never mint one."""
     accepted = {verifier_tenant or "default"} | set(tenants.trusted_issuers(verifier_tenant))
 
@@ -911,7 +911,7 @@ def _issuer_key_resolver(verifier_tenant):
 def credentials_issue():
     """Issue a portable offline credential: a signed QR carrying the user's
     protected, quantized template in its OWN matching domain. Anyone the tenant
-    authorises can verify the holder — offline, no shared database."""
+    authorises can verify the holder - offline, no shared database."""
     data = request.get_json(silent=True) or {}
     user_id = (data.get("user_id") or "").strip()
     if not user_id:
@@ -990,7 +990,7 @@ def credentials_verify():
     frames = data.get("frames")
     if data.get("embedding"):
         # programmatic callers doing their own capture/liveness (same contract
-        # as /v1/enroll embedding inputs) — raw vector in, we project it
+        # as /v1/enroll embedding inputs) - raw vector in, we project it
         v = np.asarray(data["embedding"], dtype=np.float32)
         n = float(np.linalg.norm(v))
         if not v.size or n <= 0:
@@ -1002,7 +1002,7 @@ def credentials_verify():
         if not imgs:
             return _err("Failed to decode frames.", code="capture_quality")
         if cfg.active_liveness and not _active.valid_token(data.get("token", "")):
-            return _err("Challenge expired — request a new one.", code="liveness", status=403)
+            return _err("Challenge expired - request a new one.", code="liveness", status=403)
         res = _active.analyze(imgs, cfg)
         if not res.passed:
             return _err(res.reason, code="liveness", status=403)
@@ -1045,7 +1045,7 @@ def credentials_verify():
 # --- trust store (public) + cross-org trust ----------------------------------
 @bp.get("/trust-store")
 def trust_store():
-    """Signed bundle of every issuer's public keys + revocation list. Public —
+    """Signed bundle of every issuer's public keys + revocation list. Public -
     offline verifiers bundle it and refresh opportunistically; a stale copy
     still verifies, it just lags on revocations."""
     body = {"v": 1, "generated": int(time.time()), "tenants": []}
@@ -1065,7 +1065,7 @@ def trust_store():
     root = issuer_keys.get_or_create(_ROOT_TENANT)
     return jsonify({"trust_store": body,
                     # exact signed bytes, so offline verifiers check the root
-                    # signature over these and parse them — no JSON
+                    # signature over these and parse them - no JSON
                     # canonicalization to re-implement anywhere
                     "payload_b64": base64.b64encode(signed).decode("ascii"),
                     "kid": kid,
@@ -1084,7 +1084,7 @@ def trust_list():
 @require_scope("manage")
 def trust_add(issuer):
     """Cross-org verification: accept credentials ISSUED by this other tenant.
-    No data import, no API integration — trust the issuer, scan their cards."""
+    No data import, no API integration - trust the issuer, scan their cards."""
     issuer = (issuer or "").strip()
     if not issuer or issuer == (g.tenant or "default"):
         return _err("Provide a different tenant id to trust.")
@@ -1116,7 +1116,7 @@ def purge_tenant():
     users = _modality.list_users(cfg, palm_enabled).get("users", [])   # face + palm
     for uid in users:
         _modality.delete_user(uid, cfg, palm_enabled)                  # erase both modalities
-    # revoke every issued credential — self-contained cards outlive the store copy
+    # revoke every issued credential - self-contained cards outlive the store copy
     revoked_creds = sum(_credreg.revoke(g.tenant, r["cid"])
                         for r in _credreg.list_for(g.tenant) if not r["revoked"])
     # erase the per-person service state alongside the biometrics
@@ -1137,7 +1137,7 @@ def service_state():
     """Everything a hybrid device needs to honour the service gates OFFLINE,
     in one compact pull (fetched alongside /v1/sync/pull): the policy document,
     guest expiries, consent standing, and guardianship links. The device
-    re-evaluates locally after each on-device match — same order, same codes."""
+    re-evaluates locally after each on-device match - same order, same codes."""
     pol = _policies.get(g.tenant)
     cpol = _consent.policy(g.tenant)
     recs = _consent.list_for(g.tenant)
@@ -1274,7 +1274,7 @@ def guests_clear(user_id):
 def guests_purge():
     """Erase every guest expired for longer than ``grace_hours`` (default 0):
     both modalities via the normal delete path, credentials revoked, service
-    state cleaned — the full offboarding a permanent delete gets."""
+    state cleaned - the full offboarding a permanent delete gets."""
     cfg = _cfg()
     data = request.get_json(silent=True) or {}
     try:
@@ -1312,7 +1312,7 @@ def devices_pairing_create():
 
 @bp.post("/devices/pair")
 def devices_pair():
-    """Redeem a pairing code (the code IS the auth — no API key yet; the
+    """Redeem a pairing code (the code IS the auth - no API key yet; the
     standard /v1 rate limit throttles guessing). Returns the device identity
     plus its OWN verify key, each shown exactly once."""
     data = request.get_json(silent=True) or {}
@@ -1334,7 +1334,7 @@ def devices_heartbeat():
     spoofable device_id parameter). Body ``info`` is a small status map."""
     dev = _devices.for_key(getattr(g, "key_id", ""))
     if dev is None:
-        return _err("This key is not bound to a device — pair the device first.",
+        return _err("This key is not bound to a device - pair the device first.",
                     code="not_a_device", status=403)
     fresh = _devices.heartbeat(dev["device_id"], g.tenant,
                                info=(request.get_json(silent=True) or {}).get("info"))

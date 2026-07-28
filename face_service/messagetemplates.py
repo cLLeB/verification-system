@@ -5,7 +5,7 @@ consistent, editable wording rather than strings hard-coded across the app. This
 subsystem is a small template store: register a template per (key, locale), then
 render it with variables, resolving the best locale via a fallback chain
 (``fr-CA`` → ``fr`` → default). Substitution is deliberately restricted to named
-``{placeholders}`` — no format specifiers, no attribute access, no code — so a
+``{placeholders}`` - no format specifiers, no attribute access, no code - so a
 template authored by a tenant admin can never do more than fill in blanks.
 
   * ``set_template``   store/replace a template body for a (key, locale).
@@ -66,7 +66,7 @@ def _render_body(body: str, variables: dict) -> str:
     """Substitute only bare ``{name}`` placeholders from a flat variables dict.
 
     Uses a strict identifier regex, so attribute/index access (``{x.attr}``,
-    ``{x[0]}``) and format specs are NOT honoured — closing the format-string
+    ``{x[0]}``) and format specs are NOT honoured - closing the format-string
     injection surface that ``str.format``/``string.Formatter`` would open. A
     missing variable is left as its literal ``{name}``.
     """

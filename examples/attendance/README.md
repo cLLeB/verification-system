@@ -1,16 +1,16 @@
 # Attendance kiosk
 
-A working product that clocks staff in/out by **face or palm** — no cards, no PINs,
+A working product that clocks staff in/out by **face or palm** - no cards, no PINs,
 no fingerprint scanner. It's ~130 lines because all the hard part (recognition,
 liveness, encryption, scale) lives in the backbone; this app just calls it.
 
 ## The problem it kills
-- **Buddy-punching** — one worker clocks in for five. A biometric the person must
+- **Buddy-punching** - one worker clocks in for five. A biometric the person must
   physically present stops it.
-- **Fingerprint clocks fail on manual laborers** — worn/damaged ridges (farms,
+- **Fingerprint clocks fail on manual laborers** - worn/damaged ridges (farms,
   construction, cleaning) get rejected daily. Contactless face **or** palm doesn't
   exclude them.
-- **Rural / low-connectivity sites** — the backbone runs offline; the kiosk can too.
+- **Rural / low-connectivity sites** - the backbone runs offline; the kiosk can too.
 
 ## How it uses the backbone (the whole integration)
 ```

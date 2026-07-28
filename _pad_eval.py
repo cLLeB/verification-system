@@ -3,7 +3,7 @@
 Runs the EXACT serving path (face.engine detect -> face.liveness.real_score, the
 CelebA-Spoof MiniFASNet model already bundled in face/models/) over a folder of
 LIVE faces and a folder of SPOOF attacks (printed photos / screen replays), and
-reports the separation + the operating threshold — so FACE_LIVENESS can be enabled
+reports the separation + the operating threshold - so FACE_LIVENESS can be enabled
 with a number you MEASURED, not guessed.
 
 Layout::
@@ -117,7 +117,7 @@ def main() -> None:
     print(f"\nlive  real-score (want HIGH): {stat(live)}")
     print(f"spoof real-score (want LOW):  {stat(spoof)}")
     overlap = float(live.min()) <= float(spoof.max())
-    print(f"distributions {'OVERLAP — model struggles on this data' if overlap else 'cleanly separated'}")
+    print(f"distributions {'OVERLAP - model struggles on this data' if overlap else 'cleanly separated'}")
 
     thr_b, apcer_b = _threshold_at_bpcer(live, spoof, args.bpcer)
     thr_e, err = _eer(live, spoof)

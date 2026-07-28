@@ -34,12 +34,12 @@ enum class Mode { VERIFY, ENROLL, CREDENTIAL, GLANCE }
 
 data class ScanResult(val ok: Boolean, val title: String, val sub: String)
 
-/** Plain-language screens per typed failure code (spec 6.6) — the same copy as
+/** Plain-language screens per typed failure code (spec 6.6) - the same copy as
  *  the web verifier, so every surface reads identically. */
 private val CRED_FAIL_COPY = mapOf(
     "malformed_credential" to ("Not a valid credential" to "This QR isn't one of ours, or it's damaged. Ask for the original card."),
     "unsupported_version" to ("Newer credential" to "This credential needs an updated verifier app."),
-    "bad_signature" to ("TAMPERED / FORGED" to "The signature check failed — do not accept this credential."),
+    "bad_signature" to ("TAMPERED / FORGED" to "The signature check failed - do not accept this credential."),
     "unknown_issuer" to ("Issuer not trusted" to "This card's issuer isn't in this device's trust list."),
     "credential_expired" to ("Expired" to "This credential has passed its expiry date."),
     "credential_not_yet_valid" to ("Not yet valid" to "This credential's start date is in the future."),
@@ -70,7 +70,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     val enrollTarget = Config.SAMPLES_PER_USER
 
     // Offline mirror of the service gates (policies / guests / consent /
-    // guardians). Null until first synced — all gates pass, exactly as before.
+    // guardians). Null until first synced - all gates pass, exactly as before.
     private var serviceState: com.faceverify.app.data.ServiceState? = null
 
     init {
@@ -87,7 +87,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 glancePalm = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "palm")
                 refreshPeople()
                 ready = true
-                status = if (mode == Mode.VERIFY) "Show your face (turn your head) — or your hand" else "Enter a name, then show face or hand"
+                status = if (mode == Mode.VERIFY) "Show your face (turn your head) - or your hand" else "Enter a name, then show face or hand"
             } catch (e: Exception) {
                 engineError = e.message ?: "Failed to start the engine. Is the model in assets?"
             }
@@ -101,13 +101,13 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         glanceHit = null
         if (m == Mode.CREDENTIAL) {
             status = if (trustData == null)
-                "No trust list on this device yet — add one in Settings"
+                "No trust list on this device yet - add one in Settings"
             else "Point the BACK camera at the QR on the card"
         }
         if (m == Mode.GLANCE) {
             status = if (glanceFace == null && glancePalm == null && people.isEmpty())
-                "No glance index yet — update it in Settings"
-            else "Glance: point at a face — or hold up an open hand"
+                "No glance index yet - update it in Settings"
+            else "Glance: point at a face - or hold up an open hand"
         }
     }
 
@@ -123,7 +123,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshPeople() = viewModelScope.launch {
-        // A person may be enrolled by face, palm, or both — show the union.
+        // A person may be enrolled by face, palm, or both - show the union.
         val faces = engine.repo.listUsers()
         val palms = palm?.repo?.listUsers() ?: emptyList()
         people = (faces + palms).distinct().sorted()
@@ -160,7 +160,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                     else handleEnroll(bitmap, face, yaw)
                     return@launch
                 }
-                // No usable face — auto-route to palm (the user never has to choose).
+                // No usable face - auto-route to palm (the user never has to choose).
                 val p = palm
                 if (p != null && p.hasPalm(bitmap).first) {
                     if (mode == Mode.VERIFY) handlePalmVerify(p, bitmap) else handlePalmEnroll(p, bitmap)
@@ -169,10 +169,10 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 status = when {
                     face != null -> "Move a little closer"
                     palm != null -> "Show your face or open hand"
-                    else -> "No face detected — move into the frame"
+                    else -> "No face detected - move into the frame"
                 }
             } catch (_: Exception) {
-                status = "Hiccup — keep your face or hand in view"
+                status = "Hiccup - keep your face or hand in view"
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
                 processing.set(false)
@@ -209,23 +209,23 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             return ScanResult(false, title, gate.message)
         }
         val wards = st?.wardsOf(userId) ?: emptyList()
-        val note = if (wards.isEmpty()) "" else " — may collect for: ${wards.joinToString(", ")}"
+        val note = if (wards.isEmpty()) "" else " - may collect for: ${wards.joinToString(", ")}"
         return ScanResult(true, "Access granted", "Welcome, $userId$note")
     }
 
     private suspend fun handleEnroll(bitmap: Bitmap, face: com.faceverify.app.face.DetectedFace, yaw: Float) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
-        status = if (abs(yaw) <= Config.LIVE_FRONTAL_YAW) "Hold still — tap Capture" else "Look straight at the camera"
+        status = if (abs(yaw) <= Config.LIVE_FRONTAL_YAW) "Hold still - tap Capture" else "Look straight at the camera"
         if (!captureRequested.compareAndSet(true, false)) return
 
-        // Detect-the-document: if this capture is an ID card/passport, branch — extract
+        // Detect-the-document: if this capture is an ID card/passport, branch - extract
         // the largest face, skip the live-only frontal gate, tag provenance "id".
         if (Config.ID_DETECTION_ENABLED) {
             val a = try { engine.assessIdForEnroll(bitmap) } catch (_: Exception) { null }
             if (a != null && a.assessment.isId) {
                 val emb = a.primaryEmbedding
                 if (emb == null) {
-                    status = "Detected an ID, but the photo on it is too unclear — try a clearer image or a live face"
+                    status = "Detected an ID, but the photo on it is too unclear - try a clearer image or a live face"
                     return
                 }
                 finishEnroll(engine.repo.enroll(enrollName, emb, source = "id"), fromId = true)
@@ -233,14 +233,14 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-        // Normal live path — needs a frontal pose.
+        // Normal live path - needs a frontal pose.
         if (abs(yaw) > Config.LIVE_FRONTAL_YAW) { status = "Look straight at the camera"; return }
         val emb = engine.embed(bitmap, face)
-        if (emb == null) { status = "Couldn't read your face — try again"; return }
+        if (emb == null) { status = "Couldn't read your face - try again"; return }
         finishEnroll(engine.repo.enroll(enrollName, emb), fromId = false)
     }
 
-    /** Palm verify — no head-turn (that's a face challenge); a single good palm
+    /** Palm verify - no head-turn (that's a face challenge); a single good palm
      *  capture matches against the palm store. Mirrors the server's palm path. */
     private suspend fun handlePalmVerify(p: PalmEngine, bitmap: Bitmap) {
         val s = p.embed(bitmap)
@@ -254,11 +254,11 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         livenessProgress = 0f
     }
 
-    /** Palm enrol — tap Capture with an open palm shown (same 3-capture rhythm).
+    /** Palm enrol - tap Capture with an open palm shown (same 3-capture rhythm).
      *  Uses the STRICT anchor-quality gate: weak anchors degrade matching forever. */
     private suspend fun handlePalmEnroll(p: PalmEngine, bitmap: Bitmap) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
-        status = "Show your open hand — tap Capture"
+        status = "Show your open hand - tap Capture"
         if (!captureRequested.compareAndSet(true, false)) return
         val s = p.embed(bitmap, forEnroll = true)
         if (s.embedding == null) { status = s.message; return }
@@ -276,7 +276,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Admin confirmed the capture is the person's OTHER palm — bind it as hand two. */
+    /** Admin confirmed the capture is the person's OTHER palm - bind it as hand two. */
     fun confirmOtherHand() {
         val emb = pendingHandEmb ?: return
         val p = palm ?: return
@@ -297,22 +297,22 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private fun finishEnroll(r: com.faceverify.app.data.EnrollResult, fromId: Boolean) {
         if (!r.success) { result = ScanResult(false, "Enrolment failed", r.message); return }
         captured = r.samples
-        val idNote = if (fromId) " (from ID — add a live capture for best accuracy)" else ""
+        val idNote = if (fromId) " (from ID - add a live capture for best accuracy)" else ""
         val handNote = if (r.hand >= 2) " (other hand)" else ""
         if (captured >= enrollTarget) {
-            val more = if (r.hand == 1) " — capture their OTHER hand too for either-hand verify, or you're done" else ""
+            val more = if (r.hand == 1) " - capture their OTHER hand too for either-hand verify, or you're done" else ""
             result = ScanResult(true, if (r.hand >= 2) "Other hand enrolled" else "Enrolled",
                 "${enrollName.trim()} is ready to verify$idNote$more")
             refreshPeople()
         } else {
-            status = "Captured $captured of $enrollTarget$handNote$idNote — tap Capture again"
+            status = "Captured $captured of $enrollTarget$handNote$idNote - tap Capture again"
         }
     }
 
     /** Enrol from a photo the admin picked from the gallery (PIN-gated in the UI).
      *  Mirrors the web /api/enroll upload: ID cards auto-branch; a normal photo must
      *  be front-facing. No liveness (a still image can't perform a head turn), so this
-     *  is enrolment-only — verification still requires the live head-turn challenge. */
+     *  is enrolment-only - verification still requires the live head-turn challenge. */
     fun enrollFromPhoto(uri: Uri) {
         if (!ready) return
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
@@ -324,7 +324,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 if (bmp == null) { result = ScanResult(false, "Couldn't open photo", "Try another image"); return@launch }
                 val a = engine.assessIdForEnroll(bmp)
                 if (a.faces.isEmpty() || a.primaryFace == null) {
-                    // No face — a gallery photo of a palm should enrol as palm
+                    // No face - a gallery photo of a palm should enrol as palm
                     // (strict anchor-quality gate, same as live palm enrolment).
                     val p = palm
                     if (p != null) {
@@ -365,7 +365,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     // --- offline credential verifier (trust platform phase 2) -----------------
     // Scan the FV1 QR on someone's card/phone, check signature + expiry +
     // revocation against the on-device trust list, then match the LIVE person
-    // against the template inside the credential — fully offline.
+    // against the template inside the credential - fully offline.
     var credPayload by mutableStateOf<CredentialVerifier.Payload?>(null); private set
     var trustData by mutableStateOf<TrustData?>(null); private set
     var trustMsg by mutableStateOf(""); private set
@@ -384,7 +384,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun handleCredentialFrame(bitmap: Bitmap) {
         val trust = trustData
         if (trust == null) {
-            status = "No trust list on this device yet — add one in Settings"
+            status = "No trust list on this device yet - add one in Settings"
             return
         }
         val payload = credPayload
@@ -409,7 +409,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             }
             credPayload = p
             liveness.reset(); livenessProgress = 0f
-            status = "Card OK (${p.name ?: p.subject}, issuer ${p.issuer}) — " +
+            status = "Card OK (${p.name ?: p.subject}, issuer ${p.issuer}) - " +
                 if ("face" in p.modalities) "now the person: turn your head slowly"
                 else "now the person's open hand"
             return
@@ -419,7 +419,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         if ("face" in payload.modalities) {
             val face = engine.detect(bitmap)
             if (face == null || face.facepx < Config.MIN_FACE_PX) {
-                status = "Show the person's face — turn the head slowly"
+                status = "Show the person's face - turn the head slowly"
                 return
             }
             liveness.record(face.yaw)
@@ -449,7 +449,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                             score: Float, threshold: Float) {
         val attrs = p.attrs?.entries?.joinToString(" · ") { "${it.key}: ${it.value}" } ?: ""
         result = if (score >= threshold) {
-            ScanResult(true, "VERIFIED — ${p.name ?: p.subject}",
+            ScanResult(true, "VERIFIED - ${p.name ?: p.subject}",
                 "${p.subject} · issuer ${p.issuer} · $modality" +
                     if (attrs.isNotEmpty()) "\n$attrs" else "")
         } else {
@@ -462,8 +462,8 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     // --- glance: continuous on-device 1:N (trust platform phase 3) -------------
     // Point the camera at people; each detected face is embedded, projected into
     // the index's protection domain, and brute-force matched against EVERY
-    // enrolled identity — name chip in well under a second, fully offline.
-    // Identification aid only (no liveness) — access decisions stay in Verify.
+    // enrolled identity - name chip in well under a second, fully offline.
+    // Identification aid only (no liveness) - access decisions stay in Verify.
     var glanceHit by mutableStateOf<String?>(null); private set
     var glanceFace by mutableStateOf<com.faceverify.app.glance.GlanceIndex?>(null); private set
     var glancePalm by mutableStateOf<com.faceverify.app.glance.GlanceIndex?>(null); private set
@@ -475,14 +475,14 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             dec.userId!! to dec.score else null
 
     private fun setGlance(hit: Pair<String, Float>?) {
-        // Withdrawn consent / expired pass suppress identification here too —
+        // Withdrawn consent / expired pass suppress identification here too -
         // naming someone IS processing their data (mirrors /api/glance).
         val visible = hit?.takeIf { serviceState?.hideFromGlance(it.first) != true }
         glanceHit = visible?.let { "${it.first}  (${"%.2f".format(it.second)})" }
         status = when {
             visible != null -> "Identified"
-            hit != null -> "Seen — record paused (consent withdrawn or pass expired)"
-            else -> "Seen — no confident match"
+            hit != null -> "Seen - record paused (consent withdrawn or pass expired)"
+            else -> "Seen - no confident match"
         }
     }
 
@@ -509,7 +509,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         glanceHit = null
-        status = "Glance: point at a face — or hold up an open hand"
+        status = "Glance: point at a face - or hold up an open hand"
     }
 
     fun glanceSummary(): String {
@@ -570,7 +570,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: IllegalArgumentException) {
                 glanceMsg = e.message ?: "Not a glance-index file."
             } catch (e: Exception) {
-                glanceMsg = "Import failed — check the file and passphrase."
+                glanceMsg = "Import failed - check the file and passphrase."
             } finally {
                 glanceBusy = false
             }
@@ -621,7 +621,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: IllegalArgumentException) {
                 trustMsg = e.message ?: "Trust store rejected."
             } catch (e: Exception) {
-                trustMsg = "Import failed — is this a saved trust-store file?"
+                trustMsg = "Import failed - is this a saved trust-store file?"
             } finally {
                 trustBusy = false
             }
@@ -630,7 +630,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- offline provisioning bundle (works on ALL builds, incl. air-gapped) --
     // Bulk-load templates the admin exported on the server, moved here out-of-band
-    // (USB / MDM). No network is used — the file is decrypted locally with the same
+    // (USB / MDM). No network is used - the file is decrypted locally with the same
     // passphrase. This is how an air-gapped device gets a roster without enrolling
     // each person by hand, while staying fully offline.
     var bundleBusy by mutableStateOf(false); private set
@@ -650,13 +650,13 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 val (f, pl) = com.faceverify.app.data.BundleImporter.apply(
                     parsed, engine.repo, palm?.repo)
                 val skipped = if (palm == null && parsed.palm.isNotEmpty())
-                    " (${parsed.palm.size} print skipped — face-only build)" else ""
+                    " (${parsed.palm.size} print skipped - face-only build)" else ""
                 bundleMsg = "Imported $f face + $pl print identities$skipped."
                 refreshPeople()
             } catch (e: com.faceverify.app.data.BundleImporter.BundleException) {
                 bundleMsg = e.message ?: "Import failed."
             } catch (e: Exception) {
-                bundleMsg = "Import failed — check the file and passphrase."
+                bundleMsg = "Import failed - check the file and passphrase."
             } finally {
                 bundleBusy = false
             }

@@ -1,7 +1,7 @@
 """Per-tenant Ed25519 issuer keypairs (the tenant's signing identity).
 
-Anything the platform issues on a tenant's behalf — portable credentials
-(Phase 2), signed bundles, the trust store — is signed with the tenant's
+Anything the platform issues on a tenant's behalf - portable credentials
+(Phase 2), signed bundles, the trust store - is signed with the tenant's
 active key. Rotation retires the old key: its PRIVATE half is dropped (it can
 never sign again) but the public half is retained so previously issued
 signatures keep verifying until their artifacts expire.

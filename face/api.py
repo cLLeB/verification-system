@@ -1,4 +1,4 @@
-"""High-level face engine API — plain dict envelopes for the Flask service."""
+"""High-level face engine API - plain dict envelopes for the Flask service."""
 
 from __future__ import annotations
 
@@ -31,14 +31,14 @@ def _index_for(st: FaceStore, cfg: FaceConfig) -> _index.TenantIndex:
 # Actionable guidance per failure code, so an integrating app can tell its user
 # exactly what to fix rather than a generic "failed".
 _HINTS = {
-    "no_face": "No face detected — move closer, face the camera, and check lighting.",
-    "low_quality": "Face too small or unclear — move closer and hold steady.",
-    "multiple_faces": "More than one face in view — only one person at a time.",
-    "liveness": "Liveness failed — use a real, live face and complete the head-turn.",
+    "no_face": "No face detected - move closer, face the camera, and check lighting.",
+    "low_quality": "Face too small or unclear - move closer and hold steady.",
+    "multiple_faces": "More than one face in view - only one person at a time.",
+    "liveness": "Liveness failed - use a real, live face and complete the head-turn.",
     "pose": "Face the camera straight on (less head tilt/turn).",
-    "not_enrolled": "This user has no enrolment yet — enrol them first.",
+    "not_enrolled": "This user has no enrolment yet - enrol them first.",
     "duplicate": "This face is already enrolled under a different name.",
-    "inconsistent": "This capture doesn't match the earlier ones — use the same person.",
+    "inconsistent": "This capture doesn't match the earlier ones - use the same person.",
 }
 
 
@@ -103,18 +103,18 @@ def _guards_ok(emb, user_id: str, st: FaceStore, cfg: FaceConfig,
 def _enroll_from_id(user_id: str, image: np.ndarray, cfg: FaceConfig,
                     st: FaceStore, assessment) -> dict:
     """ID-document branch: take the largest face on the card, skip the live-only
-    gates (single-face / frontal-pose / liveness — a card is expected to be a flat
+    gates (single-face / frontal-pose / liveness - a card is expected to be a flat
     printed photo), but keep the duplicate + self-consistency guards. The stored
     template is tagged with provenance 'id'."""
     faces = assessment.faces if assessment and assessment.faces else _engine.detect_all(image, cfg)
     if not faces:
-        return _fail("No face detected on the ID — upload a clearer image.", "no_face")
+        return _fail("No face detected on the ID - upload a clearer image.", "no_face")
     idx = assessment.primary_face_index if assessment and assessment.primary_face_index >= 0 else \
         max(range(len(faces)), key=lambda i: (faces[i].bbox[2] - faces[i].bbox[0]) *
             (faces[i].bbox[3] - faces[i].bbox[1]))
     face = faces[idx]
     if face.face_px < cfg.id_min_face_px:
-        return _fail("Detected an ID, but the photo on it is too unclear — "
+        return _fail("Detected an ID, but the photo on it is too unclear - "
                      "upload a clearer image or enrol a live face.", "low_quality")
     emb = face.embedding
     thr = cfg.id_match_threshold if cfg.id_match_threshold > 0 else cfg.match_threshold
@@ -159,7 +159,7 @@ def enroll(user_id: str, image: np.ndarray, cfg: FaceConfig = CONFIG,
         except Exception:
             assessment = None                # fail open -> normal path below
 
-    # NORMAL (live) path — unchanged behaviour.
+    # NORMAL (live) path - unchanged behaviour.
     try:
         sample = _engine.embed(image, cfg)
     except FaceError as exc:
@@ -234,7 +234,7 @@ def _maybe_adapt(out: dict, emb, claimed_uid: str, st: FaceStore, cfg: FaceConfi
     if not uid or score < cfg.adaptive_update_threshold:
         return out
     if not claimed_uid and (out.get("margin") or 0.0) < cfg.adaptive_margin:
-        return out                               # ambiguous 1:N — don't adapt
+        return out                               # ambiguous 1:N - don't adapt
     added = st.add_adaptive(uid, emb)
     if added:
         _index.on_add(cfg.db_path, uid, st.protect_probe(emb, user_id=uid))  # keep the index in sync

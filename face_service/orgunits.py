@@ -1,14 +1,14 @@
-"""Organizational units — a hierarchy identities and scopes hang off.
+"""Organizational units - a hierarchy identities and scopes hang off.
 
 Larger deployments aren't flat: a tenant has sites, buildings, departments, teams.
-Modelling that as a tree lets access and reporting roll up and down — "everyone in
+Modelling that as a tree lets access and reporting roll up and down - "everyone in
 the Accra site", "which unit does this door belong to", "who is above this team".
 This subsystem is a small, cycle-safe org tree with membership.
 
   * ``add_unit``     create a unit under an optional parent.
   * ``move``         reparent a unit (rejects moves that would create a cycle).
-  * ``assign`` / ``unassign`` — put an identity in / out of a unit.
-  * ``ancestors`` / ``descendants`` — walk up / down the tree.
+  * ``assign`` / ``unassign`` - put an identity in / out of a unit.
+  * ``ancestors`` / ``descendants`` - walk up / down the tree.
   * ``members``      identities in a unit, optionally including sub-units.
   * ``path``         root-to-unit name path (breadcrumb).
 

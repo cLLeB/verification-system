@@ -1,9 +1,9 @@
-"""Incident post-mortems — capture what happened and what will change.
+"""Incident post-mortems - capture what happened and what will change.
 
 After a significant incident (a spoof that got through, an outage, a mass false-reject),
 a blameless post-mortem records the timeline, the root cause, and the follow-up actions
 that stop it recurring. Crucially, the post-mortem isn't "done" until its action items
-are — this subsystem tracks those to closure so lessons actually land. It complements
+are - this subsystem tracks those to closure so lessons actually land. It complements
 [[tickets]] (day-to-day work) and [[escalation]] (the live response) as the learning
 record.
 
@@ -15,7 +15,7 @@ record.
   * ``status``         completeness: has a root cause, open vs done actions, and
                        whether the post-mortem can be considered closed.
 
-A post-mortem is ``closed`` only when it has a root cause and every action item is done —
+A post-mortem is ``closed`` only when it has a root cause and every action item is done -
 encoding the discipline that a review with open actions is still live work.
 
 Registry: ``postmortem.json`` (env ``FACE_POSTMORTEM_FILE``).

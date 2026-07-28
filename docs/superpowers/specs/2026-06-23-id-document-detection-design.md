@@ -1,7 +1,7 @@
 # Smart ID-Document Detection on Enrollment
 
 **Date:** 2026-06-23
-**Status:** Implemented — Phase 1 (server/web) **and** Phase 2 (offline Android) both done 2026-06-23.
+**Status:** Implemented - Phase 1 (server/web) **and** Phase 2 (offline Android) both done 2026-06-23.
 
 > Phase 2 note: Android omits the OpenCV-only card-outline signal (no OpenCV
 > on-device); it relies on the ghost-portrait (decisive), small-face, and a
@@ -13,7 +13,7 @@
 
 ## 1. Problem
 
-Enrollment accepts faces in two forms: **live camera scanning** and **image uploads**. Occasionally — not usually, but it happens — a person submits an **ID document** (national card, passport) instead of a live face.
+Enrollment accepts faces in two forms: **live camera scanning** and **image uploads**. Occasionally - not usually, but it happens - a person submits an **ID document** (national card, passport) instead of a live face.
 
 Today an ID document silently collides with the normal enrollment gates:
 
@@ -34,7 +34,7 @@ Matching three images of the enrolled `user1` (3 anchors + 2 adaptive, threshold
 
 Conclusions that drive this design:
 - The matching engine **already works** across live photos, year-old photos, and printed ID cards. No change to matching is needed.
-- **We detect the document, not the face.** A tightly-cropped passport headshot is indistinguishable from a selfie — and that case is harmless (it is a real face of the right person), so it correctly stays on the normal path.
+- **We detect the document, not the face.** A tightly-cropped passport headshot is indistinguishable from a selfie - and that case is harmless (it is a real face of the right person), so it correctly stays on the normal path.
 - ID cards expose strong, cheap signals: a ghost portrait (two faces), a small face within a larger card, card edges, printed text / MRZ, and (on the live path) failed liveness.
 
 ---
@@ -44,7 +44,7 @@ Conclusions that drive this design:
 | # | Decision | Choice |
 |---|----------|--------|
 | 1 | Behavior when an ID is detected at enrollment | **Auto-branch** to a dedicated ID handling path (no user confirmation) |
-| 2 | Where detection applies | **Enrollment only.** Verify/identify keep liveness — an ID at verification stays a rejected spoof |
+| 2 | Where detection applies | **Enrollment only.** Verify/identify keep liveness - an ID at verification stays a rejected spoof |
 | 3 | Detection mechanism | **Heuristic signal-stack**, no new model (works offline, explainable, tunable, no training data) |
 | 4 | Provenance | **FT2 storage format**: 1-byte source tag per embedding (`0=live`, `1=id`); FT1 still readable |
 | 5 | Scope/phasing | **Phase 1 server/web now**; Android Kotlin port is committed Phase 2 ("everywhere" in the end) |
@@ -53,9 +53,9 @@ Conclusions that drive this design:
 
 ## 3. Architecture
 
-### 3.1 New module — `face/id_document.py`
+### 3.1 New module - `face/id_document.py`
 
-A single, focused, pure module. It performs **no** model loading of its own — it consumes the faces already produced by one detector run, so enrollment never runs detection twice.
+A single, focused, pure module. It performs **no** model loading of its own - it consumes the faces already produced by one detector run, so enrollment never runs detection twice.
 
 **Public interface:**
 
@@ -97,7 +97,7 @@ def assess(image: np.ndarray,
 - Secondary face **much smaller** than primary **and** **same identity** (high cosine to primary) → ghost portrait → contributes to `is_id`.
 - Two **comparably sized**, **different** identities → genuine multi-person → `assess` does **not** classify as ID; the existing `multiple_faces` rejection stands.
 
-### 3.2 Config additions — `face/config.py`
+### 3.2 Config additions - `face/config.py`
 
 ```python
 id_detection_enabled: bool = True          # env FACE_ID_DETECTION
@@ -110,7 +110,7 @@ All overridable by environment variable, following the existing `_apply_env` pat
 
 ---
 
-## 4. Data flow — `enroll()`
+## 4. Data flow - `enroll()`
 
 `face/api.py::enroll()` and the `/v1` enroll endpoint gain an optional `source` parameter:
 `"auto"` (default) | `"live"` | `"id"`.
@@ -146,7 +146,7 @@ enroll(user_id, image, source="auto"):
 
 ---
 
-## 5. Storage — FT1 → FT2 (`face/storage.py`)
+## 5. Storage - FT1 → FT2 (`face/storage.py`)
 
 Add per-embedding provenance.
 
@@ -169,7 +169,7 @@ Migration is read-on-the-fly (no batch rewrite needed): FT1 rows are upgraded to
 ## 6. Service & UI
 
 - **`/v1` enroll** (`face_service/v1.py`): accept optional `source` field (validated: auto/live/id, default auto). Echo `source`, `id_confidence`, and `signals` in the response envelope. Audit-log the provenance regardless (in addition to FT2). Sandbox short-circuit unchanged.
-- **Web UI** (`static/app.js`, admin enroll): when the response `source == "id_document"`, show a distinct, friendly note — e.g. *"Enrolled from an ID document (confidence 0.87). For best accuracy, add a live capture too."* Uses the existing iris-violet feedback styling; no new design language.
+- **Web UI** (`static/app.js`, admin enroll): when the response `source == "id_document"`, show a distinct, friendly note - e.g. *"Enrolled from an ID document (confidence 0.87). For best accuracy, add a live capture too."* Uses the existing iris-violet feedback styling; no new design language.
 
 ---
 
@@ -177,7 +177,7 @@ Migration is read-on-the-fly (no batch rewrite needed): FT1 rows are upgraded to
 
 | Situation | Behavior |
 |-----------|----------|
-| ID detected, but largest face `< id_min_face_px` or low det_score | Fail clearly: *"Detected an ID, but the photo on it is too unclear — upload a clearer image or enroll a live face."* |
+| ID detected, but largest face `< id_min_face_px` or low det_score | Fail clearly: *"Detected an ID, but the photo on it is too unclear - upload a clearer image or enroll a live face."* |
 | `id_document.assess()` raises | **Fail open** → fall back to NORMAL path; log a warning. Detection can never break enrollment. |
 | `source="id"` forced but no face found at all | Existing "no face detected" failure |
 | Genuine two-person frame on `auto` | Not classified as ID → existing `multiple_faces` rejection |
@@ -189,17 +189,17 @@ Migration is read-on-the-fly (no batch rewrite needed): FT1 rows are upgraded to
 
 Fixtures: `Image.jpeg` (real ID card), `image.png` & `me.jpeg` (real selfies). Add a synthetic/borrowed two-person image fixture for the disambiguation test.
 
-**Unit — `tests/test_id_document.py`:**
+**Unit - `tests/test_id_document.py`:**
 - `assess()` → `is_id=True` for the ID card; `is_id=False` for both selfies.
 - Each signal scores higher on the card than on the selfies.
 - Ghost vs. two-people: two distinct identities of comparable size → `is_id=False`.
 
-**Integration — `tests/test_enroll_id.py`:**
+**Integration - `tests/test_enroll_id.py`:**
 - `enroll(auto)` with the card → success, `source="id_document"`, FT2 row tagged `id`.
 - `enroll(auto)` with a selfie → success, `source="live"` (normal path).
 - `source="live"` forced on the card → hits the normal gate (proves override works).
 
-**Storage — extend `tests/`:**
+**Storage - extend `tests/`:**
 - FT2 round-trips embeddings + source tags.
 - FT1 blob reads back with all sources defaulted to `live` (backward compatibility).
 
@@ -211,9 +211,9 @@ Fixtures: `Image.jpeg` (real ID card), `image.png` & `me.jpeg` (real selfies). A
 
 ## 9. Out of scope (this spec)
 
-- **Android/Kotlin port** of the heuristics — committed **Phase 2**, separate spec. End state: ID detection runs everywhere, including fully offline on-device.
-- Document **authenticity** verification (hologram/MRZ checksum/OCR field extraction) — a separate, non-face problem; not part of identity matching.
-- Per-source threshold auto-tuning — `id_match_threshold` is wired but defaults to reusing `match_threshold` until more ID samples exist.
+- **Android/Kotlin port** of the heuristics - committed **Phase 2**, separate spec. End state: ID detection runs everywhere, including fully offline on-device.
+- Document **authenticity** verification (hologram/MRZ checksum/OCR field extraction) - a separate, non-face problem; not part of identity matching.
+- Per-source threshold auto-tuning - `id_match_threshold` is wired but defaults to reusing `match_threshold` until more ID samples exist.
 
 ---
 
@@ -227,4 +227,4 @@ Fixtures: `Image.jpeg` (real ID card), `image.png` & `me.jpeg` (real selfies). A
 | `face/storage.py` (FT2) | Persist embeddings + per-row provenance; read FT1 | crypto, sqlite |
 | `face/config.py` | ID detection flags/thresholds | env |
 | `face_service/v1.py` | `source` param, provenance in response + audit | api, audit |
-| `static/app.js` | Friendly ID-sourced enrollment feedback | — |
+| `static/app.js` | Friendly ID-sourced enrollment feedback | - |

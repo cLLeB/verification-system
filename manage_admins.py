@@ -39,7 +39,7 @@ def main() -> None:
             print("username and password are required.")
     elif args.cmd == "list":
         names = admins.list_admins()
-        print("\n".join(f"  {n}" for n in names) if names else "(no operators — bootstrap login active)")
+        print("\n".join(f"  {n}" for n in names) if names else "(no operators - bootstrap login active)")
     elif args.cmd == "remove":
         print(f"removed '{args.username}'." if admins.remove_admin(args.username)
               else f"no operator '{args.username}'.")

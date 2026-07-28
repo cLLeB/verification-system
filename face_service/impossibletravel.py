@@ -1,7 +1,7 @@
-"""Impossible-travel detection — flag a subject appearing in two far-apart places.
+"""Impossible-travel detection - flag a subject appearing in two far-apart places.
 
 If the same identity verifies in Accra and then, twenty minutes later, in London, one
-of those events is fraudulent — a cloned credential, a shared face photo, or a
+of those events is fraudulent - a cloned credential, a shared face photo, or a
 coordinated attack. This subsystem remembers each subject's last verified location and
 flags a new verification whose implied travel speed exceeds what is physically
 plausible. It is a classic account-takeover signal, adapted to physical access.
@@ -10,7 +10,7 @@ plausible. It is a classic account-takeover signal, adapted to physical access.
                 geo-implausible relative to the subject's previous location, with the
                 implied speed.
   * ``gate``    post-match helper: annotate a verify result with an
-                ``impossible_travel`` flag (advisory — never silently denies).
+                ``impossible_travel`` flag (advisory - never silently denies).
   * ``last_seen`` the subject's most recent recorded location.
 
 Distance is the haversine great-circle metric (km). The threshold speed defaults to

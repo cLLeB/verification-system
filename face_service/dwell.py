@@ -1,4 +1,4 @@
-"""Dwell monitoring — flag stays that are suspiciously short or long.
+"""Dwell monitoring - flag stays that are suspiciously short or long.
 
 Entry/exit verifies bound how long each person was inside. Two extremes are worth
 flagging. A *too-short* dwell (in then out within seconds) often means tailgating
@@ -7,9 +7,9 @@ and never left) means a missed exit, a person in distress, or a propped door.
 This subsystem records entry times and, on exit, computes the dwell and compares
 it to tenant thresholds.
 
-  * ``enter`` / ``exit`` — bookkeeping tied to verifies; ``exit`` returns the
+  * ``enter`` / ``exit`` - bookkeeping tied to verifies; ``exit`` returns the
     dwell plus a ``flag`` of ``too_short`` / ``too_long`` / ``ok``.
-  * ``overstays`` — everyone still inside past the max, for a sweep.
+  * ``overstays`` - everyone still inside past the max, for a sweep.
 
 Thresholds default to min 5s, max 24h; 0 disables that side.
 

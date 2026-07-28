@@ -1,15 +1,15 @@
-"""Risk scoring — fold many soft signals into one number and a decision.
+"""Risk scoring - fold many soft signals into one number and a decision.
 
 The gates in this package each answer one question (is this off-hours? out of
 zone? impossibly fast? a watch-alert?). Individually most are advisory. Together
 they tell a story: a verify that is off-hours AND from a new device AND flagged
 by the watchlist is far riskier than any one signal alone. This subsystem assigns
 a weight to each signal a result may carry, sums the weights present, and maps the
-total to a band — ``low`` / ``elevated`` / ``high`` — with a configurable action
+total to a band - ``low`` / ``elevated`` / ``high`` - with a configurable action
 (allow / step-up / deny). It is the place a deployment tunes its overall risk
 appetite without rewriting every gate.
 
-  * ``set_weight`` / ``set_bands`` — configure per tenant.
+  * ``set_weight`` / ``set_bands`` - configure per tenant.
   * ``score``      compute {score, band, signals} for a result dict.
   * ``gate``       apply the band's action to the result (deny flips success;
                    step-up tags ``needs_step_up`` for the caller to challenge).

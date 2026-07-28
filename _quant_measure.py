@@ -1,4 +1,4 @@
-"""Measure the COST of int8 and fp16 quantization for the ArcFace model — on our
+"""Measure the COST of int8 and fp16 quantization for the ArcFace model - on our
 actual model + our actual faces. fp32 stays the shipped model; this only writes
 quantized copies to a temp dir and compares. Nothing in the project is changed.
 
@@ -93,7 +93,7 @@ def main():
     except Exception as e:
         print("fp16 convert failed:", e)
 
-    # int8 static (calibrated on our crops — NOTE: tiny, single-identity calib set,
+    # int8 static (calibrated on our crops - NOTE: tiny, single-identity calib set,
     # so this is a pessimistic lower bound; a proper diverse calib set does better)
     try:
         from onnxruntime.quantization import quantize_static, CalibrationDataReader, QuantType, QuantFormat
@@ -128,7 +128,7 @@ def main():
 
     print(f"{'variant':6} {'size MB':>8} {'fidelity(mean/min)':>20} {'same-person(mean/min)':>22} {'>=0.40':>7} {'ms':>6}")
     for n, size, fmean, fmin, smean, smin, pct, ms in rows:
-        fid = "—" if n == "fp32" else f"{fmean:.4f}/{fmin:.4f}"
+        fid = "-" if n == "fp32" else f"{fmean:.4f}/{fmin:.4f}"
         print(f"{n:6} {size:8.1f} {fid:>20} {smean:.3f}/{smin:.3f}{'':>6} {pct:5.0f}% {ms:6.1f}")
     print("\nfidelity = cosine(variant, fp32) per face (1.0 = identical embedding)")
     print("same-person = pairwise cosine among our faces; all should stay well above 0.40")

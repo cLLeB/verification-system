@@ -1,6 +1,6 @@
-"""Proxy consent — a guardian consents on behalf of a dependent.
+"""Proxy consent - a guardian consents on behalf of a dependent.
 
-Some subjects can't give valid consent themselves — minors, or adults under guardianship.
+Some subjects can't give valid consent themselves - minors, or adults under guardianship.
 Lawful processing of their biometric data then depends on a *proxy* consent from an
 authorised guardian, and the system must be able to prove the guardian relationship as
 well as the consent. This subsystem records guardian↔dependent links and the proxy
@@ -10,7 +10,7 @@ dependent and purpose". It complements [[consent]] (self-consent) and [[consentr
 
   * ``link_guardian``   establish an authorised guardian for a dependent.
   * ``grant``           a linked guardian grants consent for purposes (optionally
-                        expiring — e.g. lapses when the dependent reaches majority).
+                        expiring - e.g. lapses when the dependent reaches majority).
   * ``has_consent``     is there active proxy consent for a dependent + purpose?
   * ``revoke``          a guardian withdraws consent.
   * ``guardians_of``    the authorised guardians for a dependent.

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trust Center — Biometric Verify</title>
+    <title>Trust Center - Biometric Verify</title>
     <style>
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -34,7 +34,7 @@
 <body>
 <div class="wrap">
     <h1>Trust Center</h1>
-    <p class="lead"><b>Enrol once. Be verifiable by anyone you authorise — instantly,
+    <p class="lead"><b>Enrol once. Be verifiable by anyone you authorise - instantly,
         offline, on any phone.</b> This page is the evidence: what we store, what we
         can never leak, and the numbers this exact build measured on itself
         {% if generated %}(last run {{ generated }}){% endif %}.</p>
@@ -46,7 +46,7 @@
             <div class="v {{ 'ok' if r.protected.gate == 'PASS' else 'warn' }}">
                 {{ r.protected.tar_delta_abs }} <span style="font-size:.8rem">TAR delta</span></div>
             <div class="k">Accuracy cost of template protection</div>
-            <div class="d">Matching in the protected (revocable) domain vs raw —
+            <div class="d">Matching in the protected (revocable) domain vs raw -
                 gate requires &lt; 0.01 absolute at FAR {{ r.protected.far }}.
                 Max per-score difference {{ r.protected.max_abs_score_diff }}.</div>
         </div>
@@ -55,7 +55,7 @@
         <div class="stat">
             <div class="v">{{ r.credential.wire_chars.mean | int }} chars</div>
             <div class="k">Offline QR credential size</div>
-            <div class="d">Signed face credential — fits a standard QR
+            <div class="d">Signed face credential - fits a standard QR
                 ({{ 'yes' if r.credential.fits_qr_v25_eccm else 'NO' }} at v25/ECC-M).
                 Verifies in {{ r.credential.verify_ms.mean }} ms; a stranger's best
                 score against one: {{ r.credential.stranger_score_abs_max }}.</div>
@@ -74,7 +74,7 @@
         <div class="stat">
             <div class="v ok">bit-exact</div>
             <div class="k">Face pipeline integrity</div>
-            <div class="d">Live model benchmark over local captures — embeddings and
+            <div class="d">Live model benchmark over local captures - embeddings and
                 match decisions reproduce across builds (see face.json for the full
                 speed/consistency tables).</div>
         </div>
@@ -91,7 +91,7 @@
         <div class="stat">
             <div class="v ok">liveness on by default</div>
             <div class="k">Anti-spoofing</div>
-            <div class="d">A live <b>head-turn challenge</b> ships enabled — a flat photo
+            <div class="d">A live <b>head-turn challenge</b> ships enabled - a flat photo
                 or a screen replay can't perform a real 3D turn, so print/replay attacks
                 are refused. The optional <i>passive</i> anti-spoof score is published
                 only when measured on a properly licensed, non-training attack dataset
@@ -100,24 +100,24 @@
         {% endif %}
     </div>
     <p style="margin-top:10px; font-size:.78rem; color:#5f6981">Every number above is
-        produced by <code>python -m bench run</code> against this exact codebase —
+        produced by <code>python -m bench run</code> against this exact codebase -
         raw reports in <code>static/trust/</code>. Nothing is quoted from a
         datasheet.</p>
 
-    <h2>What we store — and what we can never leak</h2>
+    <h2>What we store - and what we can never leak</h2>
     <ul>
         <li><b>Never images.</b> A face or print becomes a short mathematical template
             (an embedding). Photos are discarded after processing.</li>
         <li><b>Templates are protected (cancelable).</b> Everything used for matching,
             sync, or export lives in a scrambled, revocable domain. A copy stolen from
-            the database, a device, or an export cannot be matched anywhere else — and
+            the database, a device, or an export cannot be matched anywhere else - and
             can be cancelled like a password (<i>reissue</i>: one click, nobody re-enrols).</li>
-        <li><b>Honest claim:</b> raw templates DO exist — encrypted at rest, on the
-            server only — solely so a reissue never requires recapture. They never
+        <li><b>Honest claim:</b> raw templates DO exist - encrypted at rest, on the
+            server only - solely so a reissue never requires recapture. They never
             leave the server; every export and every device carries protected forms only.</li>
         <li><b>Encryption at rest, per tenant.</b> Each organisation's store has its own
             data key (master-wrapped). Offboarding is a <i>crypto-erase</i>: destroy the
-            keys and every remaining byte — including backups — is permanently unreadable.</li>
+            keys and every remaining byte - including backups - is permanently unreadable.</li>
         <li><b>Offline credentials carry their own privacy.</b> A QR card holds a
             protected template in its own single-credential domain: unmatchable against
             any database, useless without the live person, revocable, expiring.</li>
@@ -137,7 +137,7 @@
     </table>
 
     <h2>Methodology</h2>
-    <p>Suites run the same code paths production serves — the real store, index,
+    <p>Suites run the same code paths production serves - the real store, index,
         matcher, credential and liveness modules, not extracts. Protected-domain and
         credential suites use synthetic unit embeddings (the transform's accuracy
         properties are independent of the data); face/print suites run the live models
@@ -148,8 +148,8 @@
     <h2>Compliance</h2>
     <p>The compliance dossier (<code>docs/trust/compliance.md</code> in the
         distribution) maps Ghana's Data Protection Act (Act 843) and the GDPR to the
-        concrete product mechanisms above — lawful basis, subject rights, retention,
-        erasure — each tied to the code path that enforces it.</p>
+        concrete product mechanisms above - lawful basis, subject rights, retention,
+        erasure - each tied to the code path that enforces it.</p>
 
     <div class="footer">
         Report data: {% for name, meta in suites.items() %}<code>{{ name }}:

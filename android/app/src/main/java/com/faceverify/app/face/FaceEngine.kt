@@ -28,7 +28,7 @@ class FaceEngine private constructor(
     suspend fun detect(bitmap: Bitmap): DetectedFace? = detector.detect(bitmap)
 
     /** Align + embed a face from a frame. Returns null if landmarks/size are unusable.
-     *  Heavy (ONNX) — runs on the default dispatcher. [minPx] lets the ID path accept
+     *  Heavy (ONNX) - runs on the default dispatcher. [minPx] lets the ID path accept
      *  smaller (printed) faces than a live capture. */
     suspend fun embed(bitmap: Bitmap, face: DetectedFace, minPx: Int = Config.MIN_FACE_PX): FloatArray? =
         withContext(Dispatchers.Default) {

@@ -1,16 +1,16 @@
-"""Lone-worker safety monitor — a dead-man's switch for people working alone.
+"""Lone-worker safety monitor - a dead-man's switch for people working alone.
 
 Someone entering a plant room, remote site or after-hours area alone is at risk if they
 fall or are attacked and can't call for help. A lone-worker monitor is a periodic
 check-in: the worker starts a session with an interval, checks in before each deadline,
 and if a check-in is missed past a grace period the system raises an overdue alarm so
-help is dispatched. This is a safety control that biometric access naturally feeds — a
+help is dispatched. This is a safety control that biometric access naturally feeds - a
 solo entry can start a session automatically.
 
   * ``start``     open a monitored session with a check-in interval and grace.
   * ``checkin``   the worker confirms they're OK; extends the next deadline.
   * ``end``       the worker signs off safely.
-  * ``overdue``   sessions whose deadline+grace has passed without a check-in — the
+  * ``overdue``   sessions whose deadline+grace has passed without a check-in - the
                   alarms to raise now.
   * ``status``    one session's state and seconds until its next deadline.
 

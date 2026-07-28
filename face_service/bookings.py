@@ -1,4 +1,4 @@
-"""Resource bookings — reserve rooms/desks with check-in and no-show release.
+"""Resource bookings - reserve rooms/desks with check-in and no-show release.
 
 Meeting rooms, hot desks and shared equipment are booked for time windows; the access
 system then verifies the booker at the door. Two things make bookings production-grade:

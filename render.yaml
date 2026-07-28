@@ -1,17 +1,17 @@
-# Render blueprint — deploy this repo as a Docker web service.
+# Render blueprint - deploy this repo as a Docker web service.
 #
 # Render → New → Blueprint → point at this repo, or create a Web Service manually
 # with Runtime = Docker and copy the settings below.
 #
 # MEMORY: with FACE_ACTIVE_LIVENESS=0 (set below) the app loads ~300 MB and peaks
-# ~376 MB under concurrent requests — measured. That fits the 512 MB free tier
+# ~376 MB under concurrent requests - measured. That fits the 512 MB free tier
 # with headroom. (With liveness ON it peaks ~600 MB and needs a >=1 GB paid plan.)
 #
 # FREE-TIER TRADEOFFS you are accepting:
 #   * the service SPINS DOWN after 15 min idle; the next request waits 30-60s
 #     while it wakes and reloads models. Fine for a pilot, rough for a live demo
 #     (open the link yourself a minute before anyone arrives).
-#   * limited CPU — a verification takes several seconds, not one.
+#   * limited CPU - a verification takes several seconds, not one.
 #   * 750 compute-hours/month ~ one always-on service; enough for a single box.
 #
 # Secrets are marked `sync: false` so Render prompts for them instead of storing
@@ -22,7 +22,7 @@ services:
     name: contactless-verify
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free                  # 512 MB — fits ONLY with FACE_ACTIVE_LIVENESS=0
+    plan: free                  # 512 MB - fits ONLY with FACE_ACTIVE_LIVENESS=0
     region: frankfurt           # closest of Render's regions to Ghana
     healthCheckPath: /healthz   # deliberately exempt from the private-link gate
     autoDeploy: false           # deploy on purpose, not on every push

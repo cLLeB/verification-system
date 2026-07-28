@@ -1,7 +1,7 @@
 """Welfare program's OWN ledger: beneficiaries + payouts. The backbone answers
 "who is this?" and "is this face already registered?"; this file owns the money
 record. Ghost/duplicate elimination happens by asking the backbone to IDENTIFY a
-new registrant against everyone already enrolled (done in app.py) — here we just
+new registrant against everyone already enrolled (done in app.py) - here we just
 keep the authoritative list and the payout log.
 """
 

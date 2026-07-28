@@ -11,7 +11,7 @@ Setup (once):
     oci setup config          # generates ~/.oci/config + an API keypair
 
 ``oci setup config`` asks for your user OCID, tenancy OCID and region, then writes
-a public key to ~/.oci/oci_api_key_public.pem — paste that into the console under
+a public key to ~/.oci/oci_api_key_public.pem - paste that into the console under
 Identity -> My profile -> API keys. Everything else this script discovers for you.
 
 Check the setup without launching anything:
@@ -73,7 +73,7 @@ def setup_credentials(force: bool = False) -> int:
     from cryptography.hazmat.primitives.asymmetric import rsa
 
     if os.path.exists(CONFIG) and not force:
-        raise SystemExit(f"{CONFIG} already exists — pass --setup --force to replace it.")
+        raise SystemExit(f"{CONFIG} already exists - pass --setup --force to replace it.")
 
     print("\nFind these in the Oracle console (top-right avatar):")
     print("  user OCID    : My profile      -> OCID (starts ocid1.user...)")
@@ -82,7 +82,7 @@ def setup_credentials(force: bool = False) -> int:
     tenancy = input("tenancy OCID : ").strip()
     region = input("region [eu-paris-1]: ").strip() or "eu-paris-1"
     if not user.startswith("ocid1.user") or not tenancy.startswith("ocid1.tenancy"):
-        raise SystemExit("those don't look like OCIDs — expected ocid1.user... and "
+        raise SystemExit("those don't look like OCIDs - expected ocid1.user... and "
                          "ocid1.tenancy...")
 
     os.makedirs(OCI_DIR, exist_ok=True)
@@ -196,7 +196,7 @@ def ssh_key(path: str | None) -> str:
                 found = os.path.join(c, pubs[0])
                 log(f"using SSH public key {found}")
                 return open(found, encoding="utf-8").read().strip()
-    raise SystemExit("no SSH public key found — pass --ssh-key <path to .pub>")
+    raise SystemExit("no SSH public key found - pass --ssh-key <path to .pub>")
 
 
 def launch(compute, found, key, name, ocpus, memory, shape):
@@ -212,7 +212,7 @@ def launch(compute, found, key, name, ocpus, memory, shape):
         metadata={"ssh_authorized_keys": key},
     )
     # Only FLEX shapes take (and require) a shape_config. Fixed shapes like
-    # E2.1.Micro reject it — their CPU/memory is baked into the shape.
+    # E2.1.Micro reject it - their CPU/memory is baked into the shape.
     if shape.endswith(".Flex"):
         kwargs["shape_config"] = oci.core.models.LaunchInstanceShapeConfigDetails(
             ocpus=float(ocpus), memory_in_gbs=float(memory))
@@ -230,7 +230,7 @@ def public_ip(cfg, compute, network, instance) -> str:
             if v.public_ip:
                 return v.public_ip
         time.sleep(5)
-    return "(not assigned yet — check the console)"
+    return "(not assigned yet - check the console)"
 
 
 def is_capacity(exc) -> bool:
@@ -265,7 +265,7 @@ def main() -> int:
         return setup_credentials(a.force)
 
     cfg, compute, network, identity = load_clients()
-    # A freshly registered API key propagates unevenly — calls can succeed, then
+    # A freshly registered API key propagates unevenly - calls can succeed, then
     # 401, then succeed again for several minutes. Tolerate that for a bounded
     # window rather than aborting a 10-hour run on a transient rejection.
     auth_deadline = time.time() + 600
@@ -275,7 +275,7 @@ def main() -> int:
             break
         except oci.exceptions.ServiceError as exc:
             if exc.status == 401 and time.time() < auth_deadline:
-                log("401 — key still propagating, retrying in 30s")
+                log("401 - key still propagating, retrying in 30s")
                 time.sleep(30)
                 continue
             if exc.status == 401:
@@ -294,7 +294,7 @@ def main() -> int:
     key = ssh_key(a.ssh_key or None)
 
     if a.check:
-        log("config OK — everything resolved. Drop --check to start retrying.")
+        log("config OK - everything resolved. Drop --check to start retrying.")
         return 0
 
     sizes = [(a.ocpus, a.memory)]
@@ -304,7 +304,7 @@ def main() -> int:
     deadline = time.time() + a.max_hours * 3600
     attempt = 0
     backoff = 0                                   # grows only when Oracle says 429
-    log(f"retrying every {a.interval}s for up to {a.max_hours}h — Ctrl+C to stop")
+    log(f"retrying every {a.interval}s for up to {a.max_hours}h - Ctrl+C to stop")
     while time.time() < deadline:
         ocpus, memory = sizes[attempt % len(sizes)]
         attempt += 1
@@ -321,20 +321,20 @@ def main() -> int:
         except oci.exceptions.ServiceError as exc:
             if exc.status == 429:
                 # Being told to slow down. Back off hard rather than keep the
-                # cadence — hammering through a throttle is how polite retrying
+                # cadence - hammering through a throttle is how polite retrying
                 # turns into abuse.
                 backoff = min(backoff * 2 if backoff else a.interval * 2, 1800)
                 retry_after = int(getattr(exc, "headers", {}).get("retry-after", 0) or 0)
                 wait = max(backoff, retry_after)
-                log(f"attempt {attempt}: RATE LIMITED by Oracle — backing off {wait}s")
+                log(f"attempt {attempt}: RATE LIMITED by Oracle - backing off {wait}s")
                 time.sleep(wait)
                 continue
             if is_capacity(exc) or exc.status in _TRANSIENT_STATUS:
                 backoff = 0                       # capacity errors are not our fault
-                log(f"attempt {attempt} ({ocpus}/{memory}): no capacity — waiting")
+                log(f"attempt {attempt} ({ocpus}/{memory}): no capacity - waiting")
             else:
                 # A real error (bad auth, bad OCID, quota). Looping hides it.
-                raise SystemExit(f"\nstopping — this is not a capacity problem:\n"
+                raise SystemExit(f"\nstopping - this is not a capacity problem:\n"
                                  f"  status {exc.status} {exc.code}: {exc.message}")
         except KeyboardInterrupt:
             log("stopped by user")

@@ -1,4 +1,4 @@
-# libs/ — SourceAFIS runtime jars (not committed)
+# libs/ - SourceAFIS runtime jars (not committed)
 
 The SourceAFIS matcher jars are **not stored in git** (binary, ~26 MB, and
 re-fetchable). Restore them with Maven into this folder:

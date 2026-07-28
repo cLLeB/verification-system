@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0d0f16">
-    <title>Glance — continuous identification</title>
+    <title>Glance - continuous identification</title>
     <style>
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -29,7 +29,7 @@
 </head>
 <body>
     <h1>Glance</h1>
-    <p class="sub">Point the camera at people — names appear as they're recognised, continuously
+    <p class="sub">Point the camera at people - names appear as they're recognised, continuously
         and in real time. An <b>identification aid</b> (no liveness); use Verify for access
         decisions.</p>
     <div class="stage">
@@ -83,7 +83,7 @@ async function startCamera() {
         video.srcObject = stream;
         try { await video.play(); } catch (e) {}
         keepVideoAlive(video);
-    } catch (e) { $('stat').textContent = 'Camera unavailable — allow access and reload.'; }
+    } catch (e) { $('stat').textContent = 'Camera unavailable - allow access and reload.'; }
 }
 
 function grab() {

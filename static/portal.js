@@ -80,7 +80,7 @@ function keysToCsv(keys) {
 function renderNewKeys(box, d) {
     box.innerHTML = '';
     const h = document.createElement('div');
-    h.innerHTML = `<b>Created ${d.count} key(s) — shown only once. Download now.</b>`;
+    h.innerHTML = `<b>Created ${d.count} key(s) - shown only once. Download now.</b>`;
     box.appendChild(h);
     d.keys.forEach(k => {
         const div = document.createElement('div'); div.className = 'newkey-row';
@@ -174,10 +174,10 @@ const pprotReissue = $('pprot-reissue');
 if (pprotReissue) pprotReissue.onclick = async () => {
     const user = ($('pprot-user').value || '').trim();
     if (user) {
-        if (!confirm(`Reissue "${user}"?\n\nAny previously exported or stolen copy of their template stops matching immediately. They keep verifying — no re-enrolment.`)) return;
+        if (!confirm(`Reissue "${user}"?\n\nAny previously exported or stolen copy of their template stops matching immediately. They keep verifying - no re-enrolment.`)) return;
     } else {
         // organisation-wide is the big red button: require typing REISSUE
-        const typed = prompt('Reissue ALL your templates?\n\nAny previously exported or stolen copy stops matching immediately. Your people keep verifying — nobody re-enrols.\n\nType REISSUE to confirm:');
+        const typed = prompt('Reissue ALL your templates?\n\nAny previously exported or stolen copy stops matching immediately. Your people keep verifying - nobody re-enrols.\n\nType REISSUE to confirm:');
         if (typed !== 'REISSUE') return;
     }
     const d = await api('/portal/api/protection/reissue', { method: 'POST',
@@ -238,7 +238,7 @@ if (pcredIssue) pcredIssue.onclick = async () => {
             <button class="btn ghost" id="pcred-copy">Copy card link</button>
         </div>`;
     $('pcred-copy').onclick = () => navigator.clipboard.writeText(card)
-        .then(() => { $('pcred-msg').textContent = 'Card link copied — send it to the holder.'; });
+        .then(() => { $('pcred-msg').textContent = 'Card link copied - send it to the holder.'; });
     $('pcred-msg').textContent = `Issued ${d.credential_id.slice(0, 12)}…`;
     loadCredentials();
 };
@@ -280,7 +280,7 @@ if (ptrustAdd) ptrustAdd.onclick = async () => {
 };
 
 // --- access policies · guests · devices · guardians · consent ----------------
-const pFmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+const pFmt = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '-';
 
 async function loadPortalPolicies() {
     const d = await api('/portal/api/policies');
@@ -327,7 +327,7 @@ $('ppol-save').onclick = async () => {
         body: JSON.stringify({ mode: $('ppol-mode').value, default: $('ppol-default').value,
             tz_offset_minutes: parseInt($('ppol-tz').value, 10) || 0 }) });
     $('ppol-msg').textContent = d.success
-        ? `Saved — mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
+        ? `Saved - mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
     loadPortalPolicies();
 };
 $('prule-add').onclick = async () => {
@@ -374,7 +374,7 @@ $('pgst-set').onclick = async () => {
             expires_in_days: parseFloat($('pgst-days').value) || 0,
             expires_in_hours: parseFloat($('pgst-hours').value) || 0 }) });
     $('pgst-msg').textContent = d.success
-        ? `Pass set — ${uid} expires ${pFmt(d.expires)}.` : (d.message || 'Failed.');
+        ? `Pass set - ${uid} expires ${pFmt(d.expires)}.` : (d.message || 'Failed.');
     if (d.success) { $('pgst-user').value = ''; loadPortalGuests(); }
 };
 
@@ -411,7 +411,7 @@ $('pdev-pair').onclick = async () => {
     if (!d.success) { $('pdev-msg').textContent = d.message || 'Failed.'; return; }
     const box = $('pdev-new');
     box.classList.remove('hidden');
-    box.innerHTML = `<b>Pairing code for “${d.name}”</b> — enter it on the device within
+    box.innerHTML = `<b>Pairing code for “${d.name}”</b> - enter it on the device within
         15 minutes (single use, shown once):<br>
         <code style="font-size:1.05rem">${d.pairing_code}</code>`;
     $('pdev-name').value = '';
@@ -445,7 +445,7 @@ $('pgdn-link').onclick = async () => {
         body: JSON.stringify({ beneficiary: $('pgdn-beneficiary').value,
             guardian: $('pgdn-guardian').value, relationship: $('pgdn-rel').value }) });
     $('pgdn-msg').textContent = d.success
-        ? `Linked — ${d.guardian} may now verify for ${d.beneficiary}.`
+        ? `Linked - ${d.guardian} may now verify for ${d.beneficiary}.`
         : (d.message || 'Failed.');
     if (d.success) { $('pgdn-beneficiary').value = ''; $('pgdn-guardian').value = ''; loadPortalGuardians(); }
 };

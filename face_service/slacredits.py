@@ -1,7 +1,7 @@
-"""SLA service credits — compute the credit owed when uptime misses target.
+"""SLA service credits - compute the credit owed when uptime misses target.
 
-Commercial SLAs promise an uptime (e.g. 99.9%) and owe the customer a service credit —
-a percentage of the fee — when actual uptime falls short, usually in tiers (the worse the
+Commercial SLAs promise an uptime (e.g. 99.9%) and owe the customer a service credit -
+a percentage of the fee - when actual uptime falls short, usually in tiers (the worse the
 miss, the bigger the credit). Calculating that correctly at invoice time is fiddly and
 error-prone by hand. This subsystem encodes an SLA's target and credit tiers and computes
 the credit for a measured uptime, feeding [[invoicing]] as a negative line item.
@@ -9,7 +9,7 @@ the credit for a measured uptime, feeding [[invoicing]] as a negative line item.
   * ``define``    an SLA: target uptime fraction and ordered credit tiers, each
                   ``{"below": uptime, "credit_pct": percent}``.
   * ``compute``   for a measured uptime: whether the SLA was met, and the credit
-                  percentage owed (the worst — highest-credit — tier breached).
+                  percentage owed (the worst - highest-credit - tier breached).
   * ``credit_amount`` apply the computed percentage to a period fee (integer cents).
 
 Tiers are evaluated worst-first so the largest applicable credit wins, matching how SLAs

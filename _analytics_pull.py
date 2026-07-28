@@ -1,7 +1,7 @@
 """Pull first-party face+palm TEMPLATES from the live Space and analyse accuracy.
 
 Temporary tuning tool: reads the secret-gated /api/analytics/templates endpoint
-(embeddings only — no images), and for each modality reports genuine/impostor
+(embeddings only - no images), and for each modality reports genuine/impostor
 separation, EER, a threshold recommendation on the REAL population, and possible
 duplicate identities. Appends a row to _analytics/history.csv so trends are visible
 as enrolments grow over the pilot. All output stays in the git-ignored _analytics/.

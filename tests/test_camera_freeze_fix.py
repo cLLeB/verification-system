@@ -1,8 +1,8 @@
 """Guards the production camera-freeze fix (iOS Safari pausing the inline <video>
 during enrolment, re-capturing the same frozen frame as samples 2 and 3).
 
-These are static-source assertions — the fix lives in browser JS that the Python
-suite can't drive — but they stop a future edit from silently dropping the
+These are static-source assertions - the fix lives in browser JS that the Python
+suite can't drive - but they stop a future edit from silently dropping the
 watchdog / fresh-frame gate, or from bumping a script version without busting
 the service-worker cache (which would strand the fix behind stale caches).
 """
@@ -41,7 +41,7 @@ def test_every_capture_surface_has_the_watchdog_and_fresh_frame_gate():
 
 def test_capture_calls_ensure_before_grabbing_a_frame():
     # app.js: enrol + verify both gate before grabFrame (allow a trailing comment)
-    # enrol now captures a burst — it gates on a fresh frame on every iteration.
+    # enrol now captures a burst - it gates on a fresh frame on every iteration.
     app = _read("static/app.js")
     assert re.search(r"await ensureLiveVideo\(video\);.*\n\s*const f = grabFrame\(\)", app)
     assert re.search(r"await ensureLiveVideo\(video\);.*\n\s*const img0 = grabFrame\(\)", app)

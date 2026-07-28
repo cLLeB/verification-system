@@ -1,4 +1,4 @@
-"""Device firmware registry — track versions and flag vulnerable/outdated readers.
+"""Device firmware registry - track versions and flag vulnerable/outdated readers.
 
 A fleet of edge capture devices runs firmware that drifts out of date and
 occasionally ships with a known vulnerability. Security teams need to answer, at any

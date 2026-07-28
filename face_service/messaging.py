@@ -2,7 +2,7 @@
 
 OTPs, alerts and digests go out over SMS/email providers that occasionally fail or rate-
 limit. Depending on a single provider is fragile; production systems try a primary and
-fall back to a secondary. This subsystem owns that logic — providers are registered with a
+fall back to a secondary. This subsystem owns that logic - providers are registered with a
 priority, and ``send`` tries them in order (via caller-injected sender callables, so the
 module stays pure) until one accepts, recording which provider delivered and keeping a
 receipt. It complements [[circuitbreaker]] (per-provider health) and [[notifyprefs]]

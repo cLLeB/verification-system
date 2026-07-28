@@ -1,4 +1,4 @@
-"""PII scrubbing for free text — redact personal data from logs and bundles.
+"""PII scrubbing for free text - redact personal data from logs and bundles.
 
 Structured redaction ([[anonymize]]) handles known fields, but personal data also leaks
 into *free text*: an error message with an email, a support note with a phone number, a
@@ -13,7 +13,7 @@ them with typed placeholders, returning both the cleaned text and what was found
 
 Detects email addresses, international/local phone numbers, credit-card-like 13–16 digit
 runs (validated with the Luhn check to cut false positives), IPv4 addresses, and generic
-government-id-like tokens. Patterns are conservative — this reduces exposure, it is not a
+government-id-like tokens. Patterns are conservative - this reduces exposure, it is not a
 guarantee of exhaustive detection.
 """
 

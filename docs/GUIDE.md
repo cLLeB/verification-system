@@ -1,4 +1,4 @@
-# System guide — architecture, security, operations, deployment, development
+# System guide - architecture, security, operations, deployment, development
 
 The single technical reference for the service: how it's built, how it protects data,
 and how to run, deploy, and extend it. Integrator-facing API docs live in
@@ -34,11 +34,11 @@ There are **two products that share one recognition core**:
    └────────────────────────────────────────────────┘         └──────────────────┘
 ```
 
-- **Web service** — a Flask app that serves a phone web client, an operator admin
+- **Web service** - a Flask app that serves a phone web client, an operator admin
   console, and a versioned REST API (`/v1`) that other companies integrate with.
   Multi-tenant, encrypted, with API-key auth + roles. Deploys to any container host
   or free Hugging Face Spaces.
-- **Native Android app** — the same pipeline reimplemented to run entirely on the
+- **Native Android app** - the same pipeline reimplemented to run entirely on the
   phone (camera, liveness, matching, storage), with no network access at all.
 
 The **recognition logic and tuning are shared/mirrored** (see `face/config.py` ↔
@@ -46,15 +46,15 @@ The **recognition logic and tuning are shared/mirrored** (see `face/config.py` �
 
 ### Two modalities, one core (`biometric/` + `face/` + `palm/`)
 
-The recognition core is **modality-agnostic**. The generic machinery —
-`biometric/core/{store,index,matcher,crypto}` — operates on `(user_id, embedding)`
+The recognition core is **modality-agnostic**. The generic machinery -
+`biometric/core/{store,index,matcher,crypto}` - operates on `(user_id, embedding)`
 + cosine and is parameterized by a `Profile` (embedding dim, thresholds, store dir,
 liveness). **Face** (`face/`, ArcFace 512-d) and **palm** (`palm/`, MediaPipe-Hands
 ROI → CCNet ONNX) are two profiles over that same code; `face/` is a thin shim so its
 behaviour is byte-for-byte unchanged.
 
 A server-side **auto-router** (`biometric/router.py` + `face_service/modality.py`)
-detects whether each image is a face or a palm (or both) and routes it — callers
+detects whether each image is a face or a palm (or both) and routes it - callers
 never declare a modality. A `user_id` may hold a face, a palm, or both (stored in
 separate per-tenant vector spaces, **never cross-matched**); presenting either
 verifies them, subject to the tenant's `match_policy` (or / fallback / and).
@@ -82,8 +82,8 @@ The heart. Pure Python, framework-agnostic, no web concerns.
 
 ### Embeddings, anchors, adaptive
 A person's template has two parts:
-- **anchors** — original enrolment captures, *permanent* (the anti-drift safety rail).
-- **adaptive** — a rolling set folded in from confident live verifies, so recognition
+- **anchors** - original enrolment captures, *permanent* (the anti-drift safety rail).
+- **adaptive** - a rolling set folded in from confident live verifies, so recognition
   tracks a person as they change (Face-ID-style), without ever drifting toward someone else.
 
 Matching score for a person = the **max** cosine over all their embeddings.
@@ -113,7 +113,7 @@ POST /v1/verify {frames, token[, user_id]}
 
 ### The match index (why it's fast at scale)
 `index.py` builds an in-memory, vectorised index **once** per tenant, caches it across
-requests, and updates it incrementally on enrol/adapt/delete — so 1:N never re-reads
+requests, and updates it incrementally on enrol/adapt/delete - so 1:N never re-reads
 every row. It's **persisted encrypted** to `<db>/index/`; on restart it loads the saved
 index and *replays only the rows changed since* (via the store's `seq` watermark), so a
 restart costs seconds, not a full rebuild. Default backend is exact (numpy matmul +
@@ -145,7 +145,7 @@ per-user max), 100% accurate, ~40 ms at 100k identities. See [scaling](#17-scali
 
 ### Post-match service gates
 Every verify/identify result passes three gates strictly **after** the biometric
-decision — guest expiry → consent standing → access policy — so the matching
+decision - guest expiry → consent standing → access policy - so the matching
 pipeline is untouched and a gate can only narrow a granted match (codes:
 `identity_expired`, `consent_withdrawn`/`consent_missing`, `access_denied`).
 The same gates run on-device in the Android app from the `/v1/service-state`
@@ -166,13 +166,13 @@ metrics, structured log. Errors on API paths return JSON (never HTML).
 
 ## 1.5 Web clients (`templates/`, `static/`)
 
-- **Phone client** (`index.html` + `app.js`) — verify (open) + enrol (admin-gated),
+- **Phone client** (`index.html` + `app.js`) - verify (open) + enrol (admin-gated),
   head-turn guidance, camera swap; installable PWA (`manifest.webmanifest`, `sw.js`).
-- **Admin console** (`admin.html` + `admin.js`) — overview, enrol (camera/upload),
+- **Admin console** (`admin.html` + `admin.js`) - overview, enrol (camera/upload),
   people, API keys, tenant settings, usage, operators, audit.
 - **Docs page** (`docs.html`) + **embeddable widget** (`face-verify.js`, a `<face-verify>`
   web component any site drops in).
-- **Design system** — `theme.css` is the single source of truth (deep ink + iris violet,
+- **Design system** - `theme.css` is the single source of truth (deep ink + iris violet,
   Inter). All surfaces share it.
 
 ## 1.6 Native Android (`android/`)
@@ -197,64 +197,64 @@ for ROI, a **CCNet-family ONNX** encoder (`palm_ccnet.onnx`), the shared `Matche
 **own encrypted store** (`palmverify.db`). Without both assets, `PalmEngine.available()` is
 false and the app runs face-only. Tuning mirrors the server (`PalmConfig` ↔ `palm/config.py`).
 
-**Build flavors — 4 APKs** (`FaceVerify-{offline,hybrid}-{fp32,fp16}.apk`):
-- **offline** — no INTERNET permission, 100% on-device.
-- **hybrid** — adds INTERNET + a PIN-gated **Sync** section (`BuildConfig.HYBRID`). Set a
+**Build flavors - 4 APKs** (`FaceVerify-{offline,hybrid}-{fp32,fp16}.apk`):
+- **offline** - no INTERNET permission, 100% on-device.
+- **hybrid** - adds INTERNET + a PIN-gated **Sync** section (`BuildConfig.HYBRID`). Set a
   **server URL + API key** (tenant is implicit in the key). **Pull** downloads the tenant's
   templates (incremental by seq, applies deletions) so the phone matches offline; **Push**
   uploads on-device enrolments with skip/merge/force for cross-identity duplicates. Pull
   needs `allow_export`; push needs an admin/enroll key. Code: `face/sync/*.kt`, server `/v1/sync/{pull,push}`.
 
 On-device trust-platform features (mirror the server; golden-vector tested against it):
-- **Protected templates** — synced/bundled templates arrive in a scrambled, revocable
+- **Protected templates** - synced/bundled templates arrive in a scrambled, revocable
   *protection domain*; the app projects each live capture with the domain seed before
   matching (`data/Protect.kt`). On server **reissue**, hybrid detects the changed `seedref`
   and re-pulls; air-gapped devices need a fresh bundle export.
-- **Offline credential verifier ("Check card")** — scans an FV1 QR, checks signature +
+- **Offline credential verifier ("Check card")** - scans an FV1 QR, checks signature +
   expiry + revocation against the on-device **trust list** (`/v1/trust-store`, root key
   pinned on first use), then live-captures the holder and matches inside the credential's
-  own domain — airplane-mode demoable. Core: `credential/*.kt` (Ed25519 via BouncyCastle).
-- **Glance — on-device 1:N** — continuous back-camera identification, face first then open
+  own domain - airplane-mode demoable. Core: `credential/*.kt` (Ed25519 via BouncyCastle).
+- **Glance - on-device 1:N** - continuous back-camera identification, face first then open
   palm, brute-force int8 dot over per-modality **glance indexes** (~50 MB per 100k). Pulled
   by hybrid from `/v1/sync/index` or imported from the encrypted `/v1/export/glance-index`
   file. 1:N operating point ships calibrated and is clamped on-device per modality
   (`Config.kt GLANCE_*` ↔ `face_service/glance.py`). Identification aid only (no liveness).
-- **ID-document detection on enrolment** — `face/IdDocument.kt` ports `face/id_document.py`;
+- **ID-document detection on enrolment** - `face/IdDocument.kt` ports `face/id_document.py`;
   an ID card/passport auto-branches (extract largest face, skip live-only gate, tag
-  provenance `id`). Enrolment-only — verify still needs head-turn liveness.
+  provenance `id`). Enrolment-only - verify still needs head-turn liveness.
 
 ## 1.7 Scaling
 
 Tuned for **~100k identities per tenant**: exact match, 100% accurate, ~40 ms search,
 encrypted, ~0.3 s restart (index reload). For **1M–2M per tenant**, switch the index to
-**FAISS** (the HNSW backend exists but builds slowly on some platforms) — see
+**FAISS** (the HNSW backend exists but builds slowly on some platforms) - see
 `face/index.py` (`_USE_ANN` / `FACE_USE_ANN`). The storage and API layers are already
 streaming/bulk-friendly; the embedding extraction (one ONNX pass per image) is the
 throughput limit for huge bulk imports (batch/GPU to speed it).
 
 ## 1.8 Key design decisions (and why)
 
-- **Exact match default, not ANN** — at the 100k target it's 100% accurate and fast;
+- **Exact match default, not ANN** - at the 100k target it's 100% accurate and fast;
   ANN's build cost/recall tuning wasn't worth it. FAISS is the documented path beyond.
-- **Encrypted templates *and* index** — biometrics never sit in clear on disk.
-- **Adaptive with permanent anchors** — track change over time without drift.
-- **Active head-turn liveness as the default** — stronger than single-image passive,
+- **Encrypted templates *and* index** - biometrics never sit in clear on disk.
+- **Adaptive with permanent anchors** - track change over time without drift.
+- **Active head-turn liveness as the default** - stronger than single-image passive,
   needs no extra model; passive is an optional second layer.
-- **Per-tenant isolation everywhere** — store, index, audit, usage, CORS, webhooks.
-- **On-device Android with no network permission** — privacy + true offline by construction.
+- **Per-tenant isolation everywhere** - store, index, audit, usage, CORS, webhooks.
+- **On-device Android with no network permission** - privacy + true offline by construction.
 
 ---
 
 # 2. Security & privacy
 
 How the system protects biometric data, controls access, and meets privacy
-expectations — plus the threat model and what to configure for production.
+expectations - plus the threat model and what to configure for production.
 
 ## 2.1 What is (and isn't) stored
 
 - **No raw images.** Faces/palms are converted to an irreversible **embedding** and
   discarded. We never persist photos.
-- **Embeddings are encrypted at rest** — both the template store *and* the search index.
+- **Embeddings are encrypted at rest** - both the template store *and* the search index.
 - **The audit log records actions, not faces** (action, tenant, user_id label, outcome, time).
 
 ## 2.2 Encryption, signing & protected templates
@@ -262,7 +262,7 @@ expectations — plus the threat model and what to configure for production.
 | Surface | Mechanism |
 |---------|-----------|
 | Web: templates (`faces.db`) | Fernet (AES-128-CBC + HMAC-SHA256). Key from `FACE_DB_KEY` via PBKDF2 (200k iters, per-DB salt), or a generated `.key` file. (`face/crypto.py`) |
-| Web: search index (`<db>/index/`) | Same cipher/key as the store — `mat.npy`, `users.json`, etc. are encrypted blobs, not plaintext. (`face/index.py`) |
+| Web: search index (`<db>/index/`) | Same cipher/key as the store - `mat.npy`, `users.json`, etc. are encrypted blobs, not plaintext. (`face/index.py`) |
 | Android: embeddings | AES-256-GCM with a non-exportable **Android Keystore** key (hardware-backed where available). (`android/.../data/Crypto.kt`) |
 
 Additional layers from the trust-platform work:
@@ -275,33 +275,33 @@ Additional layers from the trust-platform work:
    verify it is genuine and untampered.
 3. **Template envelopes.** Every template travels in a versioned, validated container,
    so a corrupted or tampered payload is rejected instead of parsed.
-4. **Protected (cancelable) templates — ON by default.** Everything used for matching or
+4. **Protected (cancelable) templates - ON by default.** Everything used for matching or
    export is kept in a *scrambled, revocable* form: a seeded orthogonal projection whose
-   seed comes from a per-store secret. Accuracy is unchanged (measured 0.0 TAR delta —
+   seed comes from a per-store secret. Accuracy is unchanged (measured 0.0 TAR delta -
    `python -m bench.protected`), but a copy stolen from the database, a sync, or a bundle
-   cannot be matched anywhere else — and can be cancelled. **Honest claim:** raw embeddings
+   cannot be matched anywhere else - and can be cancelled. **Honest claim:** raw embeddings
    still exist, encrypted at rest on the server only, solely so a reissue never requires
    re-enrolment. Opt out with `BIO_PROTECT_TEMPLATES=0`.
 
-**Operational note:** keep `FACE_DB_KEY` safe and backed up *separately* from the data —
+**Operational note:** keep `FACE_DB_KEY` safe and backed up *separately* from the data -
 without it, encrypted backups can't be decrypted.
 
 ## 2.3 Access control
 
-- **Integration API (`/v1`)** — every endpoint except `/v1/health` requires an `X-API-Key`.
+- **Integration API (`/v1`)** - every endpoint except `/v1/health` requires an `X-API-Key`.
   Keys are stored **hashed** (SHA-256); the raw key is shown once at creation. Each key has
-  a **role**: `admin` (full control) or `verify` (recognition only — cannot write). Give
+  a **role**: `admin` (full control) or `verify` (recognition only - cannot write). Give
   browser/kiosk clients a `verify` key; keep `admin` keys server-side. Keys carry a `key_id`,
   optional expiry, and per-key revoke. (`face_service/keys.py`, `auth.py`)
-- **Tenant self-service portal (`/portal`)** — companies sign in with a tenant-scoped
+- **Tenant self-service portal (`/portal`)** - companies sign in with a tenant-scoped
   password the admin sets and manage **only their own** keys, within their entitlement
   (separate signed session; ownership-checked revoke; disabled → 402). The platform admin
   grants access & limits; the tenant operates day-to-day. (`face_service/portal.py`)
-- **First-party app** — verification is open (a walk-up kiosk); **enrolment & management
+- **First-party app** - verification is open (a walk-up kiosk); **enrolment & management
   require an admin login** (operator accounts with PBKDF2-hashed passwords, or a bootstrap
   `FACE_ADMIN_PASSWORD`). Sessions are signed, time-limited cookies (`itsdangerous`,
   key `FACE_SECRET_KEY`). (`face_service/admins.py`, `admin.py`)
-- **Entitlements (the paywall hook)** — each tenant has `enabled`, `plan`, `max_keys`, and
+- **Entitlements (the paywall hook)** - each tenant has `enabled`, `plan`, `max_keys`, and
   `allowed_roles`. Disabling a tenant makes **every** `/v1` call return `402 payment_required`;
   key creation refuses to exceed `max_keys` or grant a role outside `allowed_roles`. A future
   biller just flips `enabled`. (`face_service/tenants.py`, `auth.py`)
@@ -311,10 +311,10 @@ without it, encrypted backups can't be decrypted.
 The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v1`).
 
 - **Separate stores per tenant.** Every `/v1` request resolves storage to
-  `face_db/tenants/<tenant>/` — its own encrypted SQLite DB **and** search index. The
+  `face_db/tenants/<tenant>/` - its own encrypted SQLite DB **and** search index. The
   first-party app uses `face_db/` (root).
 - **Per-tenant encryption keys.** `crypto.get_cipher()` runs per directory, so each tenant
-  has its own `.salt`/`.key` — one tenant's exposure does not decrypt another's.
+  has its own `.salt`/`.key` - one tenant's exposure does not decrypt another's.
 - **We store embeddings, not images.**
 - **Crypto-erase offboarding.** Offboarding a tenant revokes its keys and deletes its store
   **and its encryption key**, making the data cryptographically unrecoverable.
@@ -328,9 +328,9 @@ The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v
 
 - **Signed verdicts.** `verify` and `compare` responses include an HMAC-SHA256 **signature**
   over the outcome, keyed by that tenant's signing secret; SDKs verify it (`fv.verify_signature(r)`).
-- **Active head-turn liveness (default)** — the user must perform a real 3D head turn; a flat
+- **Active head-turn liveness (default)** - the user must perform a real 3D head turn; a flat
   photo or on-screen face can't. Primary defense. (`liveness_active.py`, on-device `Liveness.kt`)
-- **Passive single-shot anti-spoof (optional)** — MiniFASNet; off by default (untuned), enable
+- **Passive single-shot anti-spoof (optional)** - MiniFASNet; off by default (untuned), enable
   with `FACE_LIVENESS=1` (+ `FACE_LIVENESS_THRESHOLD`) for defense-in-depth. (`liveness.py`)
 - **Rate limiting** per caller (`FACE_RATE_LIMIT` / `FACE_RATE_WINDOW`); responses carry
   `X-RateLimit-*`, 429s a `Retry-After`. (`face_service/security.py`)
@@ -342,8 +342,8 @@ The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v
 
 ## 2.6 Privacy / compliance
 
-- **Data-subject access:** `POST /v1/users/export` returns what's held for a user (metadata —
-  counts, dims, recent audit — not the raw template).
+- **Data-subject access:** `POST /v1/users/export` returns what's held for a user (metadata -
+  counts, dims, recent audit - not the raw template).
 - **Right to erasure:** `POST /v1/users/delete` (one or many) and `POST /v1/users/purge`
   (`confirm:true`, whole tenant).
 - **Consent:** recorded automatically on every enrol path against the tenant's versioned
@@ -351,7 +351,7 @@ The platform hosts a first-party app (`/admin`) **and** 3rd-party companies (`/v
   Withdrawal blocks verification immediately, revokes issued QR credentials, and drops the
   person from all exports. People self-serve at **`/my-data`** (verify-gated): view their
   record, download a report, withdraw.
-- **Offline option:** the Android app holds `CAMERA` only — **no `INTERNET` permission**, so
+- **Offline option:** the Android app holds `CAMERA` only - **no `INTERNET` permission**, so
   data physically cannot leave the device.
 
 Full legal mapping (Ghana DPA Act 843 + GDPR, obligation → code path) is in
@@ -367,14 +367,14 @@ Full legal mapping (Ghana DPA Act 843 + GDPR, obligation → code path) is in
 | Enrolment by unauthorised user | Admin login / `admin`-role key required to enrol. |
 | Look-alike false accept (1:N) | Identify requires the top to beat the runner-up by a margin. |
 | Tampered verdict in transit | HMAC-signed results. |
-| Stolen template copy (DB/sync/export) | Protected (cancelable) domain — unmatchable elsewhere; reissue to cancel. |
+| Stolen template copy (DB/sync/export) | Protected (cancelable) domain - unmatchable elsewhere; reissue to cancel. |
 | Brute force / scraping | Per-caller rate limiting + quotas. |
 | Cross-customer data access | Per-tenant isolation throughout. |
 | Template drift over time | Adaptive enrolment with permanent anchors. |
 
 ## 2.8 Security operations (how-to)
 
-**See or rotate a tenant signing key** — Admin console → Security tab, or Tenant portal →
+**See or rotate a tenant signing key** - Admin console → Security tab, or Tenant portal →
 "Security" card, or API (admin key):
 
 ```bash
@@ -383,17 +383,17 @@ curl -X POST -H "X-API-Key: $ADMIN_KEY" -H "Content-Type: application/json" \
      -d '{"confirm": true}' https://your-host/v1/tenant/keys/rotate
 ```
 SDK: `client.tenant_keys()` / `client.rotate_tenant_keys()` (Py), `fv.tenantKeys()` /
-`fv.rotateTenantKeys()` (JS). Rotation is safe — items signed with the old key stay verifiable.
+`fv.rotateTenantKeys()` (JS). Rotation is safe - items signed with the old key stay verifiable.
 
-**Rotate the master passphrase (per store)** — only the wrapped key is re-encrypted:
+**Rotate the master passphrase (per store)** - only the wrapped key is re-encrypted:
 ```bash
 python -c "from biometric.core import crypto; print(crypto.rotate_master('face_db/tenants/acme', 'OLD', 'NEW'))"
 ```
 
-**Crypto-erase (offboarding)** — the admin-console offboard already removes the store + keys;
+**Crypto-erase (offboarding)** - the admin-console offboard already removes the store + keys;
 for a store outside that flow: `python manage_templates.py erase-keys --path face_db/tenants/acme --yes`.
 
-**Reissue (cancel) templates** — moves every template to a NEW protection domain, like
+**Reissue (cancel) templates** - moves every template to a NEW protection domain, like
 resetting a password: exported/stolen copies stop matching instantly, enrolled people keep
 verifying with **no recapture**. Admin console / portal → "Template protection", or API:
 ```bash
@@ -408,7 +408,7 @@ reissue, hybrid devices re-pull automatically; re-export bundles for air-gapped 
 `python manage_templates.py wrap --path face_db [--dry-run]`.
 
 ## 2.9 Production checklist
-- [ ] Set `FACE_ADMIN_PASSWORD`, `FACE_SECRET_KEY`, `FACE_DB_KEY` (strong, unique) — and back up `FACE_DB_KEY`.
+- [ ] Set `FACE_ADMIN_PASSWORD`, `FACE_SECRET_KEY`, `FACE_DB_KEY` (strong, unique) - and back up `FACE_DB_KEY`.
 - [ ] Set a master passphrase `BIO_DB_KEY` (KEK-wraps per-tenant data keys).
 - [ ] On ephemeral hosts, point `BIO_ISSUER_KEY_DIR` / `BIO_CREDENTIALS_DIR` at the persisted volume (else a restart breaks every issued credential).
 - [ ] Create named operator accounts (`manage_admins.py`) so the audit shows *who*.
@@ -441,8 +441,8 @@ First start downloads the ArcFace model (InsightFace) unless cached/baked; warmi
 | `FACE_ADMIN_PASSWORD` | random (printed) | Bootstrap admin/enrol password (until operator accounts exist). |
 | `FACE_SECRET_KEY` | random per run | Signs admin session cookies. **Set in prod** (else sessions drop on restart). |
 | `FACE_DB_KEY` | generated `.key` file | Passphrase for encryption-at-rest. Keep + back up separately. |
-| `BIO_DB_KEY` | — | Master passphrase; KEK-wraps per-tenant data keys. |
-| `FACE_SIGNING_SECRET` | — | HMAC-sign first-party verify results. |
+| `BIO_DB_KEY` | - | Master passphrase; KEK-wraps per-tenant data keys. |
+| `FACE_SIGNING_SECRET` | - | HMAC-sign first-party verify results. |
 | `FACE_DB_PATH` | `face_db` | Base data dir (store + per-tenant + index). |
 | `FACE_KEYS_FILE` · `FACE_ADMINS_FILE` · `FACE_TENANTS_FILE` · `FACE_USAGE_FILE` · `FACE_AUDIT_DIR` | `apikeys.json` · `admins.json` · `tenants.json` · `usage.json` · `audit_logs` | State locations. |
 | `BIO_ISSUER_KEY_DIR` · `BIO_CREDENTIALS_DIR` | `secrets/issuer` · `secrets/credentials` | Per-tenant Ed25519 **issuer signing keys** + the **credential registry/revocation list**. On ephemeral hosts these MUST live under the persisted dir (the Docker image sets them to `/data/...`), or a restart regenerates keys and **breaks every issued credential** (`unknown_issuer`) and empties the revocation list. |
@@ -455,7 +455,7 @@ First start downloads the ArcFace model (InsightFace) unless cached/baked; warmi
 | `FACE_ATTRIBUTES` | 0 | Estimate age/gender (returned on `/v1/embed`). |
 | `FACE_USE_ANN` | 0 | Use HNSW index instead of exact (needs `hnswlib`; very large tenants). |
 | `FACE_MATCH_THRESHOLD` | 0.40 | Override the accept threshold. |
-| `FACE_PERSIST_DATASET` + `HF_TOKEN` | — | Sync state to a private HF Dataset (durable storage on ephemeral hosts). |
+| `FACE_PERSIST_DATASET` + `HF_TOKEN` | - | Sync state to a private HF Dataset (durable storage on ephemeral hosts). |
 | `FACE_DEBUG` | 0 | Save debug frames to `debug/` and log results. |
 
 ## 3.3 CLI tools
@@ -479,16 +479,16 @@ In a container, prefix with `docker compose exec app `.
 
 ## 3.4 Health & monitoring
 
-- `GET /healthz` — liveness (process up). `GET /readyz` — readiness (model loaded); 503 until warm.
-- `GET /api/health` / `GET /v1/health` — richer status JSON.
-- `GET /metrics` — Prometheus counters (requests by endpoint/status, latency, uptime).
+- `GET /healthz` - liveness (process up). `GET /readyz` - readiness (model loaded); 503 until warm.
+- `GET /api/health` / `GET /v1/health` - richer status JSON.
+- `GET /metrics` - Prometheus counters (requests by endpoint/status, latency, uptime).
 - Logs: structured request lines to stdout (`rid=… METHOD path -> status ms`).
 - Per-tenant **usage**: `GET /v1/usage` or the admin console Usage tab. **Audit** in
   `audit_logs/` and the admin console Audit tab.
 
 ## 3.5 Backups & persistence
 
-- **Self-hosted:** snapshot the data volume regularly — it holds the encrypted DB, index,
+- **Self-hosted:** snapshot the data volume regularly - it holds the encrypted DB, index,
   keys, operators, tenants, usage, audit. e.g.
   `tar czf backup-$(date +%F).tgz face_db apikeys.json admins.json tenants.json usage.json audit_logs`.
   Store `FACE_DB_KEY` separately (without it, the backup can't be decrypted).
@@ -501,14 +501,14 @@ In a container, prefix with `docker compose exec app `.
 | Symptom | Cause / fix |
 |---------|-------------|
 | `/admin` enrol fails with "Admin login required" **only in the HF page** | You're using the embedded `huggingface.co/spaces/...` iframe; desktop browsers block the session cookie there. Use the **direct** `https://<you>-<space>.hf.space` URL. |
-| Camera doesn't start | Needs HTTPS (or localhost) + camera permission. The HF App-tab iframe may not delegate camera — open the direct URL full-page. |
+| Camera doesn't start | Needs HTTPS (or localhost) + camera permission. The HF App-tab iframe may not delegate camera - open the direct URL full-page. |
 | "Engine not ready" / model errors | Model pack missing. Self-host: downloads on first run (needs network once) or is baked into the Docker image. Android: run `copy-model.ps1`. |
-| Enrolments/keys reset after restart (HF) | Free Spaces have ephemeral disk — enable persistence (`FACE_PERSIST_DATASET` + `HF_TOKEN`). |
+| Enrolments/keys reset after restart (HF) | Free Spaces have ephemeral disk - enable persistence (`FACE_PERSIST_DATASET` + `HF_TOKEN`). |
 | Issued credentials fail `unknown_issuer` after restart | `BIO_ISSUER_KEY_DIR`/`BIO_CREDENTIALS_DIR` not on the persisted volume; re-issue after moving them. |
 | HF push rejected ("binary files") | HF rejects large binaries; `deploy-hf.ps1` strips the `.onnx` (passive-liveness models). Passive liveness is self-host only. |
 | Slow first request | Model warm-up (~4 s) on first load, or model auto-download on a fresh host. |
 | GPG sign timeout on `git commit` | The agent's passphrase prompt timed out; unlock GPG and retry (it signs on retry). |
-| Need >100k identities | Switch the index to FAISS (`FACE_USE_ANN`/code) — see [§1.7](#17-scaling). |
+| Need >100k identities | Switch the index to FAISS (`FACE_USE_ANN`/code) - see [§1.7](#17-scaling). |
 
 ## 3.7 Updating
 
@@ -522,29 +522,29 @@ In a container, prefix with `docker compose exec app `.
 
 Goal: reach the service **24/7 from any network**, over HTTPS (browsers require HTTPS for
 the camera). `app.py` serves the phone client (`/`), admin console (`/admin`), and API
-(`/v1/*`). It is CPU-only — budget ~1.5–2 GB RAM (the ArcFace model is held in memory).
+(`/v1/*`). It is CPU-only - budget ~1.5–2 GB RAM (the ArcFace model is held in memory).
 
 **Required env in production:** `FACE_ADMIN_PASSWORD`, `FACE_SECRET_KEY`, `FACE_DB_KEY`
-(+ optional `FACE_SIGNING_SECRET`, `FACE_RATE_LIMIT`/`FACE_RATE_WINDOW`) — see [§3.2](#32-environment-variables-complete).
+(+ optional `FACE_SIGNING_SECRET`, `FACE_RATE_LIMIT`/`FACE_RATE_WINDOW`) - see [§3.2](#32-environment-variables-complete).
 Persist these as host secrets, never in git.
 
 **Persistent storage (must survive restarts):** mount a volume holding `face_db/` (encrypted
 templates + per-tenant stores + index), `apikeys.json` (hashed keys), `audit_logs/`, and the
 issuer/credential dirs.
 
-## Path A — Fast: public HTTPS from your current machine (demos)
+## Path A - Fast: public HTTPS from your current machine (demos)
 
-Use a tunnel — no port-forwarding, works behind NAT / a phone hotspot.
+Use a tunnel - no port-forwarding, works behind NAT / a phone hotspot.
 1. Run the app: `python serve.py` (plain HTTP on :5000).
 2. Install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) and run `cloudflared tunnel --url http://localhost:5000`.
 3. It prints a public `https://<random>.trycloudflare.com` URL with valid TLS. The camera works.
 
 For a stable URL, create a named Cloudflare tunnel bound to your domain.
 
-## Path B — Durable: container on a cloud host (production)
+## Path B - Durable: container on a cloud host (production)
 
 One command brings up the app **and** Caddy (automatic HTTPS) with all state on a persistent
-volume — see `docker-compose.yml`, `Caddyfile`, `.env.example`.
+volume - see `docker-compose.yml`, `Caddyfile`, `.env.example`.
 
 ```bash
 cp .env.example .env        # set DOMAIN + secrets (openssl rand -base64 32)
@@ -557,10 +557,10 @@ Any container host works (Hetzner, DigitalOcean, EC2, Fly.io, Cloud Run min-inst
 
 **Oracle Cloud "Always Free" (free forever):**
 1. Compute → Instances → Create. Shape **VM.Standard.A1.Flex** (Ampere ARM), ~2 OCPU / 8 GB
-   (Always Free allows up to **2 OCPU / 12 GB** — halved from 4/24 on 15 June 2026, with no
+   (Always Free allows up to **2 OCPU / 12 GB** - halved from 4/24 on 15 June 2026, with no
    announcement; instances over the limit get shut down). Image **Ubuntu 24.04**. Add your SSH key.
    ARM note: `mediapipe` publishes no linux-aarch64 wheel after 0.10.18 and no sdist, so
-   `requirements-service.txt` pins it per-architecture — without that pin the build fails on
+   `requirements-service.txt` pins it per-architecture - without that pin the build fails on
    Ampere and the palm modality disappears with it.
 2. Open the firewall (two layers): VCN → Security List → Ingress TCP **80**/**443** from `0.0.0.0/0`;
    on the box: `sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`.
@@ -571,7 +571,7 @@ Any container host works (Hetzner, DigitalOcean, EC2, Fly.io, Cloud Run min-inst
 **Backups:** `tar czf backup-$(date +%F).tgz face_db apikeys.json audit_logs`; keep `FACE_DB_KEY` separate.
 **Monitoring:** point an uptime monitor at `GET /api/health` or `/v1/health`; logs go to stdout.
 
-## Path C — Hugging Face Spaces (free, no card)
+## Path C - Hugging Face Spaces (free, no card)
 
 A free Docker Space (CPU basic, 16 GB) gives a public HTTPS URL with no credit card.
 1. Create a **Docker** Space; add the `space` git remote with a **write token**.
@@ -584,7 +584,7 @@ A free Docker Space (CPU basic, 16 GB) gives a public HTTPS URL with no credit c
 **Persistence:** the Space disk is ephemeral, so state auto-syncs to a private HF Dataset on a
 60 s loop and restores on boot. The index isn't synced (it rebuilds from the store).
 **Gotcha:** the `huggingface.co/spaces/...` page embeds the app in an iframe; desktop browsers
-block the admin session cookie there, so enrolment fails — always do admin/enrolment on the
+block the admin session cookie there, so enrolment fails - always do admin/enrolment on the
 **direct** `https://<you>-<space>.hf.space` URL. (A custom domain removes the issue entirely.)
 
 ---
@@ -636,7 +636,7 @@ python tests/test_adaptive_drift.py        # anti-drift proof (synthetic)
 - `tests/conftest.py` isolates all state (keys/audit/usage/DB) into `tests/_test_state/` and
   wipes it per session, so runs are deterministic.
 - Engine-dependent API tests **skip** automatically if the model pack isn't available (so CI
-  without the model still runs the pure-logic tests — see `.github/workflows/ci.yml`).
+  without the model still runs the pure-logic tests - see `.github/workflows/ci.yml`).
 - Conventions: small focused modules; mirror server thresholds in `face/config.py`; keep
   responses as plain dicts with `success`/`code`/`message`.
 
@@ -649,13 +649,13 @@ python tests/test_adaptive_drift.py        # anti-drift proof (synthetic)
 3. Document it in `openapi.yaml`, `docs/API.md`, and the `/docs` page.
 4. Add a test in `tests/test_v1_api.py` (use the `client` + `make_key` fixtures).
 
-**Tune recognition** — edit `face/config.py` (and mirror in `android/.../Config.kt`).
-**Add a tenant-level setting** — extend `face_service/tenants.py` + the admin endpoints/UI; read it in `v1.py`.
-**Swap the match backend to FAISS (for 1M+)** — implement a backend in `face/index.py` alongside `_NumpyBackend`/`_HnswBackend`, behind the same interface; gate via env.
+**Tune recognition** - edit `face/config.py` (and mirror in `android/.../Config.kt`).
+**Add a tenant-level setting** - extend `face_service/tenants.py` + the admin endpoints/UI; read it in `v1.py`.
+**Swap the match backend to FAISS (for 1M+)** - implement a backend in `face/index.py` alongside `_NumpyBackend`/`_HnswBackend`, behind the same interface; gate via env.
 
 ## 5.6 Build, deploy & CI
 - Web: `docker compose up -d --build` or `deploy-hf.ps1` (HF). See [§4](#4-deployment).
-- Android: signed APK via Gradle — see `android/README.md`.
+- Android: signed APK via Gradle - see `android/README.md`.
 - Work on `main`; commits are GPG-signed. Push to GitHub (`origin`).
 - `deploy-hf.ps1` pushes a squashed, binary-stripped branch to the HF Space (`space` remote).
 - CI (`.github/workflows/ci.yml`) runs the model-free unit tests on push.
@@ -670,10 +670,10 @@ credentials, on-device 1:N (Glance), hybrid sync, webhooks, embeddable widget, S
 native Android (4 APK flavors), and a live free deployment (Hugging Face Spaces).
 
 Parked / future (build when a customer needs it):
-- **Scale to 1M–2M per tenant** — swap the index backend to FAISS (`face/index.py` `_USE_ANN`).
-- **Passive liveness** — tune the single-shot anti-spoof models and enable alongside the active head-turn check (`FACE_LIVENESS=1`).
-- **Persistence at scale** — move from HF Dataset sync to a managed DB / object store for high volume.
-- **Custom domain** — removes the HF iframe admin-cookie quirk; trusted HTTPS.
-- **Fingerprint via USB/embedded sensor** — viable for kiosk/access-control by reusing the archived minutiae matcher in `fingerprint/` (phone-camera fingerprint capture is a proven dead end; palm is the camera-based second factor).
+- **Scale to 1M–2M per tenant** - swap the index backend to FAISS (`face/index.py` `_USE_ANN`).
+- **Passive liveness** - tune the single-shot anti-spoof models and enable alongside the active head-turn check (`FACE_LIVENESS=1`).
+- **Persistence at scale** - move from HF Dataset sync to a managed DB / object store for high volume.
+- **Custom domain** - removes the HF iframe admin-cookie quirk; trusted HTTPS.
+- **Fingerprint via USB/embedded sensor** - viable for kiosk/access-control by reusing the archived minutiae matcher in `fingerprint/` (phone-camera fingerprint capture is a proven dead end; palm is the camera-based second factor).
 
 See **[CHANGELOG.md](../CHANGELOG.md)** for what changed, and `docs/superpowers/specs/` for design records.

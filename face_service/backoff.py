@@ -1,4 +1,4 @@
-"""Retry backoff — compute delays for resilient retry loops.
+"""Retry backoff - compute delays for resilient retry loops.
 
 Retries against flaky dependencies ([[webhooks]] delivery, SSO, SMS) must space out or they
 amplify an outage. This subsystem computes backoff delays for a given attempt number under
@@ -9,11 +9,11 @@ shaping the spacing while retries continue. Pure and stateless.
   * ``delay``     the wait before attempt ``n`` (1-based) under a strategy, capped, with
                   optional jitter; seedable for deterministic tests.
   * ``schedule``  the delays for the first ``n`` attempts, as a list.
-  * ``total_time`` the sum of a schedule — the worst-case time before giving up.
+  * ``total_time`` the sum of a schedule - the worst-case time before giving up.
 
 Strategies: ``fixed`` (constant ``base``), ``linear`` (``base * n``), ``exponential``
 (``base * 2**(n-1)``), each capped at ``cap``. Jitter modes: ``none``; ``full`` (uniform in
-``[0, d]`` — AWS's recommended default); ``equal`` (``d/2 + uniform[0, d/2]``).
+``[0, d]`` - AWS's recommended default); ``equal`` (``d/2 + uniform[0, d/2]``).
 """
 
 from __future__ import annotations

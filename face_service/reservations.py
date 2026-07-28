@@ -1,9 +1,9 @@
-"""Capacity reservations — book units of a shared pool without oversubscribing.
+"""Capacity reservations - book units of a shared pool without oversubscribing.
 
 Some resources aren't single rooms but pools with a headcount: a car park with N bays, an
 event with a max attendance, a lab with a station limit. Reservations draw down that pool
 for a time window and must never let concurrent reservations exceed capacity. This
-subsystem manages such pools — reserve units for a window, and it rejects anything that
+subsystem manages such pools - reserve units for a window, and it rejects anything that
 would push overlapping demand past the cap. It complements [[bookings]] (one named
 resource) by handling fungible capacity.
 
@@ -15,7 +15,7 @@ resource) by handling fungible capacity.
   * ``peak_usage``    the highest concurrent usage over a window, for planning.
 
 Overlap uses half-open intervals. Capacity is checked at the boundaries of existing
-reservations within the requested window, which is where peak concurrency can occur — so
+reservations within the requested window, which is where peak concurrency can occur - so
 the check is exact without scanning every instant.
 
 Registry: ``reservations.json`` (env ``FACE_RESERVATIONS_FILE``).

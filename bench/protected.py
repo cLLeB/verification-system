@@ -2,7 +2,7 @@
 protected domain degrades TAR by < 1% absolute at the operating FAR before
 protection is the default.
 
-The transform is orthogonal, so scores should be bit-near-identical — this
+The transform is orthogonal, so scores should be bit-near-identical - this
 measures it rather than asserting it, and writes a versioned report.
 
   python -m bench.protected                       # synthetic pairs (default)
@@ -43,7 +43,7 @@ def _synthetic_pairs(n_pairs: int, dim: int, rng) -> tuple:
 
 def _store_pairs(path: str, db_file: str, modality: str) -> tuple:
     """Genuine pairs across each user's own raw anchors; impostor pairs across
-    different users. Uses load_raw — the bench compares raw vs protected itself."""
+    different users. Uses load_raw - the bench compares raw vs protected itself."""
     from biometric.core.store import TemplateStore
     store = TemplateStore(path, db_file=db_file, modality=modality,
                           protect_templates=False)

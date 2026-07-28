@@ -1,14 +1,14 @@
-"""HyperLogLog — estimate distinct counts of huge streams in tiny memory.
+"""HyperLogLog - estimate distinct counts of huge streams in tiny memory.
 
 "How many unique subjects verified this month" over millions of events shouldn't require
 storing every id. HyperLogLog estimates cardinality from a fixed-size register array with
-a few kilobytes and a small, known error — the algorithm behind Redis ``PFCOUNT`` and most
+a few kilobytes and a small, known error - the algorithm behind Redis ``PFCOUNT`` and most
 analytics stacks. This subsystem provides it: add items to a named sketch, read the
-estimated distinct count, and merge sketches (unions) — e.g. combine per-day sketches into
+estimated distinct count, and merge sketches (unions) - e.g. combine per-day sketches into
 a month without re-scanning.
 
   * ``create``   a sketch with precision ``p`` (2**p registers; higher p = more accuracy).
-  * ``add`` / ``add_many`` — hash an item (or a batch, one write) into the sketch.
+  * ``add`` / ``add_many`` - hash an item (or a batch, one write) into the sketch.
   * ``count``    the estimated number of distinct items added.
   * ``merge``    union two sketches into a destination (max of registers).
 

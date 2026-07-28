@@ -1,21 +1,21 @@
-"""Access policies — the authorization layer on top of biometric verification.
+"""Access policies - the authorization layer on top of biometric verification.
 
 Verification answers *"who is this?"*; a policy answers *"and are they allowed
 here, NOW?"*. Policies are evaluated strictly AFTER the biometric decision, so
-the matching pipeline (thresholds, liveness, routing) is never touched — a
+the matching pipeline (thresholds, liveness, routing) is never touched - a
 policy can only ever narrow an already-granted match, never widen one.
 
 Per-tenant policy document (``policies.json``, env ``FACE_POLICIES_FILE``):
 
-  * ``mode``     — ``off`` (default: nothing changes anywhere), ``advise``
+  * ``mode``     - ``off`` (default: nothing changes anywhere), ``advise``
                    (verify/identify responses gain an ``access`` block but the
                    decision is untouched), or ``enforce`` (a policy deny flips
                    the response to ``success=False, code=access_denied``).
-  * ``default``  — ``allow`` | ``deny``: the outcome when no rule matches.
-  * ``tz_offset_minutes`` — the tenant's local-time offset from UTC used for
+  * ``default``  - ``allow`` | ``deny``: the outcome when no rule matches.
+  * ``tz_offset_minutes`` - the tenant's local-time offset from UTC used for
                    schedule windows (kiosks and servers rarely share a zone).
-  * ``groups``   — named user_id sets (``{"staff": ["ama", "kofi"]}``).
-  * ``rules``    — ordered list; see ``upsert_rule``. DENY beats ALLOW.
+  * ``groups``   - named user_id sets (``{"staff": ["ama", "kofi"]}``).
+  * ``rules``    - ordered list; see ``upsert_rule``. DENY beats ALLOW.
 
 Rule subjects: ``"*"`` (everyone), ``"user:<id>"``, ``"group:<name>"``.
 Schedule: ``days`` (subset of mon..sun; empty = every day), ``start``/``end``
@@ -242,7 +242,7 @@ def _time_match(rule: dict, now: float, tz_offset_minutes: int) -> bool:
         return False
     local = time.gmtime(now + tz_offset_minutes * 60)
     if rule.get("days"):
-        # tm_wday: Monday = 0 — aligns with DAYS ordering.
+        # tm_wday: Monday = 0 - aligns with DAYS ordering.
         if DAYS[local.tm_wday] not in rule["days"]:
             return False
     start, end = rule.get("start"), rule.get("end")
@@ -292,7 +292,7 @@ def evaluate(tenant: Optional[str], user_id: str,
     allowed = doc["default"] == "allow"
     return {"mode": doc["mode"], "allowed": allowed, "matched_rule": None,
             "rule_name": None,
-            "reason": f"no rule matched — default {doc['default']}"}
+            "reason": f"no rule matched - default {doc['default']}"}
 
 
 def apply(tenant: Optional[str], result: dict,

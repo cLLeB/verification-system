@@ -4,8 +4,8 @@ package com.faceverify.app.credential
  *
  *  Supports exactly what the server's `cbor2` emits for credentials: unsigned/
  *  negative integers, byte strings, text strings, definite-length arrays and
- *  maps (string keys), and false/true/null. Anything else — indefinite lengths,
- *  tags, floats — is rejected (fail closed; a credential never contains them).
+ *  maps (string keys), and false/true/null. Anything else - indefinite lengths,
+ *  tags, floats - is rejected (fail closed; a credential never contains them).
  *
  *  Decoded values map to: Long, ByteArray, String, List<Any?>, Map<String, Any?>,
  *  Boolean, null. */

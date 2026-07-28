@@ -1,4 +1,4 @@
-"""Feature adoption analytics — who is actually using what.
+"""Feature adoption analytics - who is actually using what.
 
 Shipping features is only half the job; knowing whether they're used tells the team what
 to invest in or retire. This subsystem records feature-use events per subject per day and

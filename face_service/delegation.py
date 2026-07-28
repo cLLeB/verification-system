@@ -1,16 +1,16 @@
-"""Delegation — let one identity act with another's authority, temporarily.
+"""Delegation - let one identity act with another's authority, temporarily.
 
 A manager goes on leave and needs a deputy to approve entries; a homeowner lets a
 contractor into one room for a week. Rather than re-enrol or share credentials,
 the principal *delegates* a scope to a delegate for a bounded time. A verify by
 the delegate can then be resolved as carrying the principal's authority for that
-scope — and only that scope, only until it expires.
+scope - and only that scope, only until it expires.
 
   * ``grant``     principal -> delegate, a scope, a TTL. Returns a grant id.
   * ``revoke``    end a grant early (by id).
   * ``resolve``   given a delegate + scope + now, return the principal they may
                   act for (or None). This is what an authorization check calls.
-  * ``for_delegate`` / ``for_principal`` — list active grants either direction.
+  * ``for_delegate`` / ``for_principal`` - list active grants either direction.
 
 Grants never widen access silently: an expired or revoked grant simply resolves
 to nothing. Scope ``"*"`` means "any action".

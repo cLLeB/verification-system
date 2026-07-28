@@ -8,7 +8,7 @@ and managing keys/operators require an admin session.
     fresh deployment is never locked out. If unset, a random one is generated and
     printed for this run.
   * Session: a signed, time-limited cookie (itsdangerous) carrying the operator's
-    username — no server-side session store needed. Signing key: ``FACE_SECRET_KEY``.
+    username - no server-side session store needed. Signing key: ``FACE_SECRET_KEY``.
 """
 
 from __future__ import annotations
@@ -37,10 +37,10 @@ _serializer = URLSafeTimedSerializer(_secret, salt="face-admin")
 
 def startup_banner() -> str:
     if admins.count() == 0 and _generated:
-        return (f"[admin] no operators yet and FACE_ADMIN_PASSWORD unset — bootstrap "
+        return (f"[admin] no operators yet and FACE_ADMIN_PASSWORD unset - bootstrap "
                 f"login is admin / {_bootstrap_pw}\n[admin] set a password or add operators.")
     if admins.count() == 0:
-        return "[admin] no operators yet — bootstrap login 'admin' uses FACE_ADMIN_PASSWORD."
+        return "[admin] no operators yet - bootstrap login 'admin' uses FACE_ADMIN_PASSWORD."
     return f"[admin] {admins.count()} operator account(s) loaded."
 
 

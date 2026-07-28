@@ -20,7 +20,7 @@ def test_no_op_when_unset(client, monkeypatch):
 
 
 def test_hidden_without_the_link(client, gated):
-    """A stranger who guesses the hostname sees nothing — not even a login form."""
+    """A stranger who guesses the hostname sees nothing - not even a login form."""
     assert client.get("/").status_code == 404
     assert client.get("/api/health").status_code == 404
     assert client.get("/enroll").status_code == 404
@@ -57,7 +57,7 @@ def test_probes_and_integration_api_stay_reachable(client, gated):
 
 
 def test_analytics_pull_surface_is_reachable(client, gated, monkeypatch):
-    """The data pull must work against a gated deployment — it authenticates with
+    """The data pull must work against a gated deployment - it authenticates with
     the analytics token, and a browser cookie it will never have."""
     import app
     monkeypatch.setattr(app, "ANALYTICS_TOKEN", "sekret")

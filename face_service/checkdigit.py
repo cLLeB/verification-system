@@ -1,14 +1,14 @@
-"""Check digits — detect typos in badge, card, and reference numbers.
+"""Check digits - detect typos in badge, card, and reference numbers.
 
 Numbers people key in (badge IDs, credential serials, membership numbers) get mistyped.
-A check digit appended to the number catches the common errors — a single wrong digit, or
-two adjacent digits swapped — before the number is looked up. This subsystem implements two
+A check digit appended to the number catches the common errors - a single wrong digit, or
+two adjacent digits swapped - before the number is looked up. This subsystem implements two
 standard schemes: Luhn (mod-10, as used on payment cards) and Damm (a mod-10 quasigroup
 that also catches all adjacent transpositions, which Luhn misses). Pure and stateless.
 
-  * ``luhn_generate`` / ``luhn_validate`` — append/verify a Luhn check digit.
-  * ``damm_generate`` / ``damm_validate`` — append/verify a Damm check digit.
-  * ``generate`` / ``validate`` — dispatch by scheme name.
+  * ``luhn_generate`` / ``luhn_validate`` - append/verify a Luhn check digit.
+  * ``damm_generate`` / ``damm_validate`` - append/verify a Damm check digit.
+  * ``generate`` / ``validate`` - dispatch by scheme name.
 
 Damm is the stronger default: it detects every single-digit error and every adjacent
 transposition with one appended digit, whereas Luhn misses the ``09``↔``90`` transposition.

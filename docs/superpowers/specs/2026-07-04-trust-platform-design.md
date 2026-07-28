@@ -1,4 +1,4 @@
-# Trust Platform — Protected Templates, Portable Offline Credentials, On-Device 1:N, Trust Pack
+# Trust Platform - Protected Templates, Portable Offline Credentials, On-Device 1:N, Trust Pack
 
 **Date:** 2026-07-04
 **Status:** Approved design; implementation plan to follow.
@@ -8,7 +8,7 @@
 
 ## 1. Vision
 
-> **"Enrol once. Be verifiable by anyone you authorize — instantly, offline, on any phone — and
+> **"Enrol once. Be verifiable by anyone you authorize - instantly, offline, on any phone - and
 > mathematically impossible to leak."**
 
 One program, four phases, each independently shippable and demoable. Target audiences are paying
@@ -18,11 +18,11 @@ and (b) integration friction. Every capability must be usable by a **semi-techni
 
 The three tracks agreed in brainstorming:
 
-- **Track A — Portable offline biometric credentials** (the flagship): a signed QR credential any
+- **Track A - Portable offline biometric credentials** (the flagship): a signed QR credential any
   phone can verify with no network and no shared database.
-- **Track B — On-device 1:N "glance" identification**: identify one person out of ~100k on the
+- **Track B - On-device 1:N "glance" identification**: identify one person out of ~100k on the
   phone, offline, in under a second.
-- **Track C — Provable trust**: cancelable/protected templates + a published benchmark & compliance
+- **Track C - Provable trust**: cancelable/protected templates + a published benchmark & compliance
   pack.
 
 They interlock: C's template protection is A's privacy layer; B's on-device matcher is A's
@@ -38,12 +38,12 @@ verification engine. Hence the phase ordering below.
 - **At-rest encryption already exists** but is opt-in and single-key: `biometric/core/crypto.py`
   (Fernet, PBKDF2 from `BIO_DB_KEY`/`FACE_DB_KEY` passphrase, or a generated key file). Phase 0
   upgrades this to per-tenant keys and makes it default-on.
-- **Multi-tenant service layer:** `face_service/` — API keys with roles (`admin`, `verify`),
+- **Multi-tenant service layer:** `face_service/` - API keys with roles (`admin`, `verify`),
   tenants (`tenants.py`), audit (`audit.py`), portal (`portal.py`), admin console (`admin.py`),
   invites (`invites.py`), sync bundles (`bundle.py`), webhooks, usage metering.
 - **1:N today:** exact numpy search server-side, proven at 100k.
 - **Android:** 4 APK variants (offline airgapped + hybrid sync), on-device face+palm matching for
-  1:1 verify; thresholds mirrored in `Config.kt` (must stay in sync — see palm threshold memory).
+  1:1 verify; thresholds mirrored in `Config.kt` (must stay in sync - see palm threshold memory).
 - **Benchmark bones:** `_bench_speed_accuracy.py`, `_pad_eval.py`, `_eval_palms/`, calibration
   tooling in `biometric/calibrate.py`.
 - **Docs/verticals:** `examples/` vertical demos, `openapi.yaml`, `sdk/`.
@@ -64,7 +64,7 @@ Each phase ends with a demo script and all six surfaces updated (see §9 Definit
 
 ---
 
-## 4. Phase 0 — Crypto & identity foundations
+## 4. Phase 0 - Crypto & identity foundations
 
 ### 4.1 Per-tenant issuer keypairs
 
@@ -86,13 +86,13 @@ credentials:
 ```
 Envelope (CBOR map):
   v:    format version (int, starts at 1)
-  mod:  modality tag (built-ins "face" | "palm"; custom profile names allowed —
+  mod:  modality tag (built-ins "face" | "palm"; custom profile names allowed -
         the profile registry is extensible, so the container validates the tag
         as an identifier rather than a closed enum)
   kind: "raw" | "protected" | "quantized-protected"
   dim:  vector length
   dtype:"f32" | "i8"
-  seedref: protection seed reference (absent for raw) — see §5.2
+  seedref: protection seed reference (absent for raw) - see §5.2
   data: bytes (the vector / feature payload)
   meta: {created, engine_version, quality}
 ```
@@ -118,15 +118,15 @@ credentials.
 
 ---
 
-## 5. Phase 1 — Protected (cancelable) templates — Track C part 1
+## 5. Phase 1 - Protected (cancelable) templates - Track C part 1
 
 ### 5.1 Threat model & honest claims
 
 - **Claim we make:** stored and exported matching artifacts cannot be inverted to a face/palm
   image, cannot be matched across tenants or across credentials, and can be revoked and reissued
   like a password.
-- **Claim we do NOT make:** that raw embeddings never exist. Raw embeddings are kept — encrypted
-  at rest (Phase 0) — solely to enable reissue-without-recapture. This is stated plainly in the
+- **Claim we do NOT make:** that raw embeddings never exist. Raw embeddings are kept - encrypted
+  at rest (Phase 0) - solely to enable reissue-without-recapture. This is stated plainly in the
   Trust Center copy.
 
 ### 5.2 Protection scheme
@@ -139,7 +139,7 @@ credentials.
     matching domain (a stolen QR cannot be matched against any database).
 - Orthonormal projection preserves cosine similarity within a domain; matching code
   (`biometric/core/matcher.py`, `index.py`) is unchanged apart from operating on projected
-  vectors. Cross-domain matching is cryptographically meaningless — that is the feature.
+  vectors. Cross-domain matching is cryptographically meaningless - that is the feature.
 - **Palm:** palm's classical feature vector gets the same projection treatment; minutiae-style
   structures that resist projection are excluded from exports (see §6.4 palm compaction).
 - **Accuracy gate (hard):** the Phase 4 benchmark harness is pulled forward far enough to prove
@@ -176,12 +176,12 @@ credentials.
 
 ---
 
-## 6. Phase 2 — Portable offline credentials — Track A (flagship)
+## 6. Phase 2 - Portable offline credentials - Track A (flagship)
 
 ### 6.1 Credential format
 
 CBOR payload, COSE-style Ed25519 signature, base45-encoded into a QR (same family of choices as
-EU DCC / ISO 18013-5 — proven to fit QR budgets):
+EU DCC / ISO 18013-5 - proven to fit QR budgets):
 
 ```
 Credential:
@@ -191,7 +191,7 @@ Credential:
   kid:    issuer key id
   sub:    user_id (or tenant-chosen alias)
   name:   display name (optional, tenant-controlled)
-  attrs:  small map of tenant-chosen public attributes (role, class, programme…) — optional
+  attrs:  small map of tenant-chosen public attributes (role, class, programme…) - optional
   mod:    modalities included ("face", "palm", or both)
   tpl:    [envelope(kind=quantized-protected, seedref=cred:<cid>), …]
   iat/exp: issued-at / expiry (expiry mandatory; tenant default 1 year, configurable)
@@ -213,7 +213,7 @@ Credential:
     "Download printable ID card (PDF)" (name, photo optional per tenant policy, QR, issuer,
     expiry), "Copy save-to-phone link".
   - Save-to-phone page: mobile page showing the QR full-screen with "Add to photos/wallet"
-    guidance — the holder needs nothing but a screenshot; a **printed card works for holders
+    guidance - the holder needs nothing but a screenshot; a **printed card works for holders
     with no phone at all** (inclusion story preserved).
   - `POST /v1/credentials` (admin scope) → `{credential_id, qr_png_b64, pdf_url, payload_b45}`;
     `GET /v1/credentials?user_id=`, `DELETE /v1/credentials/{cid}` (= revoke).
@@ -254,7 +254,7 @@ investigation inside Phase 2.
 - **Cross-org verification:** tenant B admin can mark tenant A as "trusted issuer" (portal
   toggle, `POST /v1/trust/{tenant_id}`); B's verifier then accepts A's credentials. This is the
   integration-friction killer: adopting the system as a *verifier* requires no data import, no
-  API integration — install app, trust issuer, done.
+  API integration - install app, trust issuer, done.
 - **Revocation:** per-tenant signed revocation list; compact form = bloom filter over revoked
   `cid`s + exact list for small counts, versioned, fetched with the trust store. Verifiers warn
   when their revocation data is stale (age shown on the verdict screen). Revoking a user's
@@ -269,23 +269,23 @@ web UI, and Android. Never a stack trace, never a silent pass.
 
 ---
 
-## 7. Phase 3 — On-device 1:N "glance" — Track B
+## 7. Phase 3 - On-device 1:N "glance" - Track B
 
 ### 7.1 Matching engine
 
 - Embeddings int8-quantized per-tenant-domain (protected, store-epoch seed) →
   100k × 512 B ≈ **50 MB** on device.
-- **Brute-force first:** int8 dot-product over 100k is ~51M MACs — well under 200 ms on a
+- **Brute-force first:** int8 dot-product over 100k is ~51M MACs - well under 200 ms on a
   mid-range phone with NEON; measured before any ANN complexity is added. ANN (HNSW) only if
   measurement at real scale demands it. Top-k with margin check (best vs. second-best gap) to
   control false accepts in 1:N; 1:N threshold calibrated separately from 1:1 (lesson from the
-  palm threshold incidents — calibrate, clamp, and mirror any constant into `Config.kt`).
+  palm threshold incidents - calibrate, clamp, and mirror any constant into `Config.kt`).
 - Dataset delivery: existing `/v1/sync` (hybrid builds) and offline bundle export (airgapped
   builds) extended to carry the quantized protected index.
 
 ### 7.2 Glance UX
 
-- **Android:** new "Glance" mode — continuous camera; on face detect → embed → search → overlay
+- **Android:** new "Glance" mode - continuous camera; on face detect → embed → search → overlay
   name/status chip in <1 s; airplane-mode demoable. Batch-friendly (queue of people walking past
   a checkpoint). Optional confirm-with-palm step-up for high-assurance actions.
 - **Web client:** same UX against the server index (`POST /v1/identify` exists; gains a
@@ -295,7 +295,7 @@ web UI, and Android. Never a stack trace, never a silent pass.
 
 ---
 
-## 8. Phase 4 — Trust pack — Track C part 2
+## 8. Phase 4 - Trust pack - Track C part 2
 
 ### 8.1 Benchmark harness (`bench/`)
 
@@ -324,7 +324,7 @@ web UI, and Android. Never a stack trace, never a silent pass.
 
 ---
 
-## 9. Usability layer — Definition of Done (every phase)
+## 9. Usability layer - Definition of Done (every phase)
 
 A phase is not done until each new capability has:
 
@@ -352,7 +352,7 @@ A phase is not done until each new capability has:
   gate enforced before defaults flip.
 - **E2E:** scripted demo flows for each phase (enrol → issue → airplane-mode verify on Android;
   glance at 100k synthetic identities).
-- **Security review** (per repo rules): before each phase's merge — key handling, no secrets in
+- **Security review** (per repo rules): before each phase's merge - key handling, no secrets in
   code, fail-closed verification, rate limiting on the new endpoints.
 - Existing suites in `tests/` must stay green; palm threshold constants mirrored to `Config.kt`
   whenever touched (standing rule).
@@ -378,7 +378,7 @@ A phase is not done until each new capability has:
 - NFC credentials, wallet-app (Apple/Google Wallet) integration.
 - Homomorphic or MPC matching.
 - iOS app.
-- Third-party certification (FIDO/iBeta) — the Trust Center is our self-published evidence;
+- Third-party certification (FIDO/iBeta) - the Trust Center is our self-published evidence;
   formal certification is a separate future effort.
 
 ---

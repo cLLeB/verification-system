@@ -1,4 +1,4 @@
-"""Threat-intelligence feed — block known-bad indicators at verify time.
+"""Threat-intelligence feed - block known-bad indicators at verify time.
 
 Security teams and partner feeds publish indicators of compromise: device fingerprints
 seen in fraud, image hashes of known presentation-attack photos, IPs behind
@@ -17,7 +17,7 @@ carrying dynamic, expiring intel from many sources.
 
 Indicators are keyed by (type, value); multiple sources can list the same value and
 each carries its own expiry, so the indicator stays hot until the *last* source's TTL
-lapses — intel doesn't disappear because one feed rotated it out.
+lapses - intel doesn't disappear because one feed rotated it out.
 
 Registry: ``threatfeed.json`` (env ``FACE_THREATFEED_FILE``).
 """

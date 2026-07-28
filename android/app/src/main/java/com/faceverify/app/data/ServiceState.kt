@@ -9,11 +9,11 @@ import java.util.TimeZone
 /** Offline mirror of the server's service state (hybrid build): access policies,
  *  guest expiries, consent standing, guardianship links. Pulled from
  *  `/v1/service-state` alongside sync and re-evaluated LOCALLY after every
- *  on-device match — same gate order as the server (guests -> consent ->
+ *  on-device match - same gate order as the server (guests -> consent ->
  *  policies), same typed codes, and gates only ever narrow a granted match.
  *
  *  Absent state (never synced, or a face-only airgapped build) means every gate
- *  passes — identical to the server's "mode off / no record" defaults, so a
+ *  passes - identical to the server's "mode off / no record" defaults, so a
  *  device without the mirror behaves exactly as before. */
 class ServiceState private constructor(private val doc: JSONObject) {
 
@@ -43,7 +43,7 @@ class ServiceState private constructor(private val doc: JSONObject) {
             return Gate("identity_expired", "Recognised, but this guest pass has expired.")
         }
         if (userId in withdrawn && enforceWithdrawal) {
-            return Gate("consent_withdrawn", "Recognised, but consent was withdrawn — verification is paused.")
+            return Gate("consent_withdrawn", "Recognised, but consent was withdrawn - verification is paused.")
         }
         if (requireConsent && userId !in consented) {
             return Gate("consent_missing", "Recognised, but no consent is on record for this person.")
@@ -52,7 +52,7 @@ class ServiceState private constructor(private val doc: JSONObject) {
     }
 
     /** True when identifying this person at a GLANCE should be suppressed
-     *  (withdrawn consent / expired pass). Policies stay out of glance — it is
+     *  (withdrawn consent / expired pass). Policies stay out of glance - it is
      *  an identification aid, not an access decision (mirrors /api/glance). */
     fun hideFromGlance(userId: String, nowSeconds: Long = System.currentTimeMillis() / 1000): Boolean {
         val exp = guests.optLong(userId, 0L)
@@ -61,7 +61,7 @@ class ServiceState private constructor(private val doc: JSONObject) {
     }
 
     /** Beneficiaries this verified person may act for ("may collect for: ...")
-     *  — shown on a granted result, mirroring the server's `wards` field. */
+     *  - shown on a granted result, mirroring the server's `wards` field. */
     fun wardsOf(userId: String): List<String> {
         val out = mutableListOf<String>()
         for (b in guardians.keys()) {
@@ -94,7 +94,7 @@ class ServiceState private constructor(private val doc: JSONObject) {
         }
         if (allowHit) return null
         if (policies.optString("default", "allow") == "deny") {
-            return denied(mode, "no rule matched — default deny")
+            return denied(mode, "no rule matched - default deny")
         }
         return null
     }

@@ -1,4 +1,4 @@
-"""Duration parsing and formatting — human-friendly time spans.
+"""Duration parsing and formatting - human-friendly time spans.
 
 TTLs, lease lengths, quiet-hours windows and retention periods are entered and displayed as
 human durations ("30m", "2h30m", "7d"), not raw seconds. This subsystem converts between the

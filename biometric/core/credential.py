@@ -1,4 +1,4 @@
-"""Portable offline biometric credential — the signed QR payload (trust platform
+"""Portable offline biometric credential - the signed QR payload (trust platform
 Phase 2, spec 6.1).
 
 A credential carries a person's PROTECTED, int8-quantized template in its own
@@ -10,7 +10,7 @@ no network and no shared database:
     project the live embedding with the credential's seed -> match on-device.
 
 Domain seed: derived PUBLICLY from the credential id (SHA-256 of a fixed label
-+ cid) — an offline cross-org verifier can never hold the issuer's secret. The
++ cid) - an offline cross-org verifier can never hold the issuer's secret. The
 privacy properties do not depend on seed secrecy: a stolen/photographed QR is
 (a) unmatchable against any store or other credential (its own domain),
 (b) useless without the live person, (c) revocable, (d) expiring.
@@ -19,7 +19,7 @@ Wire format:  "FV1:" + base45( CBOR [payload_bytes, sig64] )
 where ``payload_bytes`` is the CBOR-encoded payload map carried as a byte
 string and ``sig`` = Ed25519 over exactly those bytes (COSE-style detached
 payload). Verifiers check the signature over the received bytes and only then
-parse them — no CBOR canonicalization to re-implement on any platform.
+parse them - no CBOR canonicalization to re-implement on any platform.
 Payload map (spec 6.1): v, cid(16B), iss, kid, sub, mod[], tpl[BE1 envelopes],
 iat, exp, and optional name / attrs. Decoding fails closed with typed error
 codes (spec 6.6).
@@ -47,7 +47,7 @@ _SEED_LABEL = b"faceverify-cred-v1:"
 _REQUIRED = ("v", "cid", "iss", "kid", "sub", "mod", "tpl", "iat", "exp")
 _ALLOWED = set(_REQUIRED) | {"name", "attrs"}
 
-# Typed failure codes (spec 6.6) — surfaced verbatim across API, web, Android.
+# Typed failure codes (spec 6.6) - surfaced verbatim across API, web, Android.
 UNSUPPORTED_VERSION = "unsupported_version"
 MALFORMED = "malformed_credential"
 BAD_SIGNATURE = "bad_signature"
@@ -70,7 +70,7 @@ def new_cid() -> bytes:
 
 
 def cred_seed(cid: bytes) -> bytes:
-    """The credential's protection-domain seed — a PUBLIC function of the cid,
+    """The credential's protection-domain seed - a PUBLIC function of the cid,
     so any verifier can project a live capture into the credential's domain."""
     return hashlib.sha256(_SEED_LABEL + cid).digest()
 
@@ -166,7 +166,7 @@ def verify(text: str, resolve_key: Callable[[str, str], Optional[bytes]],
         raise CredentialError(UNKNOWN_ISSUER,
                               f"issuer '{payload['iss']}' is not trusted here")
     if not signing.verify(pk, payload_bytes, sig):
-        raise CredentialError(BAD_SIGNATURE, "signature check failed — tampered or forged")
+        raise CredentialError(BAD_SIGNATURE, "signature check failed - tampered or forged")
     now = int(time.time()) if now is None else int(now)
     if now > payload["exp"]:
         raise CredentialError(EXPIRED, "this credential has expired")

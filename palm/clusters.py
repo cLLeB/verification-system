@@ -3,7 +3,7 @@
 One identity may enrol both palms (left + right). Left and right palms score like
 impostors against each other (well below ``match_threshold``) while repeat captures
 of the SAME hand score well above it, so the anchors form tight, well-separated
-clusters — one per hand. These helpers turn a flat anchor list into those clusters
+clusters - one per hand. These helpers turn a flat anchor list into those clusters
 so enrolment can count hands (cap at two), size each hand ("2 of 3"), and tell a
 genuine "other hand" from an accidental wrong-person capture.
 
@@ -52,7 +52,7 @@ def pick_hands(embeddings: Sequence[np.ndarray], threshold: float,
                per_hand: int, max_hands: int):
     """For BULK enrolment: from a person's unordered palm captures, keep up to
     ``per_hand`` samples for each of up to ``max_hands`` distinct hands. Returns
-    ``(kept, reps)`` — the anchors to store, and one representative per kept hand
+    ``(kept, reps)`` - the anchors to store, and one representative per kept hand
     (for cross-user dedupe). Captures beyond the second hand are dropped, so a noisy
     dataset can never bind a person a third palm."""
     hands = group(embeddings, threshold)

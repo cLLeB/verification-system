@@ -1,8 +1,8 @@
-# Face verification backbone — service/container deps only (no fingerprint stack).
+# Face verification backbone - service/container deps only (no fingerprint stack).
 insightface>=0.7
 onnxruntime>=1.16
 # palm: hand-landmark detection (Tasks API) for ROI.
-# 0.10.18 is the LAST release with a linux-aarch64 wheel — later ones are x86_64
+# 0.10.18 is the LAST release with a linux-aarch64 wheel - later ones are x86_64
 # only, so an unpinned install on an ARM host (Oracle Ampere A1, Graviton, a Pi)
 # fails outright and takes the whole palm modality with it. There is no sdist to
 # fall back on. x86 stays on the current release.
@@ -13,7 +13,7 @@ numpy>=1.24
 flask>=3.0
 flask-cors>=4.0
 cryptography>=42.0              # encrypted templates + Ed25519 signing (trust platform)
-cbor2>=5.6                     # CBOR template envelopes + signed credentials — imported at startup
+cbor2>=5.6                     # CBOR template envelopes + signed credentials - imported at startup
 qrcode>=8.0                    # credential QR rendering (trust platform phase 2)
 gunicorn>=21.0                  # production WSGI server (Linux/containers)
 waitress>=3.0                  # production WSGI server (Windows-friendly; see serve.py)

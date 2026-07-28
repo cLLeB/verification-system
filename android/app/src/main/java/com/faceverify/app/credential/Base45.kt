@@ -1,6 +1,6 @@
 package com.faceverify.app.credential
 
-/** Base45 (RFC 9285) decoder — the QR-alphanumeric-friendly encoding used by
+/** Base45 (RFC 9285) decoder - the QR-alphanumeric-friendly encoding used by
  *  FV1 credentials (same family as EU DCC). Strict: any character outside the
  *  alphabet or an invalid final chunk throws [IllegalArgumentException]. */
 object Base45 {

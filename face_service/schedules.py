@@ -1,4 +1,4 @@
-"""Access schedules — allow verifies only within permitted time windows.
+"""Access schedules - allow verifies only within permitted time windows.
 
 Physical-access deployments almost always want time rules: contractors only on
 weekday daytimes, a cleaner only Sunday mornings, a vault openable only during

@@ -3,10 +3,10 @@
 This is how you turn "is the model good?" and "what threshold?" into numbers. Give
 it L2-normalised embeddings + identity labels from a held-out split; it builds the
 genuine vs. impostor cosine-score distributions, computes the **Equal Error Rate**
-(where false-accept == false-reject), and reports the threshold at that point — the
+(where false-accept == false-reject), and reports the threshold at that point - the
 value to put in ``palm/calibration.json`` as ``match_threshold``.
 
-Pure numpy, no GPU/torch — run it anywhere after you embed a labelled palm set with
+Pure numpy, no GPU/torch - run it anywhere after you embed a labelled palm set with
 ``palm.engine`` (same ROI + encoder you serve with, so train/eval/serve match).
 
     from palm.training.eval_eer import evaluate

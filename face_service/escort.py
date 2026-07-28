@@ -1,18 +1,18 @@
-"""Escort rule — a visitor may only enter alongside a verified host.
+"""Escort rule - a visitor may only enter alongside a verified host.
 
 Secure sites let visitors in only when a staff member vouches for them in person.
 This subsystem enforces that: an identity marked as *escort-required* (a visitor,
 a contractor) can only complete a verify if an authorised host has verified at the
-same point within a short pairing window. No recent host, no entry — the visitor
+same point within a short pairing window. No recent host, no entry - the visitor
 cannot wander in alone.
 
-  * ``require_escort`` / ``release`` — mark who needs an escort.
+  * ``require_escort`` / ``release`` - mark who needs an escort.
   * ``host_present``   an authorised host verifies, opening a pairing window at
                        a point (a door id).
   * ``gate``           post-match for the visitor: succeeds only if a live host
                        window exists at that point, and records the pairing.
 
-Window defaults to 30s — the host badges, then the visitor, back to back. Hosts
+Window defaults to 30s - the host badges, then the visitor, back to back. Hosts
 are simply any identity not itself escort-required (staff), unless a specific
 host allow-list is later layered on.
 

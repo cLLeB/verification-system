@@ -1,4 +1,4 @@
-/* Contactless Fingerprint — mobile-first dark biometric UI
+/* Contactless Fingerprint - mobile-first dark biometric UI
    Palette: deep navy base, teal→cyan biometric accent, emerald/rose semantics. */
 :root {
     --bg-0: #0a0e16;          /* app background */
@@ -7,8 +7,8 @@
     --line: rgba(148, 163, 184, 0.16);
     --txt: #e8eef6;           /* primary text  (>= 12:1 on bg-0) */
     --txt-2: #93a1b5;         /* secondary text (>= 4.7:1) */
-    --brand: #2dd4bf;         /* teal — scanning accent */
-    --brand-2: #22d3ee;       /* cyan — gradient pair */
+    --brand: #2dd4bf;         /* teal - scanning accent */
+    --brand-2: #22d3ee;       /* cyan - gradient pair */
     --ok: #34d399;            /* granted */
     --bad: #fb7185;           /* denied */
     --scrim: rgba(5, 8, 13, 0.70);

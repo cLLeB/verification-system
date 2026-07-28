@@ -1,4 +1,4 @@
-"""Palm modality profile — registers palm with the shared biometric core.
+"""Palm modality profile - registers palm with the shared biometric core.
 
 Pulls its dimension, thresholds, and enrolment policy from ``PalmConfig`` and
 stores under each tenant's ``palm/`` subdirectory (``palms.db`` + ``palm/index/``),

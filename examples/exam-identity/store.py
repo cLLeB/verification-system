@@ -43,7 +43,7 @@ def register_candidate(index_no: str, name: str, exam: str) -> bool:
 def record_checkin(index_no: str, exam: str, verified: bool,
                    score: Optional[float] = None, now: Optional[float] = None) -> dict:
     """Log a seat check-in. A failed 1:1 verify is stored as FLAGGED (a candidate
-    presenting as someone they don't match — the impersonation signal)."""
+    presenting as someone they don't match - the impersonation signal)."""
     now = now if now is not None else time.time()
     result = VERIFIED if verified else FLAGGED
     with _lock, _conn() as conn:

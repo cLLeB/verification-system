@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=24">
+    <link rel="stylesheet" href="/static/app.css?v=25">
 </head>
 <body>
     <main class="app">
@@ -80,7 +80,7 @@
                 </span>
                 <span class="upload-text">
                     <span class="upload-title">Reference photo</span>
-                    <span class="upload-sub">Optional — enroll from an image</span>
+                    <span class="upload-sub">Optional - enroll from an image</span>
                 </span>
                 <input id="enroll-files" type="file" accept="image/*" multiple class="sr-only"
                        aria-label="Choose photos to enroll from">
@@ -97,7 +97,7 @@
                     password reset, and you don't have to enrol again.</p>
                 <p><a href="/trust" target="_blank">See the Trust Center</a> for the full
                     security story and this system's measured accuracy numbers.</p>
-                <p>Enrolled here? <a href="/my-data">View everything held about you</a> —
+                <p>Enrolled here? <a href="/my-data">View everything held about you</a> -
                     verify it's you, download your report, or withdraw your consent.</p>
             </details>
         </div>
@@ -124,7 +124,7 @@
                         <svg id="result-svg" viewBox="0 0 24 24" width="34" height="34" fill="none"
                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
                     </div>
-                    <h2 id="result-title">—</h2>
+                    <h2 id="result-title">-</h2>
                     <p id="result-sub" class="result-sub"></p>
                     <button class="btn btn-contrast" id="again">Scan again</button>
                 </div>
@@ -149,7 +149,7 @@
             <button class="btn btn-ghost btn-sm" id="device-tip-action" hidden></button>
             <button class="device-tip-x" id="device-tip-dismiss" aria-label="Dismiss tip">×</button>
         </div>
-        <p class="hint" id="hint">Show your face — or your open hand — then tap Verify</p>
+        <p class="hint" id="hint">Show your face - or your open hand - then tap Verify</p>
         <p class="hint-sub hidden" id="hint-sub"></p>
         <div class="actions" id="actions">
             <button class="btn btn-primary" id="capture-btn">Verify</button>
@@ -159,6 +159,6 @@
 
     <canvas id="canvas" hidden></canvas>
     <script src="/static/device.js?v=2"></script>
-    <script src="/static/app.js?v=23"></script>
+    <script src="/static/app.js?v=24"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-"""Break-glass — deliberate, time-boxed, loudly-logged emergency access.
+"""Break-glass - deliberate, time-boxed, loudly-logged emergency access.
 
 Sometimes the rules must yield: a medic needs into a locked ward, an on-call
 engineer must reach a system at 3am and the usual approver is unreachable. The

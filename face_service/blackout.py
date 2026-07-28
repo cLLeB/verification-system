@@ -1,17 +1,17 @@
-"""Blackout calendar — close access on specific dates (holidays, shutdowns).
+"""Blackout calendar - close access on specific dates (holidays, shutdowns).
 
 Weekly schedules (see [[schedules]]) handle the recurring week, but sites also
 close on fixed calendar dates: public holidays, a factory's annual maintenance
 week, a one-off lockdown. This subsystem holds a set of blackout dates per tenant
 (as ``YYYY-MM-DD`` strings, each with a label) and refuses verifies that land on
-one — unless the identity is on a per-date exception list (the skeleton crew who
+one - unless the identity is on a per-date exception list (the skeleton crew who
 *may* come in on the holiday).
 
   * ``add`` / ``remove`` a blackout date, with a label.
   * ``allow`` an identity to bypass a specific date.
   * ``gate`` post-match: block with ``blackout`` on a closed date unless exempt.
 
-Dates are compared as plain strings, so the caller supplies the local date — the
+Dates are compared as plain strings, so the caller supplies the local date - the
 platform stays timezone-agnostic (same choice as [[schedules]]).
 
 Registry: ``blackout.json`` (env ``FACE_BLACKOUT_FILE``).

@@ -76,7 +76,7 @@ def prune_store(path: str, modality: str = "face", min_anchor_sim: float = 0.0,
 
     Repairs templates widened by the old unbounded adaptation (see
     ``biometric.core.store.add_adaptive``). Anchors are never touched, so the worst
-    case is that a user reverts to exactly what they enrolled with — but note that a
+    case is that a user reverts to exactly what they enrolled with - but note that a
     user who was only still matching *because* of drift will need re-enrolling.
     """
     if min_anchor_sim <= 0.0:
@@ -88,7 +88,7 @@ def prune_store(path: str, modality: str = "face", min_anchor_sim: float = 0.0,
                           adaptive_min_anchor_sim=min_anchor_sim)
     changed = store.prune_adaptive(dry_run=dry_run)
     if not changed:
-        print(f"nothing to prune (floor {min_anchor_sim}) — no template has drifted")
+        print(f"nothing to prune (floor {min_anchor_sim}) - no template has drifted")
         return 0
     total = 0
     for user_id, dropped, kept, worst in changed:

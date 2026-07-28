@@ -2,7 +2,7 @@
 
 Instead of a hand-picked accept threshold, derive it from the data: once enough
 identities are enrolled, the **impostor** (cross-identity) cosine distribution is
-measurable, so the threshold can be set just above where impostors land — hitting a
+measurable, so the threshold can be set just above where impostors land - hitting a
 target false-accept rate (FAR). This runs as people enrol, so the system tightens
 itself intelligently over time rather than relying on one static guess.
 
@@ -24,7 +24,7 @@ def _unit(v: np.ndarray) -> np.ndarray:
 
 def impostor_scores(embeddings_by_user: Iterable[Tuple[str, List[np.ndarray]]]) -> np.ndarray:
     """For each identity, the highest cosine any OTHER identity's anchors achieve
-    against theirs — i.e. the best score an impostor would get at verify time.
+    against theirs - i.e. the best score an impostor would get at verify time.
 
     Uses MAX over each user's stored anchors, because that is exactly what serving
     computes (``matcher.best_score``). Mean-embedding representatives were measured

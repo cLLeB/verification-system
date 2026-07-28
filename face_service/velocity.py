@@ -1,7 +1,7 @@
-"""Impossible-travel — flag verifies that defy physics since the last one.
+"""Impossible-travel - flag verifies that defy physics since the last one.
 
 If Ama verified in Accra at 09:00 and again in London at 09:30, one of those is
-not really Ama — a leaked capture or a shared credential. This subsystem remembers
+not really Ama - a leaked capture or a shared credential. This subsystem remembers
 each identity's last verify location and time, and computes the implied speed to
 the current one. Above a configurable ceiling (default ~1000 km/h, i.e. faster
 than a flight) the verify is flagged ``impossible_travel``.
@@ -11,7 +11,7 @@ than a flight) the verify is flagged ``impossible_travel``.
     point as the reference for next time.
 
 It flags rather than hard-blocks by default, because GPS is noisy and the point
-is investigation, not a locked door — but the caller can treat the flag as a
+is investigation, not a locked door - but the caller can treat the flag as a
 denial for high-security scopes. Reuses the haversine from [[geofence]].
 
 Registry: ``velocity.json`` (env ``FACE_VELOCITY_FILE``).

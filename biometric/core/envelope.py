@@ -1,7 +1,7 @@
 """Versioned CBOR container for biometric template payloads.
 
-One format for everything a template travels in — SQLite blobs, sync bundles,
-and (Phase 2) signed credentials — so every consumer validates the same way.
+One format for everything a template travels in - SQLite blobs, sync bundles,
+and (Phase 2) signed credentials - so every consumer validates the same way.
 A 3-byte magic prefix (``BE1``) distinguishes envelopes from the older FT1/FT2
 binary blobs and Fernet ciphertext. Decoding is strict: unknown fields, wrong
 enums, or a wrong version are rejected (never trust external bytes).

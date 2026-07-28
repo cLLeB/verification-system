@@ -1,15 +1,15 @@
-"""ULID — time-sortable unique identifiers.
+"""ULID - time-sortable unique identifiers.
 
 UUIDs are unique but random, so rows keyed by them scatter across an index and can't be
 range-scanned by creation time. A ULID packs a 48-bit millisecond timestamp followed by 80
 random bits into a 26-character Crockford-base32 string, so ULIDs are globally unique *and*
-lexicographically sortable by creation time — ideal for event ids, audit keys and anything
+lexicographically sortable by creation time - ideal for event ids, audit keys and anything
 you want ordered without a separate timestamp column. This subsystem generates and parses
 them, including a monotonic factory that guarantees strictly increasing ids within the same
 millisecond. Pure and stateless (the monotonic factory holds its own small state).
 
   * ``new``            a ULID for a timestamp (defaults to now).
-  * ``timestamp_ms`` / ``timestamp`` — extract the embedded time from a ULID.
+  * ``timestamp_ms`` / ``timestamp`` - extract the embedded time from a ULID.
   * ``is_ulid``        validate a string is a well-formed ULID.
   * ``monotonic``      a factory returning ever-increasing ULIDs (ties broken by
                        incrementing the random component).

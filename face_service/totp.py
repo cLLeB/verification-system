@@ -1,11 +1,11 @@
-"""TOTP (RFC 6238) — time-based one-time passwords for authenticator apps.
+"""TOTP (RFC 6238) - time-based one-time passwords for authenticator apps.
 
 As a step-up factor that works fully offline, TOTP is hard to beat: the user scans a QR
 into Google Authenticator/Authy and the server verifies a 6-digit code derived from a
 shared secret and the current time. This subsystem provisions per-subject secrets, builds
 the ``otpauth://`` provisioning URI for the QR, and verifies codes with a small clock-skew
 window and replay protection. It is a from-scratch RFC 6238 implementation (HMAC-SHA1,
-30-second steps) — no external OTP library.
+30-second steps) - no external OTP library.
 
   * ``provision``  create/replace a subject's base32 secret; returns it and the URI.
   * ``verify``     check a submitted code against the current step ± ``window`` steps,

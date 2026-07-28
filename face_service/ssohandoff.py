@@ -1,4 +1,4 @@
-"""SSO handoff tokens — pass a verified identity to another service, once.
+"""SSO handoff tokens - pass a verified identity to another service, once.
 
 After the platform verifies someone at a kiosk, a downstream app (a POS, an HR portal,
 a turnstile controller) needs to trust that identity without re-authenticating. The safe

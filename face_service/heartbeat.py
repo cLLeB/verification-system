@@ -1,4 +1,4 @@
-"""Heartbeats — know within seconds when a kiosk or reader goes dark.
+"""Heartbeats - know within seconds when a kiosk or reader goes dark.
 
 A contactless deployment is only as reliable as its edge devices, and the worst
 failure is the silent one: a lobby kiosk freezes at 2am and nobody notices until
@@ -9,7 +9,7 @@ queue depth, temperature) can ride along for a dashboard.
 
   * ``beat``     a device checks in, optionally with a metrics blob.
   * ``status``   one device: ``online`` / ``stale`` / ``down`` given now.
-  * ``down``     every device currently overdue — the alert worklist.
+  * ``down``     every device currently overdue - the alert worklist.
 
 A device that has never beaten is unknown, not down. Interval defaults to 60s and
 a device is ``down`` after ``interval * miss`` seconds of silence (miss default 3).

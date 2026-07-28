@@ -1,4 +1,4 @@
-"""Asset checkout — track equipment loaned to identified people.
+"""Asset checkout - track equipment loaned to identified people.
 
 Sites lend out equipment tied to a verified identity: radios, laptops, tools, master
 keys, vehicles. Knowing who holds what, and what is overdue, is both an operational and

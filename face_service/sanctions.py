@@ -1,7 +1,7 @@
 """Sanctions / watchlist name screening with fuzzy matching.
 
 Enrolling people into an access or identity system can trigger a compliance duty to
-screen names against sanctions, PEP, or internal deny lists — and names never match
+screen names against sanctions, PEP, or internal deny lists - and names never match
 exactly (transliteration, middle names, ordering). This subsystem holds named lists of
 entries and screens a candidate name against them with normalized, order-independent
 fuzzy matching, returning scored hits above a threshold so a compliance officer can
@@ -11,7 +11,7 @@ adjudicate. It is name-based screening, distinct from the biometric [[watchlist]
   * ``screen``      score a candidate name (and optional DOB) against all lists;
                     returns matches at/above a similarity threshold, best first.
   * ``is_clear``    convenience boolean: no match at/above the threshold.
-  * ``remove`` / ``list_entries`` — manage a list.
+  * ``remove`` / ``list_entries`` - manage a list.
 
 Matching normalises case/punctuation, compares on the sorted token set (so "Ama Mensah"
 matches "Mensah, Ama"), and blends token overlap with a character-sequence ratio. A DOB

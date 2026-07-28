@@ -1,9 +1,9 @@
-"""Duress signals — a silent panic channel folded into a normal verify.
+"""Duress signals - a silent panic channel folded into a normal verify.
 
 A person being coerced into authenticating (forced to open a door, unlock a
 vault, release goods) has no safe way to say so: refusing is dangerous, and the
 biometric match itself is genuine, so every gate before this one PASSES. This
-subsystem gives each enrolled person an optional **duress secret** — a short
+subsystem gives each enrolled person an optional **duress secret** - a short
 code the operator UI collects alongside the capture. When the code presented at
 verify matches the person's duress secret, the biometric result is left looking
 successful to the coercer, but the result is flagged ``under_duress`` so the
@@ -11,7 +11,7 @@ calling app can silently trip an alarm, log the event, and (optionally) degrade
 what the "successful" verify actually unlocks.
 
 Design notes:
-  * The secret is never stored in the clear — only a salted SHA-256 hash, like
+  * The secret is never stored in the clear - only a salted SHA-256 hash, like
     a password. There is no way to read it back; you can only test a candidate.
   * Enrolling a duress secret is opt-in per person and fully separate from the
     biometric templates, so it survives re-enrolment and never touches the
@@ -120,7 +120,7 @@ def check(tenant: Optional[str], user_id: str, candidate: str) -> bool:
 def gate(tenant: Optional[str], result: dict, candidate: Optional[str]) -> dict:
     """Fold a duress check into a verify RESULT (mutates + returns). Runs only
     when the biometric already succeeded and a candidate code was supplied.
-    NEVER changes ``success`` — it adds ``under_duress`` + a ``duress`` code so
+    NEVER changes ``success`` - it adds ``under_duress`` + a ``duress`` code so
     the caller can silently escalate while the coercer sees a normal pass."""
     uid = result.get("user_id")
     if not result.get("success") or not uid or not candidate:

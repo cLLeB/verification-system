@@ -1,4 +1,4 @@
-"""CCNet model definition — VENDORED from the official repo for ONNX export only.
+"""CCNet model definition - VENDORED from the official repo for ONNX export only.
 
 Source: https://github.com/Zi-YuanYang/CCNet  (Comprehensive Competition Network,
 IEEE TIFS 2023, Yang et al.). Unmodified architecture; included so the export script

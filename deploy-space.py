@@ -48,7 +48,7 @@ sdk: gradio
 sdk_version: 4.44.0
 app_file: space_app.py
 pinned: false
-short_description: Contactless face & palm identity — offline, on any phone
+short_description: Contactless face & palm identity - offline, on any phone
 ---
 """
 
@@ -95,7 +95,7 @@ def main() -> int:
         with open("requirements-service.txt", encoding="utf-8") as src:
             service_deps = src.read()
         # ZeroGPU: the `spaces` package supplies the @spaces.GPU decorator the
-        # runtime requires at startup. We deliberately keep the CPU onnxruntime —
+        # runtime requires at startup. We deliberately keep the CPU onnxruntime -
         # serving is CPU-bound by design, and the real GPU work (encoder fine-tune,
         # large-scale eval) happens on Kaggle/Colab where a GPU can be held for
         # hours rather than handed out per call.
@@ -105,7 +105,7 @@ def main() -> int:
             dst.write(service_deps)
             dst.write("\nspaces>=0.30          # ZeroGPU: @spaces.GPU decorator\n")
         run("git", "add", "-A")
-        # Drop what a Space rejects or doesn't need — AFTER staging, or `add -A`
+        # Drop what a Space rejects or doesn't need - AFTER staging, or `add -A`
         # simply puts the binaries back and the push is refused.
         run("git", "rm", "--cached", "--ignore-unmatch", "-q",
             "face/models/antispoof_bin_1.5_128.onnx",

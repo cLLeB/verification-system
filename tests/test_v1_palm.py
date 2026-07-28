@@ -21,7 +21,7 @@ def _blank_b64():
 
 
 def test_enroll_modality_palm_routes_to_palm_engine(client, make_key, enroll_images):
-    """Pinning modality=palm routes to the palm engine — never to face. A face image
+    """Pinning modality=palm routes to the palm engine - never to face. A face image
     has no palm, so it fails cleanly (no_hand where the detector runs, else
     palm_unavailable), and never silently enrols a face under the palm modality."""
     ak = make_key("admin", "palm_u")

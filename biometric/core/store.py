@@ -157,7 +157,7 @@ class TemplateStore:
             conn = sqlite3.connect(self._db, check_same_thread=False, timeout=30.0)
             # WAL is fastest on a local disk (Oracle/compose/dev) and is the default.
             # It CANNOT run on a network file share (Azure Files / SMB, NFS) because it
-            # needs shared-memory coordination the share can't provide — SQLite falls
+            # needs shared-memory coordination the share can't provide - SQLite falls
             # back or errors there. On such a host set BIO_SQLITE_JOURNAL=DELETE; with a
             # single writer (one replica, gunicorn -w 1) rollback journalling is safe.
             journal = os.environ.get("BIO_SQLITE_JOURNAL", "WAL").strip().upper() or "WAL"
@@ -231,7 +231,7 @@ class TemplateStore:
         return self._protect.project(emb, self._seedref(user_id or "", ue))
 
     def domain_seed(self, user_id: Optional[str] = None) -> Tuple[Optional[str], Optional[bytes]]:
-        """(seedref, seed) for the current domain — export to TRUSTED verifier
+        """(seedref, seed) for the current domain - export to TRUSTED verifier
         devices only (sync/bundle, both entitlement-gated). Never the secret."""
         if self._protect is None:
             return None, None
@@ -327,7 +327,7 @@ class TemplateStore:
 
     # --- reads --------------------------------------------------------------
     # ``load``/``iter_templates``/``iter_since`` return MATCHING-domain rows
-    # (protected when protection is on) — everything downstream (matcher, index,
+    # (protected when protection is on) - everything downstream (matcher, index,
     # sync, bundles) only ever sees protected vectors. Mutations must go through
     # ``load_raw`` (the encrypted raw copy kept solely for reissue).
     def load_raw(self, user_id: str) -> Optional[BioTemplate]:
@@ -415,7 +415,7 @@ class TemplateStore:
                       source: str = _SRC_LIVE,
                       max_anchors: Optional[int] = None) -> BioTemplate:
         """Append an enrolment anchor, capping the retained anchors (oldest evicted).
-        ``max_anchors`` overrides the per-user default (``samples_per_user``) — palm
+        ``max_anchors`` overrides the per-user default (``samples_per_user``) - palm
         passes ``samples_per_user * max_hands_per_user`` so a second enrolled hand's
         anchors don't evict the first."""
         cap = self.samples_per_user if max_anchors is None else int(max_anchors)
@@ -441,8 +441,8 @@ class TemplateStore:
         # and because a user's score is the MAX over their vectors, that widening is
         # permanent and monotonic. The busiest identity therefore drifts into an
         # everyone-matches blob (2026-07-27 pilot: a palm template whose adaptive
-        # vector had drifted to 0.60 from its own anchors — closer to other people
-        # than to itself — falsely claimed a first-time enrollee's palm). Adaptation
+        # vector had drifted to 0.60 from its own anchors - closer to other people
+        # than to itself - falsely claimed a first-time enrollee's palm). Adaptation
         # must stay tethered to what the person actually enrolled as.
         if self.adaptive_min_anchor_sim > 0.0 and tmpl.anchors:
             if max(float(np.dot(emb, a)) for a in tmpl.anchors) < self.adaptive_min_anchor_sim:
@@ -491,7 +491,7 @@ class TemplateStore:
 
     def add_many(self, items, max_anchors: Optional[int] = None) -> int:
         """Bulk-write templates (one transaction). ``max_anchors`` overrides the
-        per-user anchor cap (``samples_per_user``) — palm passes
+        per-user anchor cap (``samples_per_user``) - palm passes
         ``samples_per_user * max_hands_per_user`` so a person's two enrolled hands
         both survive (the caller supplies already-clustered anchors)."""
         cap = self.samples_per_user if max_anchors is None else int(max_anchors)
@@ -562,7 +562,7 @@ class TemplateStore:
         """Move templates to a NEW protection domain, so every previously stored
         or exported protected copy stops matching (like resetting a password).
         Tenant-wide: bump the store epoch and re-project everyone (per-user
-        epochs fold back to 0 — the new store domain covers them). Single user:
+        epochs fold back to 0 - the new store domain covers them). Single user:
         bump only their epoch suffix. Returns rows re-protected."""
         if self._protect is None:
             return 0
@@ -597,7 +597,7 @@ class TemplateStore:
 
     def off_domain_users(self) -> List[Tuple[str, int]]:
         """Users living in their own domain after an individual reissue (the
-        store-domain 1:N probe cannot score them — rescore separately)."""
+        store-domain 1:N probe cannot score them - rescore separately)."""
         if self._protect is None:
             return []
         with self._connect() as conn:

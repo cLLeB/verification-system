@@ -7,7 +7,7 @@ requests (request → approve/deny) and answers "is this person on leave at time
 which a post-match gate can fold into a risk score.
 
   * ``request``   a leave period [start, end) of a given type (annual/sick/unpaid).
-  * ``approve`` / ``deny`` — a manager's decision.
+  * ``approve`` / ``deny`` - a manager's decision.
   * ``on_leave``  is a subject on *approved* leave covering an instant?
   * ``balance``   days requested/approved per type, for an HR summary.
   * ``gate``      post-match helper: annotate a verify result with ``on_leave`` so
@@ -113,7 +113,7 @@ def balance(tenant: Optional[str], subject: str) -> dict:
 
 def gate(tenant: Optional[str], result: dict, subject: str,
          when: Optional[int] = None) -> dict:
-    """Advisory annotation — never flips the biometric decision."""
+    """Advisory annotation - never flips the biometric decision."""
     out = dict(result)
     if out.get("success") and on_leave(tenant, subject, when):
         out["on_leave"] = True

@@ -1,4 +1,4 @@
-"""Capture-quality gate — refuse captures below a usable quality bar.
+"""Capture-quality gate - refuse captures below a usable quality bar.
 
 Garbage in, garbage out: a blurred, dark, or off-angle capture produces a weak
 template that later causes false rejects (or, worse, a loose match). The engine
@@ -6,7 +6,7 @@ already computes quality signals per capture; this subsystem lets a tenant set a
 minimum score for enrol and for verify (enrol is usually stricter, since a bad
 template is permanent), and gates on it. It also keeps a small rolling record of
 recent scores so an operator can see whether a given kiosk is chronically
-producing poor captures (a dirty lens, bad lighting) — an SLA signal.
+producing poor captures (a dirty lens, bad lighting) - an SLA signal.
 
   * ``set_thresholds`` enrol/verify minimums (0..1).
   * ``gate``           block a capture whose score is below the relevant bar.

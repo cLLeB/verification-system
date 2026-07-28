@@ -1,6 +1,6 @@
 """Thin adapter to the Biometric Verification Backbone via the shipped Python SDK.
 
-Every vertical example touches the backbone ONLY through this module — so the whole
+Every vertical example touches the backbone ONLY through this module - so the whole
 integration surface for "add contactless identity to my product" is these ~20 lines.
 """
 

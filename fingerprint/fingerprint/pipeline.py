@@ -35,7 +35,7 @@ def process_image(image: np.ndarray, cfg: Config = CONFIG) -> ProcessOutput:
     if image is None or getattr(image, "size", 0) == 0:
         raise QualityError("No image received.")
 
-    # Cheap focus check first — reject blurry captures before the costly enhance.
+    # Cheap focus check first - reject blurry captures before the costly enhance.
     sharpness = _enhance.measure_sharpness(image, cfg)
     if sharpness < cfg.min_sharpness:
         raise QualityError(

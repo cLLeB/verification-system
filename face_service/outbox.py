@@ -1,4 +1,4 @@
-"""Transactional outbox — publish events reliably without dual-write races.
+"""Transactional outbox - publish events reliably without dual-write races.
 
 When a state change must both persist *and* emit an event (enrolment done → notify
 downstream), writing to the database and the message bus separately risks one succeeding

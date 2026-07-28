@@ -2,7 +2,7 @@
 
 Compliance work is full of "do X by date Y": renew a certificate, re-run an access
 review, re-attest a policy, follow up on a visitor. This subsystem is a lightweight
-tickler file — schedule a reminder for a future time, optionally recurring, then pull
+tickler file - schedule a reminder for a future time, optionally recurring, then pull
 the ones that have come due. It is deliberately pull-based (the caller polls ``due``
 on a timer) so the module never runs a scheduler thread of its own.
 

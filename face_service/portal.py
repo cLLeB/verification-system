@@ -1,4 +1,4 @@
-"""Tenant self-service portal — a company logs in (with a tenant-scoped password the
+"""Tenant self-service portal - a company logs in (with a tenant-scoped password the
 platform admin sets) and manages **its own** API keys within the entitlement the admin
 granted (enabled flag, max_keys, allowed_roles).
 
@@ -132,7 +132,7 @@ def portal_keys():
 def portal_keys_create():
     if not tenants.is_enabled(g.portal_tenant):
         return jsonify({"success": False, "code": "payment_required",
-                        "message": "Account disabled — contact the provider."}), 402
+                        "message": "Account disabled - contact the provider."}), 402
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip() or g.portal_tenant
     role = data.get("role", "verify")
@@ -150,7 +150,7 @@ def portal_keys_create():
 def portal_keys_bulk():
     if not tenants.is_enabled(g.portal_tenant):
         return jsonify({"success": False, "code": "payment_required",
-                        "message": "Account disabled — contact the provider."}), 402
+                        "message": "Account disabled - contact the provider."}), 402
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip() or g.portal_tenant
     admin_n = max(0, int(data.get("admin", 0) or 0))
@@ -185,7 +185,7 @@ def _invite_links(batch: list) -> list:
 
 
 def _tenant_target(tenant: str):
-    """(face_cfg, palm_enabled) for a tenant's isolated store — mirrors app._invite_target
+    """(face_cfg, palm_enabled) for a tenant's isolated store - mirrors app._invite_target
     but the portal is ALWAYS scoped to its own session tenant."""
     base = load_config()
     cfg = dataclasses.replace(base, db_path=os.path.join(base.db_path, "tenants", tenant))
@@ -203,7 +203,7 @@ def _req_modalities(data: dict):
 
 def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None) -> dict:
     """Mint a tenant invite with modality-scope + step-up computed from the tenant's
-    own store (fix A) — so a portal invite for someone who already exists is scoped
+    own store (fix A) - so a portal invite for someone who already exists is scoped
     to the missing modality and requires step-up, never an open re-bind."""
     face_cfg, palm_enabled = _tenant_target(tenant)
     mods, step_up, step_mod = _modality.invite_scope(name, face_cfg, palm_enabled, requested)
@@ -215,7 +215,7 @@ def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=No
 def _enabled_or_402():
     if not tenants.is_enabled(g.portal_tenant):
         return jsonify({"success": False, "code": "payment_required",
-                        "message": "Account disabled — contact the provider."}), 402
+                        "message": "Account disabled - contact the provider."}), 402
     return None
 
 
@@ -288,7 +288,7 @@ def portal_invites_revoke():
         face_cfg, palm_enabled = _tenant_target(g.portal_tenant)
         purged = _modality.purge_modalities(rec["user_id"], face_cfg,
                                             rec.get("enrolled") or [], palm_enabled)
-        # a purge means suspected compromise — kill any card this invite issued
+        # a purge means suspected compromise - kill any card this invite issued
         _credreg.revoke_for_user(g.portal_tenant, rec["user_id"])
     return jsonify({"success": ok, "purged": purged})
 

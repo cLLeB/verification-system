@@ -1,4 +1,4 @@
-"""Risk scoring engine — combine signals into one score that drives step-up.
+"""Risk scoring engine - combine signals into one score that drives step-up.
 
 The platform emits many independent risk signals: off-shift access, on-leave access,
 impossible travel, a tamper flag, a threat-feed hit, a new device. On their own each is

@@ -77,7 +77,7 @@ def main():
         print()
         print("[SUCCESS] Engine accepts the right finger and rejects the wrong one."
               if ok else
-              "[CHECK] Unexpected result — see scores above (thresholds may need calibration).")
+              "[CHECK] Unexpected result - see scores above (thresholds may need calibration).")
         return 0 if ok else 1
 
 

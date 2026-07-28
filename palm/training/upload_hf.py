@@ -2,12 +2,12 @@
 
 The CCNet ONNX (257 MB fp32 / 128 MB fp16) is too big for git, so host it on HF. After
 uploading, set PALM_MODEL_HF_REPO=<your-repo> on the server/app and the engine
-downloads it once on first use (palm.engine.ensure_model) — like the face model pack.
+downloads it once on first use (palm.engine.ensure_model) - like the face model pack.
 
 Uploads (whatever exists locally):
-  * palm_ccnet.onnx        (fp32, primary — what the engine fetches by default)
+  * palm_ccnet.onnx        (fp32, primary - what the engine fetches by default)
   * palm_ccnet_fp16.onnx   (fp16, ~lossless half-size, for size-constrained deploys)
-  * hand_landmarker.task   (MediaPipe Hands, for ROI — convenience copy of Google's)
+  * hand_landmarker.task   (MediaPipe Hands, for ROI - convenience copy of Google's)
   * README.md + config.json (model card + the input/output contract)
 
 Needs a Hugging Face write token (https://huggingface.co/settings/tokens):
@@ -31,7 +31,7 @@ tags: [palmprint, biometrics, onnx, ccnet]
 library_name: onnx
 ---
 
-# Palm-print encoder (CCNet) — ONNX
+# Palm-print encoder (CCNet) - ONNX
 
 ONNX export of the **CCNet** palm-print feature extractor for contactless palm
 recognition. Used by the face+palm verification backbone: it turns a normalised
@@ -42,17 +42,17 @@ palm ROI into an L2-normalised embedding matched by cosine similarity.
 |------|-----------|------|-----|
 | `palm_ccnet.onnx` | fp32 | ~257 MB | servers (default fetch) |
 | `palm_ccnet_fp16.onnx` | fp16 | ~128 MB | mobile / size-constrained (~lossless) |
-| `hand_landmarker.task` | — | ~8 MB | MediaPipe Hands ROI detector (Google) |
+| `hand_landmarker.task` | - | ~8 MB | MediaPipe Hands ROI detector (Google) |
 
 ## Input / output contract
-- **Input**: `float32` NCHW `[1, 1, 128, 128]` — **grayscale**, pixel values in `[0, 1]`.
+- **Input**: `float32` NCHW `[1, 1, 128, 128]` - **grayscale**, pixel values in `[0, 1]`.
 - **Output**: `[1, 2048]` L2-normalised embedding. Match with cosine; calibrate the
   threshold on your data (the backbone does this adaptively).
 
 ## Provenance & attribution
 Exported (feature extractor only, not the close-set classifier) from the official
 CCNet pretrained **Tongji** checkpoint:
-- CCNet — Yang et al., *Comprehensive Competition Mechanism in Palmprint
+- CCNet - Yang et al., *Comprehensive Competition Mechanism in Palmprint
   Recognition*, IEEE TIFS 2023. Code: https://github.com/Zi-YuanYang/CCNet
 - Trained on the Tongji contactless palmprint dataset (respect its terms).
 

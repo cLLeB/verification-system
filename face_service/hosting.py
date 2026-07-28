@@ -1,4 +1,4 @@
-"""Visitor hosting — a staff host sponsors a visitor's access for a window.
+"""Visitor hosting - a staff host sponsors a visitor's access for a window.
 
 Visitors shouldn't have standalone access; someone on staff must be accountable for them.
 Hosting binds a visitor to a host for a time window: the visitor is granted only while an

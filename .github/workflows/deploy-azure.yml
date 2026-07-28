@@ -4,7 +4,7 @@
 # One-time setup (see docs/DEPLOY_AZURE.md):
 #   * run deploy-azure.sh once to create the app.
 #   * add repo secret AZURE_CREDENTIALS  (output of: az ad sp create-for-rbac ... --sdk-auth)
-#   * the built-in GITHUB_TOKEN pushes to GHCR — no extra secret needed for that.
+#   * the built-in GITHUB_TOKEN pushes to GHCR - no extra secret needed for that.
 name: deploy-azure
 
 on:
@@ -76,4 +76,4 @@ jobs:
             # (run deploy-azure.sh once first). Real deploys after that go green.
             az containerapp update -n "$APP" -g "$RG" \
               --image "${{ steps.img.outputs.ref }}:${{ github.sha }}" --only-show-errors \
-              || echo "::warning::app '$APP' not found yet — run ./deploy-azure.sh once to create it."
+              || echo "::warning::app '$APP' not found yet - run ./deploy-azure.sh once to create it."

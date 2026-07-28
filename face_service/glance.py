@@ -1,19 +1,19 @@
 """On-device 1:N "glance" index (trust platform Phase 3, spec 7).
 
-One compact, protection-domain vector per enrolled person — int8-quantized, so
-100k identities ≈ 50 MB — shipped to devices for sub-second offline
+One compact, protection-domain vector per enrolled person - int8-quantized, so
+100k identities ≈ 50 MB - shipped to devices for sub-second offline
 identification by brute-force dot product (measured well under 200 ms on a
 mid-range phone; ANN only if real scale ever demands it).
 
 Design points:
-  * Rows are the per-user CENTROID of the protected (store-domain) anchors —
+  * Rows are the per-user CENTROID of the protected (store-domain) anchors -
     the projection is linear, so this equals projecting the raw centroid.
   * Individually reissued users live in their own domain and are EXCLUDED
     (the store-domain probe cannot score them); a reissue-all folds them back.
   * The 1:N operating point is calibrated SEPARATELY from 1:1 (lesson from the
     palm threshold incidents): the impostor distribution over the index rows
     sets the threshold at a target FAR, clamped to [floor, floor+band] both
-    here and on the device — and a margin gate (top vs runner-up) rides along.
+    here and on the device - and a margin gate (top vs runner-up) rides along.
     Mirror any change to GLANCE_* into Android Config.kt.
 """
 
@@ -30,9 +30,9 @@ from biometric import calibrate as _calibrate
 PAYLOAD_FORMAT = "faceverify-glance-index"
 VERSION = 1
 
-# 1:N floors per modality — ABOVE the 1:1 thresholds (0.40 face / 0.65 palm):
+# 1:N floors per modality - ABOVE the 1:1 thresholds (0.40 face / 0.65 palm):
 # at 100k identities the impostor MAX creeps up, and glance has no liveness.
-# Mirrored in Android Config.kt (GLANCE_*) — keep in sync.
+# Mirrored in Android Config.kt (GLANCE_*) - keep in sync.
 GLANCE_FLOORS = {"face": 0.45, "palm": 0.68}
 GLANCE_CLAMP_BAND = 0.12          # calibration may only tighten: [floor, floor+band]
 GLANCE_MARGIN = 0.08              # top must beat the runner-up by this
@@ -43,10 +43,10 @@ def build_payload(tenant: str, store, modality: str) -> dict:
     """The glance-index payload for one tenant store: per-user int8 centroids in
     the store's protection domain + the calibrated 1:N operating point.
 
-    Excluded rows: individually-reissued users (own domain — unscorable here),
+    Excluded rows: individually-reissued users (own domain - unscorable here),
     consent-withdrawn users (identifying them IS processing; it must stop
     everywhere, including on devices), and expired guests (they can't verify
-    anyway — no reason to ship their template)."""
+    anyway - no reason to ship their template)."""
     from . import consent as _consent, guests as _guests
     users, rows = [], []
     off_domain = {u for u, _ in store.off_domain_users()}

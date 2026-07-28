@@ -29,7 +29,7 @@ private fun ImageProxy.toUprightBitmap(): Bitmap {
 }
 
 /**
- * Live camera preview that streams frames to [onBitmap] — but only when
+ * Live camera preview that streams frames to [onBitmap] - but only when
  * [shouldProcess] returns true (so we never queue work while busy or showing a
  * result). Each delivered bitmap is upright and owned by the consumer (recycle it).
  */

@@ -1,8 +1,8 @@
 """Passkey / WebAuthn credential store with signature-counter clone detection.
 
 Passkeys are a strong second factor to pair with a face match. The server side must
-store each registered authenticator's public key and its signature counter, and — the
-security-critical part — reject an authentication whose counter goes backwards or repeats,
+store each registered authenticator's public key and its signature counter, and - the
+security-critical part - reject an authentication whose counter goes backwards or repeats,
 which is the canonical signal that an authenticator has been cloned. This subsystem keeps
 that registry and enforces the counter rule; it stores public keys and counters only,
 never private material.
@@ -16,7 +16,7 @@ never private material.
   * ``revoke``       remove a credential (lost/stolen device).
 
 A counter that fails to advance flips the credential to ``suspected_clone`` and rejects
-the authentication — fail closed, and surface it for investigation.
+the authentication - fail closed, and surface it for investigation.
 
 Registry: ``passkeys.json`` (env ``FACE_PASSKEYS_FILE``).
 """

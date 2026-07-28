@@ -1,4 +1,4 @@
-"""Exam candidate identity — stops impersonation at the seat using the backbone's
+"""Exam candidate identity - stops impersonation at the seat using the backbone's
 1:1 verify against a pre-enrolled candidate roster.
 
     Register:  the board enrols each candidate (index number + capture).
@@ -44,20 +44,20 @@ def register():
 @app.post("/api/checkin")
 def checkin():
     """The candidate CLAIMS an index number; we 1:1 verify their biometric against it.
-    A mismatch is the impersonation signal — logged as flagged."""
+    A mismatch is the impersonation signal - logged as flagged."""
     data = request.get_json(silent=True) or {}
     index_no = (data.get("index_no") or "").strip()
     exam = (data.get("exam") or "").strip()
     image = data.get("image") or ""
     if not index_no or not image:
         return jsonify({"ok": False, "message": "Index number and a capture are required."}), 400
-    r = fv.verify(index_no, image)            # 1:1 — "is this really 12345?"
+    r = fv.verify(index_no, image)            # 1:1 - "is this really 12345?"
     verified = bool(r.get("success"))
     store.record_checkin(index_no, exam, verified, r.get("score"), time.time())
     if verified:
-        return jsonify({"ok": True, "index_no": index_no, "message": f"{index_no} verified — seated."})
+        return jsonify({"ok": True, "index_no": index_no, "message": f"{index_no} verified - seated."})
     return jsonify({"ok": False, "code": "identity_mismatch", "flagged": True,
-                    "message": f"Face/palm does NOT match {index_no} — flagged for the invigilator."})
+                    "message": f"Face/palm does NOT match {index_no} - flagged for the invigilator."})
 
 
 @app.get("/api/report")

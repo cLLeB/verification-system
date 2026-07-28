@@ -1,7 +1,7 @@
 # Hybrid Offline↔Server Sync (per-tenant), with cross-identity dedupe
 
 **Date:** 2026-06-23
-**Status:** Implemented 2026-06-23 — server sync endpoints + Android hybrid flavor both done.
+**Status:** Implemented 2026-06-23 - server sync endpoints + Android hybrid flavor both done.
 
 > Gotcha fixed during build: ML Kit / play-services inject `INTERNET` via manifest merge,
 > so the `offline` flavor needs `app/src/offline/AndroidManifest.xml` with
@@ -12,7 +12,7 @@
 
 Keep the pure-offline Android app exactly as it is (no INTERNET), and add an **opt-in
 hybrid** build that can connect to the server to **pull** a specific company's dataset
-(to match offline) and **push** on-device enrolments up — with proper access control and
+(to match offline) and **push** on-device enrolments up - with proper access control and
 intelligent handling of duplicate faces that appear under different names.
 
 ## Answers / facts (from code)
@@ -32,9 +32,9 @@ intelligent handling of duplicate faces that appear under different names.
 | 1 | Template export gated by **admin scope + per-tenant `allow_export` flag (default off)** + audit |
 | 2 | Hybrid = a **separate build** via a new `connectivity` flavor dimension (offline/hybrid) × model (fp32/fp16) = 4 APKs. INTERNET only in `hybrid` manifest; behavior gated by `BuildConfig.HYBRID` |
 | 3 | Pull = whole tenant, **incremental** by `seq`, includes deletions. Push = selected or all |
-| 4 | **Cross-identity dedupe** on push: a face matching an existing *different* user is a conflict, resolved by policy (skip / merge / force) — never silently double-enrolled |
+| 4 | **Cross-identity dedupe** on push: a face matching an existing *different* user is a conflict, resolved by policy (skip / merge / force) - never silently double-enrolled |
 
-## Server (Phase 1 — this slice)
+## Server (Phase 1 - this slice)
 
 ### Entitlement
 - `tenants`: add `allow_export: bool = False`. `set_entitlement(..., allow_export=)`,
@@ -64,7 +64,7 @@ advances seq; incremental pull returns only changes incl. deletions; push enroll
 push of a known face under a new name → conflict skip/merge/force behave correctly; scopes
 enforced (verify key can't pull/push).
 
-## Android (Phase 2 — next slice)
+## Android (Phase 2 - next slice)
 
 - **Flavor dimension** `connectivity` = {offline, hybrid}; combined with model = 4 variants.
   `hybrid` manifest adds `INTERNET`; `BuildConfig.HYBRID` gates all sync code/UI. Offline

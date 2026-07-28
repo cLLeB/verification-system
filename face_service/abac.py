@@ -1,20 +1,20 @@
-"""Attribute-based access control — policies over subject/resource/action/env.
+"""Attribute-based access control - policies over subject/resource/action/env.
 
 Role checks ([[roles]]) and token scopes ([[apiscopes]]) answer coarse questions; some
 authorization is inherently contextual: "a nurse may open a ward door during their shift
 if not on leave". ABAC expresses that as policies evaluated over *attributes* of the
 subject, the resource, the action, and the environment. This subsystem is a compact ABAC
-engine with explicit permit/deny effects and deny-overrides combining — the safe default
+engine with explicit permit/deny effects and deny-overrides combining - the safe default
 where any matching deny wins.
 
   * ``add_policy``   a policy: an ``effect`` (permit/deny), an ``action`` (or ``*``),
                      and attribute ``conditions`` (equality / comparison / membership).
   * ``evaluate``     decide a request ``{subject, resource, action, env}``; returns
                      permit/deny plus the deciding policy.
-  * ``remove`` / ``list_policies`` — manage the policy set.
+  * ``remove`` / ``list_policies`` - manage the policy set.
 
 Combining is **deny-overrides**: if any applicable policy denies, the result is deny; else
-if any permits, permit; else the default (deny — fail closed). Conditions read dotted keys
+if any permits, permit; else the default (deny - fail closed). Conditions read dotted keys
 across the request (``subject.role``, ``env.hour``), so one condition language spans all
 four attribute categories.
 

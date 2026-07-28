@@ -1,4 +1,4 @@
-"""Declarations — require a fresh self-declaration before entry.
+"""Declarations - require a fresh self-declaration before entry.
 
 Some sites gate entry on a periodic attestation the person themselves makes: a
 health screening ("no symptoms today"), a safety briefing acknowledgement, a

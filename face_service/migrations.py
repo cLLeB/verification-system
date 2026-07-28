@@ -1,8 +1,8 @@
-"""Migration ledger — track which schema/data migrations have been applied.
+"""Migration ledger - track which schema/data migrations have been applied.
 
 As the persisted JSON documents evolve (new fields, reshaped structures), the service
 needs a record of which migrations have run so it applies each exactly once and in order,
-across restarts and multiple instances. This subsystem is that ledger — a classic
+across restarts and multiple instances. This subsystem is that ledger - a classic
 migration tracker (like Django's ``django_migrations`` or Flyway's schema history) adapted
 to this package's registry model.
 
@@ -13,7 +13,7 @@ to this package's registry model.
   * ``history``     the applied ledger with timestamps.
 
 Versions are integers applied strictly in ascending order with no gaps relative to what
-has run — attempting to apply out of order, or re-apply, is rejected so the ledger can
+has run - attempting to apply out of order, or re-apply, is rejected so the ledger can
 never lie about the schema state.
 
 Registry: ``migrations.json`` (env ``FACE_MIGRATIONS_FILE``).

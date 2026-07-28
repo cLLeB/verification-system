@@ -1,20 +1,20 @@
-"""JSON diff/patch — compute and apply structural changes to config documents.
+"""JSON diff/patch - compute and apply structural changes to config documents.
 
 Config lives in JSON-shaped documents (policies, thresholds, branding). Auditing and
-rolling back changes needs a precise, replayable description of *what* changed — not a
+rolling back changes needs a precise, replayable description of *what* changed - not a
 whole-document snapshot. This subsystem computes a minimal patch between two documents and
 applies patches, in the spirit of RFC 6902 JSON Patch. It pairs with [[eventlog]] (store
 the patch as the change record) and config versioning.
 
   * ``diff``    the ops turning document ``a`` into ``b``: ``add`` / ``remove`` /
                 ``replace`` with a JSON-Pointer-style ``path``.
-  * ``apply``   apply a patch to a document, returning a new document (immutable — the
+  * ``apply``   apply a patch to a document, returning a new document (immutable - the
                 input is never mutated).
   * ``invert``  the inverse patch (needs the original doc) for one-click rollback.
 
 Paths are ``/``-separated pointers (``/thresholds/lobby``). Objects diff key-by-key;
 lists are compared positionally (replaced element-wise, with add/remove for length
-changes) — simple and predictable rather than a minimal-edit list diff.
+changes) - simple and predictable rather than a minimal-edit list diff.
 """
 
 from __future__ import annotations

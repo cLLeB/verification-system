@@ -1,7 +1,7 @@
-"""Active-liveness challenges — prove a live person, not a photo or video.
+"""Active-liveness challenges - prove a live person, not a photo or video.
 
 Passive liveness scores texture; active liveness asks the person to *do* something
-unpredictable and checks they did it — blink twice, turn left, smile, read a
+unpredictable and checks they did it - blink twice, turn left, smile, read a
 number. Because the action is chosen by the server at capture time, a pre-recorded
 video of the target cannot satisfy it. This subsystem issues a random challenge
 from a configured repertoire, binds it to a short-lived id, and verifies the
@@ -12,7 +12,7 @@ client's claimed response against what was asked, once, in time.
   * ``gate``    fold a passed/failed challenge into a verify result.
 
 The repertoire is tenant-configurable so deployments can match their UI's
-supported prompts. This is orthogonal to the biometric match — it proves liveness,
+supported prompts. This is orthogonal to the biometric match - it proves liveness,
 not identity.
 
 Registry: ``challenge.json`` (env ``FACE_CHALLENGE_FILE``).

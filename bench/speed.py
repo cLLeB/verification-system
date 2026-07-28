@@ -1,6 +1,6 @@
 """Speed suite: store + index throughput/latency on synthetic identities.
 
-Dataset-free — exercises the REAL storage/index/matching code (protected-domain
+Dataset-free - exercises the REAL storage/index/matching code (protected-domain
 writes, encrypted persistence, projected probes) at a configurable scale, so
 the /trust page shows measured numbers from this exact build.
 """

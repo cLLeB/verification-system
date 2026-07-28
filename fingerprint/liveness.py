@@ -32,7 +32,7 @@ def check_liveness(image_roi):
     # but when captured by a camera, it often lacks the natural variance of skin.
     std_dev = np.std(gray)
 
-    # Heuristic thresholds — deliberately LENIENT. This simple check cannot
+    # Heuristic thresholds - deliberately LENIENT. This simple check cannot
     # reliably distinguish a real finger from a good print/photo anyway (that
     # needs a trained CNN), and a strict setting caused legitimate captures to be
     # wrongly rejected as "spoof". So we only reject degenerate frames (a fully

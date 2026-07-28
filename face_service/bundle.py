@@ -1,11 +1,11 @@
-"""Offline provisioning bundle — a passphrase-encrypted, integrity-protected file
+"""Offline provisioning bundle - a passphrase-encrypted, integrity-protected file
 of biometric *templates* (embeddings, never images) for loading into an air-gapped
 device.
 
 The air-gapped Android build never talks to the server. To bulk-provision it, the
 admin exports a bundle here (over an admin-scoped API key), moves the file to the
 device out-of-band (USB / MDM push), and imports it in the app with the same
-passphrase. No network path is opened — the airgap is preserved; the bundle is the
+passphrase. No network path is opened - the airgap is preserved; the bundle is the
 only thing that crosses, and it is useless without the passphrase.
 
 Format (outer JSON, all binary fields base64):
@@ -23,7 +23,7 @@ The plaintext is a JSON payload:
 
 These primitives map 1:1 to Android: PBKDF2WithHmacSHA256 + AES/GCM/NoPadding
 (GCMParameterSpec(128, iv)), where the 16-byte GCM tag is appended to the
-ciphertext — exactly what ``AESGCM`` produces here and what Android expects.
+ciphertext - exactly what ``AESGCM`` produces here and what Android expects.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ def _derive_key(passphrase: str, salt: bytes) -> bytes:
 
 def _check_passphrase(passphrase: Optional[str]) -> str:
     if not _AVAILABLE:
-        raise BundleError("Encryption library unavailable — cannot build a bundle.")
+        raise BundleError("Encryption library unavailable - cannot build a bundle.")
     passphrase = (passphrase or "").strip()
     if len(passphrase) < MIN_PASSPHRASE_LEN:
         raise BundleError(f"Passphrase must be at least {MIN_PASSPHRASE_LEN} characters.")

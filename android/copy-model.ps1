@@ -22,5 +22,5 @@ Write-Host "Generating fp16 (keep_io_types=True; needs the project venv with onn
 & ..\venv\Scripts\python.exe -c "import onnx; from onnxconverter_common import float16; m=onnx.load(r'app\src\fp32\assets\w600k_r50.onnx'); onnx.save(float16.convert_float_to_float16(m, keep_io_types=True), r'app\src\fp16\assets\w600k_r50.onnx')" 2>$null
 Write-Host ("fp16: {0:N1} MB" -f ((Get-Item app\src\fp16\assets\w600k_r50.onnx).Length/1MB)) -ForegroundColor Green
 
-# int8 is intentionally deferred until validated on a multi-identity set —
+# int8 is intentionally deferred until validated on a multi-identity set -
 # see experimental-int8/README.md.

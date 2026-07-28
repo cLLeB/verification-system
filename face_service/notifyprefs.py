@@ -1,22 +1,22 @@
-"""Notification preferences — per-person channel and category opt-in/out.
+"""Notification preferences - per-person channel and category opt-in/out.
 
 Not everyone wants every notification on every channel. Respecting that is both courtesy
 and, for marketing-adjacent messages, a legal requirement. This subsystem stores per-
-subject preferences — which channels (email/sms/push) are enabled, per category — and
+subject preferences - which channels (email/sms/push) are enabled, per category - and
 resolves a single question the sender asks: "may I notify this person about this
 category on this channel right now?" It layers a global opt-out over per-category, per-
 channel settings.
 
   * ``set_channel``    enable/disable a channel for a subject (global for that channel).
   * ``set_category``   enable/disable a specific category on a specific channel.
-  * ``opt_out_all`` / ``opt_in_all`` — a master switch (e.g. unsubscribe link).
+  * ``opt_out_all`` / ``opt_in_all`` - a master switch (e.g. unsubscribe link).
   * ``should_notify``  the resolved yes/no for (subject, category, channel).
   * ``channels_for``   which channels to actually use for a category.
 
 Resolution order: global opt-out wins; then the channel must be enabled; then, if the
 category has an explicit setting it applies, else the default is to allow (opt-out
 model for transactional categories). ``transactional`` categories can be marked
-mandatory by the caller by simply not consulting prefs — this module governs the rest.
+mandatory by the caller by simply not consulting prefs - this module governs the rest.
 
 Registry: ``notifyprefs.json`` (env ``FACE_NOTIFYPREFS_FILE``).
 """

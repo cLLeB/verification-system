@@ -3,7 +3,7 @@
 Repeated failed matches against one identity are a red flag: a spoofing campaign, a
 look-alike probing the system, or a broken enrolment. This subsystem tracks failures
 per subject in a sliding window and locks the account for a growing duration each
-time the threshold is hit — the classic exponential-backoff lockout that frustrates
+time the threshold is hit - the classic exponential-backoff lockout that frustrates
 attackers without permanently punishing a legitimate user who eventually succeeds.
 
   * ``record_failure`` count a failed verify; may trip a lockout.

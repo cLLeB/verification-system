@@ -1,19 +1,19 @@
-"""Weighted load balancing — pick a backend fairly across capacity.
+"""Weighted load balancing - pick a backend fairly across capacity.
 
 When verification is served by several backend nodes of differing capacity, requests should
 be spread in proportion to each node's weight, smoothly rather than in bursts, and skip
-nodes marked unhealthy. This subsystem implements Nginx's *smooth weighted round-robin* —
-the same weights produce an evenly interleaved sequence (a,a,b,a,c,... not a,a,a,b,c) — plus
+nodes marked unhealthy. This subsystem implements Nginx's *smooth weighted round-robin* -
+the same weights produce an evenly interleaved sequence (a,a,b,a,c,... not a,a,a,b,c) - plus
 health marking so a downed node is bypassed until it recovers. It pairs with [[hashring]]
 (sticky sharding) for the cases where round-robin, not affinity, is what you want.
 
   * ``add_backend``   register a backend with a weight (and mark it up).
   * ``pick``          the next backend by smooth WRR among healthy backends.
-  * ``mark_down`` / ``mark_up`` — take a backend out of / back into rotation.
-  * ``remove`` / ``backends`` — manage the pool.
+  * ``mark_down`` / ``mark_up`` - take a backend out of / back into rotation.
+  * ``remove`` / ``backends`` - manage the pool.
 
 Smooth WRR keeps a mutable ``current_weight`` per backend; each pick adds the effective
-weight to every current weight, selects the maximum, and subtracts the total — yielding a
+weight to every current weight, selects the maximum, and subtracts the total - yielding a
 sequence whose density matches the weights with minimal clustering.
 
 Registry: ``loadbalancer.json`` (env ``FACE_LOADBALANCER_FILE``).

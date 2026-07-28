@@ -1,6 +1,6 @@
 """Pull everything the live deployment has captured, into this repo, for tuning.
 
-One command, run as often as you like — it remembers where it stopped, so each run
+One command, run as often as you like - it remembers where it stopped, so each run
 brings back only what's new:
 
     .\\venv\\Scripts\\python pull_production.py --url https://<space>.hf.space --token <FACE_ANALYTICS_TOKEN>
@@ -10,14 +10,14 @@ or set them once and just run ``python pull_production.py``:
     $env:SPACE_URL = "https://<space>.hf.space"
     $env:FACE_ANALYTICS_TOKEN = "<the Space secret>"
 
-What lands where (all git-ignored — this is biometric data, it never gets committed):
+What lands where (all git-ignored - this is biometric data, it never gets committed):
 
     _fielddata/events.jsonl   every real enrol/verify/identify + the engine's decision
     _fielddata/images/...     the actual frame each person presented
     _analytics/templates.json face + palm embeddings (for threshold analysis)
     pad_data/                 the hand-labeled LIVE/SPOOF set from /collect
 
-Then it prints an accuracy report — accept rates, and specifically WHO gets confused
+Then it prints an accuracy report - accept rates, and specifically WHO gets confused
 with WHOM and by how little (the Caleb/Edwina problem).
 
 Options:

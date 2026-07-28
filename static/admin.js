@@ -49,14 +49,14 @@ async function loadOverview() {
         ['api_keys', 'API keys'], ['tenants', 'Customer tenants'], ['operators', 'Operators'],
     ];
     $('stats').innerHTML = cards.map(([k, label]) =>
-        `<div class="stat"><div class="n">${d[k] ?? '—'}</div><div class="l">${label}</div></div>`).join('') +
+        `<div class="stat"><div class="n">${d[k] ?? '-'}</div><div class="l">${label}</div></div>`).join('') +
         `<div class="stat"><div class="n">${d.encrypted ? '🔒' : '⚠'}</div><div class="l">${d.encrypted ? 'Encrypted' : 'Not encrypted'}</div></div>`;
 }
 
-// --- Live-preview watchdog — production camera-freeze fix --------------------
+// --- Live-preview watchdog - production camera-freeze fix --------------------
 // iOS Safari pauses an inline, transformed <video> after a canvas capture plus
 // CSS animations, and never auto-resumes. A paused <video> keeps re-drawing its
-// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images —
+// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images -
 // that is why enrolment recorded the same frozen frame as samples 2 and 3. A
 // MUTED video may always be replayed programmatically (autoplay policy), so we
 // resume it on every pause / tab return, and wait for a genuinely fresh frame
@@ -103,7 +103,7 @@ async function startCamera() {
         try { await $('video').play(); } catch (e) {}           // iOS sometimes needs an explicit play
         keepVideoAlive($('video'));                             // auto-resume if iOS pauses the preview
         $('video').style.transform = facing === 'user' ? 'scaleX(-1)' : 'none';
-    } catch (e) { $('enroll-msg').textContent = 'Camera unavailable — allow access.'; }
+    } catch (e) { $('enroll-msg').textContent = 'Camera unavailable - allow access.'; }
 }
 $('swap').onclick = () => { facing = facing === 'user' ? 'environment' : 'user'; startCamera(); };
 function renderDots() {
@@ -193,7 +193,7 @@ $('people-csv').onclick = () => {
 let invCache = [];
 
 function invLinkRow(inv) {
-    // creation response: raw link shown ONCE — copy/save now
+    // creation response: raw link shown ONCE - copy/save now
     const div = document.createElement('div');
     div.className = 'item';
     div.innerHTML = `<div class="grow"><div>${inv.user_id}
@@ -211,7 +211,7 @@ function invLinkRow(inv) {
 function showNewInvites(list) {
     const box = $('inv-new');
     box.classList.remove('hidden');
-    box.innerHTML = '<p class="muted">Links are shown ONCE — copy or download them now:</p>';
+    box.innerHTML = '<p class="muted">Links are shown ONCE - copy or download them now:</p>';
     list.forEach(inv => box.appendChild(invLinkRow(inv)));
     if (list.length > 1) {
         const csv = 'user_id,link\n' + list.map(i => `"${i.user_id}",${i.link}`).join('\n');
@@ -314,7 +314,7 @@ async function secLoadKeys() {
             <div class="sub">created ${new Date(k.created * 1000).toLocaleString()}${retired}</div></div>`;
         list.appendChild(row);
     });
-    $('sec-msg').textContent = `Tenant "${tenant}" — ${(d.keys || []).length} key(s).`;
+    $('sec-msg').textContent = `Tenant "${tenant}" - ${(d.keys || []).length} key(s).`;
 }
 $('sec-load').onclick = secLoadKeys;
 $('sec-rotate').onclick = async () => {
@@ -331,7 +331,7 @@ function protRow(mod, s) {
         const detail = s.enrolled
             ? `protected: ${s.protected ? 'yes' : 'no'} · domain: <code>${s.seedref || '-'}</code>`
             : 'not enrolled';
-        row.innerHTML = `<div class="grow"><div><b>${mod}</b> — ${s.user_id}</div>
+        row.innerHTML = `<div class="grow"><div><b>${mod}</b> - ${s.user_id}</div>
             <div class="sub">${detail}</div></div>`;
     } else {
         const last = s.last_reissue ? new Date(s.last_reissue * 1000).toLocaleString() : 'never';
@@ -348,17 +348,17 @@ async function protLoad() {
     const d = await api(`/admin/api/protection?${q}`);
     const list = $('prot-status'); list.innerHTML = '';
     Object.entries(d.modalities || {}).forEach(([mod, s]) => list.appendChild(protRow(mod, s)));
-    $('prot-msg').textContent = `Tenant "${tenant}"${user ? ` — user "${user}"` : ''}.`;
+    $('prot-msg').textContent = `Tenant "${tenant}"${user ? ` - user "${user}"` : ''}.`;
 }
 $('prot-load').onclick = protLoad;
 $('prot-reissue').onclick = async () => {
     const tenant = ($('prot-tenant').value || '').trim() || 'default';
     const user = ($('prot-user').value || '').trim();
     if (user) {
-        if (!confirm(`Reissue user "${user}"?\n\nOld exported/stored copies of their template stop matching immediately. They keep verifying — no recapture needed.`)) return;
+        if (!confirm(`Reissue user "${user}"?\n\nOld exported/stored copies of their template stop matching immediately. They keep verifying - no recapture needed.`)) return;
     } else {
         // tenant-wide is the big red button: require typing REISSUE
-        const typed = prompt(`Reissue EVERY template in "${tenant}"?\n\nOld exported/stored copies stop matching immediately. Enrolled people keep verifying — no recapture needed.\n\nType REISSUE to confirm:`);
+        const typed = prompt(`Reissue EVERY template in "${tenant}"?\n\nOld exported/stored copies stop matching immediately. Enrolled people keep verifying - no recapture needed.\n\nType REISSUE to confirm:`);
         if (typed !== 'REISSUE') return;
     }
     const d = await api('/admin/api/protection/reissue', { method: 'POST',
@@ -426,7 +426,7 @@ $('cred-issue').onclick = async () => {
             <button class="btn ghost" id="cred-copy">Copy card link</button>
         </div>`;
     $('cred-copy').onclick = () => navigator.clipboard.writeText(card)
-        .then(() => { $('cred-msg').textContent = 'Card link copied — send it to the holder.'; });
+        .then(() => { $('cred-msg').textContent = 'Card link copied - send it to the holder.'; });
     $('cred-msg').textContent = `Issued ${d.credential_id.slice(0, 12)}… (${d.modalities.join('+')}).`;
     credLoad();
 };
@@ -475,7 +475,7 @@ function keysToCsv(keys) {
 function renderNewKeys(box, d) {
     box.innerHTML = '';
     const h = document.createElement('div');
-    h.innerHTML = `<b>Created ${d.count} key(s) for tenant <code>${d.tenant}</code> — shown only once. Download now.</b>`;
+    h.innerHTML = `<b>Created ${d.count} key(s) for tenant <code>${d.tenant}</code> - shown only once. Download now.</b>`;
     box.appendChild(h);
     d.keys.forEach(k => {
         const div = document.createElement('div'); div.className = 'newkey-row';
@@ -541,7 +541,7 @@ $('ent-offboard').onclick = async () => {
     const tenant = $('ent-tenant').value.trim();
     if (!tenant) { $('ent-msg').textContent = 'Tenant id required.'; return; }
     if (!confirm(`Offboard '${tenant}'? This REVOKES its keys and PERMANENTLY ERASES its enrolled data.`)) return;
-    if (!confirm(`Final check — erase ALL data for '${tenant}'? This cannot be undone.`)) return;
+    if (!confirm(`Final check - erase ALL data for '${tenant}'? This cannot be undone.`)) return;
     const d = await api('/admin/api/tenants/offboard', { method: 'POST', body: JSON.stringify({ tenant }) });
     $('ent-msg').textContent = d.success
         ? `Offboarded ${tenant}: revoked ${d.keys_revoked} key(s), data erased = ${d.store_erased}.`
@@ -558,7 +558,7 @@ async function loadTenants() {
         const sec = t.webhook_secret ? ` · secret: ${t.webhook_secret}` : '';
         const row = document.createElement('div'); row.className = 'item';
         row.innerHTML = `<div class="grow"><div><b>${t.tenant}</b></div>
-            <div class="sub">origins: ${(t.cors_origins || []).join(', ') || '—'}</div>
+            <div class="sub">origins: ${(t.cors_origins || []).join(', ') || '-'}</div>
             <div class="sub">${wh}${sec}</div></div>`;
         list.appendChild(row);
     });
@@ -576,7 +576,7 @@ async function loadUsage() {
     const d = await api('/admin/api/usage');
     const list = $('usage-list'); list.innerHTML = '';
     (d.usage || []).forEach(u => {
-        const parts = Object.entries(u.counts).map(([k, v]) => `${k}:${v}`).join('  ') || '—';
+        const parts = Object.entries(u.counts).map(([k, v]) => `${k}:${v}`).join('  ') || '-';
         const cap = u.quota ? `${u.total}/${u.quota}` : `${u.total} (no cap)`;
         const row = document.createElement('div'); row.className = 'item';
         row.innerHTML = `<div class="grow"><div><b>${u.tenant}</b> <span class="pill">${cap}</span></div>
@@ -637,7 +637,7 @@ async function loadAudit() {
     (d.events || []).forEach(e => {
         const row = document.createElement('div'); row.className = 'item';
         const tag = e.success ? '<span class="tag-ok">ok</span>' : '<span class="tag-bad">no</span>';
-        row.innerHTML = `<span class="grow">${e.iso} · <b>${e.action}</b> · ${e.user_id || '—'}
+        row.innerHTML = `<span class="grow">${e.iso} · <b>${e.action}</b> · ${e.user_id || '-'}
             · ${e.actor || ''} ${tag}</span>`;
         list.appendChild(row);
     });
@@ -645,7 +645,7 @@ async function loadAudit() {
 }
 
 // --- Access tab: policies · guests · devices · guardians · consent ----------
-const _fmtTs = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '—';
+const _fmtTs = (ts) => ts ? new Date(ts * 1000).toLocaleString() : '-';
 const _tenantOf = (id) => ($(id).value || '').trim() || undefined;
 const _q = (t) => t ? ('?tenant=' + encodeURIComponent(t)) : '';
 
@@ -696,7 +696,7 @@ $('pol-save').onclick = async () => {
             mode: $('pol-mode').value, default: $('pol-default').value,
             tz_offset_minutes: parseInt($('pol-tz').value, 10) || 0 }) });
     $('pol-msg').textContent = d.success
-        ? `Saved — mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
+        ? `Saved - mode ${d.mode}, default ${d.default}.` : (d.message || 'Failed.');
     loadPolicies();
 };
 $('rule-add').onclick = async () => {
@@ -725,7 +725,7 @@ async function loadGuests() {
         const row = document.createElement('div'); row.className = 'item';
         row.innerHTML = `<div class="grow"><div>${gm.user_id}
             <span class="pill">${gm.expired ? 'EXPIRED' : 'active'}</span></div>
-            <div class="sub">expires ${_fmtTs(gm.expires)} · set by ${gm.set_by || '—'}</div></div>`;
+            <div class="sub">expires ${_fmtTs(gm.expires)} · set by ${gm.set_by || '-'}</div></div>`;
         const b = document.createElement('button');
         b.className = 'del'; b.textContent = 'Make permanent';
         b.onclick = async () => {
@@ -748,7 +748,7 @@ $('gst-set').onclick = async () => {
             expires_in_days: parseFloat($('gst-days').value) || 0,
             expires_in_hours: parseFloat($('gst-hours').value) || 0 }) });
     $('gst-msg').textContent = d.success
-        ? `Pass set — ${uid} expires ${_fmtTs(d.expires)}.` : (d.message || 'Failed.');
+        ? `Pass set - ${uid} expires ${_fmtTs(d.expires)}.` : (d.message || 'Failed.');
     if (d.success) { $('gst-user').value = ''; loadGuests(); }
 };
 $('gst-purge').onclick = async () => {
@@ -798,7 +798,7 @@ $('dev-pair').onclick = async () => {
     if (!d.success) { $('dev-msg').textContent = d.message || 'Failed.'; return; }
     const box = $('dev-new');
     box.classList.remove('hidden');
-    box.innerHTML = `<b>Pairing code for “${d.name}”</b> — enter it on the device within
+    box.innerHTML = `<b>Pairing code for “${d.name}”</b> - enter it on the device within
         15 minutes (single use, shown once):<br>
         <code style="font-size:1.05rem">${d.pairing_code}</code><br>
         <span class="muted">Device id: ${d.device_id}</span>`;
@@ -815,7 +815,7 @@ async function loadGuardians() {
         row.innerHTML = `<div class="grow"><div>${l.beneficiary}
             <span class="pill">← ${l.guardian}</span></div>
             <div class="sub">${l.relationship || 'guardian'} · linked ${_fmtTs(l.created)}
-            by ${l.created_by || '—'}</div></div>`;
+            by ${l.created_by || '-'}</div></div>`;
         const b = document.createElement('button');
         b.className = 'del'; b.textContent = 'Unlink';
         b.onclick = async () => {
@@ -836,7 +836,7 @@ $('gdn-link').onclick = async () => {
             beneficiary: $('gdn-beneficiary').value, guardian: $('gdn-guardian').value,
             relationship: $('gdn-rel').value }) });
     $('gdn-msg').textContent = d.success
-        ? `Linked — ${d.guardian} may now verify for ${d.beneficiary}.`
+        ? `Linked - ${d.guardian} may now verify for ${d.beneficiary}.`
         : (d.message || 'Failed.');
     if (d.success) { $('gdn-beneficiary').value = ''; $('gdn-guardian').value = ''; loadGuardians(); }
 };
@@ -858,7 +858,7 @@ async function loadConsent() {
             ${withdrawn ? ' · withdrawn ' + _fmtTs(r.withdrawn_at) : ''}</div></div>`;
         list.appendChild(row);
     });
-    if (!list.children.length) list.innerHTML = '<div class="muted">No consent records yet — they appear as people enrol.</div>';
+    if (!list.children.length) list.innerHTML = '<div class="muted">No consent records yet - they appear as people enrol.</div>';
     $('cns-msg').textContent = `${d.granted} granted · ${d.withdrawn} withdrawn (statement v${d.policy.version}).`;
 }
 $('cns-load').onclick = loadConsent;

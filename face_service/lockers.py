@@ -1,4 +1,4 @@
-"""Locker assignment — bind a physical slot to an identity, opened by face.
+"""Locker assignment - bind a physical slot to an identity, opened by face.
 
 Gyms, pools, workplaces, parcel rooms: a person is assigned a locker and opens it
 by verifying, no key or code. This subsystem manages the assignment lifecycle and
@@ -9,7 +9,7 @@ locker right now?*
   * ``release``  free a locker (end of day, checkout).
   * ``holder``   who currently holds a locker; ``locker_of`` the reverse.
   * ``may_open`` the access check: the holder, yes; anyone else, no.
-  * ``free`` / ``occupied`` — inventory views for a front desk.
+  * ``free`` / ``occupied`` - inventory views for a front desk.
 
 A tenant registers its locker ids up front (a bank of slots); assigning an
 unknown locker is refused so the inventory stays truthful.
@@ -53,7 +53,7 @@ def assign(tenant: Optional[str], locker_id: str, user_id: str) -> dict:
     with _reg.mutate() as data:
         lk = _doc(data, t)["lockers"]
         if lid not in lk:
-            raise ValueError(f"unknown locker '{lid}' — register it first.")
+            raise ValueError(f"unknown locker '{lid}' - register it first.")
         if lk[lid]["holder"] and lk[lid]["holder"] != uid:
             raise ValueError(f"locker '{lid}' is already assigned.")
         lk[lid] = {"holder": uid, "since": int(time.time())}

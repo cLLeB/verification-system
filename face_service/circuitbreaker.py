@@ -3,7 +3,7 @@
 The service talks to flaky things: webhook receivers, SSO providers, SMS gateways.
 Hammering a dependency that is already down wastes time, piles up timeouts, and can
 make an outage worse. A circuit breaker watches the failure stream per dependency
-and, once failures cross a threshold, "opens" — short-circuiting calls for a cooldown
+and, once failures cross a threshold, "opens" - short-circuiting calls for a cooldown
 so the caller fails fast instead of waiting. After the cooldown it goes "half-open"
 and lets a single trial through; success closes it, failure re-opens it.
 
@@ -11,7 +11,7 @@ and lets a single trial through; success closes it, failure re-opens it.
                  the state and, when open, when it will next probe.
   * ``record``   report the outcome of an attempted call (ok / fail); drives the
                  state machine.
-  * ``state`` / ``reset`` — inspect or force-close a breaker.
+  * ``state`` / ``reset`` - inspect or force-close a breaker.
 
 States: ``closed`` (normal), ``open`` (failing fast), ``half_open`` (one probe in
 flight). This is the classic three-state breaker, made pure and pull-based so the

@@ -1,4 +1,4 @@
-"""Service health aggregation — a readiness view across components.
+"""Service health aggregation - a readiness view across components.
 
 Operators need one answer to "is the service healthy?" that rolls up many moving
 parts: the matcher, the database, the model files, each downstream integration. This
@@ -63,7 +63,7 @@ def report(tenant: Optional[str], component: str, status: str, detail: str = "",
 
 
 def _effective(rec: dict, now: int) -> str:
-    """Status accounting for staleness — a silent component is 'down'."""
+    """Status accounting for staleness - a silent component is 'down'."""
     if rec["last_report"] is None:
         return "down"
     if now - rec["last_report"] > rec["interval"]:

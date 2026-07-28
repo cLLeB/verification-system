@@ -1,4 +1,4 @@
-"""Matcher quality benchmark — measures genuine/impostor separation.
+"""Matcher quality benchmark - measures genuine/impostor separation.
 
 Genuine pairs  = different impressions of the SAME finger.
 Impostor pairs = impressions of DIFFERENT fingers.

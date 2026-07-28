@@ -1,7 +1,7 @@
-"""Reason codes — require a justification when accessing flagged resources.
+"""Reason codes - require a justification when accessing flagged resources.
 
 Auditors of high-consequence systems (medication cabinets, evidence lockers,
-financial vaults) want more than "who and when" — they want "why". This subsystem
+financial vaults) want more than "who and when" - they want "why". This subsystem
 lets a tenant mark certain scopes as reason-required and define the allowed set of
 reason codes for each. A verify against such a scope must carry a valid code, or
 it is refused; the code is returned on the result so the caller records it beside
@@ -12,7 +12,7 @@ the access event.
   * ``gate``      post-match: if the scope requires a reason, enforce that the
                   supplied code is one of the allowed set.
 
-Free-text reasons are intentionally *not* the mechanism — a fixed vocabulary is
+Free-text reasons are intentionally *not* the mechanism - a fixed vocabulary is
 analysable, translatable and can't leak PII.
 
 Registry: ``reasoncodes.json`` (env ``FACE_REASONCODES_FILE``).

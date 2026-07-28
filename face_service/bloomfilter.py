@@ -1,4 +1,4 @@
-"""Bloom filter — space-efficient "have we seen this?" at scale.
+"""Bloom filter - space-efficient "have we seen this?" at scale.
 
 Some checks must be fast and memory-cheap over huge sets: "has this device fingerprint
 appeared before", "is this template hash already enrolled", "seen this nonce". A Bloom
@@ -8,7 +8,7 @@ target capacity and error rate and persists its bit array, so seen-checks surviv
 
   * ``create``    a named filter sized for ``capacity`` items at ``error_rate``.
   * ``add``       insert an item (idempotent); returns whether it was probably new.
-  * ``contains``  probable membership — ``False`` is definitive, ``True`` may be a rare
+  * ``contains``  probable membership - ``False`` is definitive, ``True`` may be a rare
                   false positive.
   * ``stats``     configured/observed fill and the current estimated false-positive rate.
 

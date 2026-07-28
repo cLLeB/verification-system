@@ -94,7 +94,7 @@ def test_quality_gate_passes_and_flags():
 
 def test_enroll_gate_is_stricter_than_verify():
     """Anchor quality: enrolment demands well-lit, frame-filling palms and is
-    stricter on sharpness than verify — but the floor must stay REACHABLE on the
+    stricter on sharpness than verify - but the floor must stay REACHABLE on the
     downscaled JPEG frames every live surface actually sends (web OUT_W=720,
     Android). The 2026-07-10 fix dropped enroll_min_sharpness 120 -> 50 after a
     real Safari enrolment (a textbook open palm) was rejected: variance-of-Laplacian
@@ -117,7 +117,7 @@ def test_enroll_gate_is_stricter_than_verify():
     ghosted = _det(roi=mid_roi, sharpness=25.0, roi_px=400)
     assert enroll_quality_ok(ghosted, frame, cfg)[0] == "palm_enroll_blurry"
 
-    # A normal, careful live capture (varLap ~75 at 720px) MUST enrol — this is the
+    # A normal, careful live capture (varLap ~75 at 720px) MUST enrol - this is the
     # case the old 120 floor wrongly blocked everywhere.
     live = _det(roi=mid_roi, sharpness=75.0, roi_px=400)
     assert enroll_quality_ok(live, frame, cfg) is None        # reachable live: enrols
@@ -138,7 +138,7 @@ def test_enroll_gate_is_stricter_than_verify():
 # --- liveness heuristic ----------------------------------------------------
 # Spec (2026-07-02): liveness is gated by SPOOF CUES ONLY (screen moiré + specular
 # saturation). Softness/low texture is a capture-QUALITY problem (min_sharpness gate
-# with an actionable message), NOT evidence of a spoof — the old texture-as-liveness
+# with an actionable message), NOT evidence of a spoof - the old texture-as-liveness
 # design falsely rejected genuine soft palms that still matched at 0.85.
 def test_liveness_passes_organic_and_soft_palms():
     import cv2
@@ -167,7 +167,7 @@ def test_liveness_flags_screen_moire_and_specular():
 
 # --- palm recognition needs NO trained model: classical encoder is built in ---
 def test_classical_is_the_default_encoder(tmp_path):
-    """With no ONNX model installed, the active encoder is the built-in Gabor one —
+    """With no ONNX model installed, the active encoder is the built-in Gabor one -
     so palm recognition is NOT gated on a trained-model file."""
     from palm import classical
     cfg = PalmConfig(model_path=str(tmp_path / "nope.onnx"))
@@ -191,7 +191,7 @@ def test_classical_encoder_deterministic_and_discriminative():
 
 def test_palm_enroll_degrades_gracefully(tmp_path):
     """Whatever the environment: a blank frame never crashes and never returns a
-    face result — it's a clean palm failure (no_hand where the detector runs, or
+    face result - it's a clean palm failure (no_hand where the detector runs, or
     palm_unavailable where MediaPipe is absent). Never an unhandled error."""
     cfg = PalmConfig(model_path=str(tmp_path / "nope.onnx"), db_path=str(tmp_path))
     out = palm_api.enroll("alice", np.zeros((200, 200, 3), np.uint8), cfg)

@@ -1,5 +1,5 @@
 /**
- * <face-verify> — drop-in face verification web component.
+ * <face-verify> - drop-in face verification web component.
  *
  *   <script src="https://YOUR-HOST/widget.js"></script>
  *   <face-verify base="https://YOUR-HOST" api-key="fk_verify_key"></face-verify>
@@ -11,7 +11,7 @@
  *
  * Attributes:
  *   base        API base URL (required)
- *   api-key     a VERIFY-role key (required; safe to expose — it can only recognise)
+ *   api-key     a VERIFY-role key (required; safe to expose - it can only recognise)
  *   user-id     optional: verify a specific person (1:1). Omit for identify (1:N).
  *   accent      optional: override the accent colour (default iris violet #8B7CF6)
  *   button-text optional: CTA label (default "Verify")
@@ -77,7 +77,7 @@
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         this.$('v').srcObject = this.stream;
-      } catch (e) { this._hint('Camera unavailable — allow access.'); }
+      } catch (e) { this._hint('Camera unavailable - allow access.'); }
     }
     _stop() { if (this.stream) this.stream.getTracks().forEach(t => t.stop()); }
     _hint(t, cls = '') { const h = this.$('hint'); h.textContent = t; h.className = 'hint ' + cls; }
@@ -130,7 +130,7 @@
         this._show(result);
         this.dispatchEvent(new CustomEvent('result', { detail: result, bubbles: true, composed: true }));
       } catch (e) {
-        this._hint('Network error — try again.');
+        this._hint('Network error - try again.');
         this.dispatchEvent(new CustomEvent('error', { detail: String(e), bubbles: true, composed: true }));
       } finally {
         this.busy = false; this.$('go').disabled = false; this.$('oval').classList.remove('busy');

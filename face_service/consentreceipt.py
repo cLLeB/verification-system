@@ -1,7 +1,7 @@
-"""Consent receipts — tamper-evident proof of what a person consented to.
+"""Consent receipts - tamper-evident proof of what a person consented to.
 
 Recording that consent was given is not enough; you must be able to *prove* its content
-later — the purposes, the data categories, the timestamp — in a form that can't be
+later - the purposes, the data categories, the timestamp - in a form that can't be
 quietly edited after the fact. This subsystem issues signed consent receipts (in the
 spirit of the Kantara Consent Receipt spec): a structured record HMAC-signed over its
 canonical serialization, so any later tampering is detectable, and a matching withdrawal
@@ -12,7 +12,7 @@ record when consent is revoked.
   * ``verify``    re-compute the signature to confirm a receipt is authentic and
                   unmodified.
   * ``withdraw``  mark a receipt withdrawn (consent revoked), itself timestamped.
-  * ``get`` / ``for_subject`` — retrieve receipts.
+  * ``get`` / ``for_subject`` - retrieve receipts.
 
 The signature covers the immutable fields only; withdrawal is a separate stamped event
 so the original consent proof remains verifiable even after revocation.

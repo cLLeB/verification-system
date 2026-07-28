@@ -1,12 +1,12 @@
-# int8 — deferred (non-conflicting slot)
+# int8 - deferred (non-conflicting slot)
 
 int8 quantization is **not** built into any APK yet, on purpose. Our measurement
 (see `../../_quant_measure.py`) showed int8 is ~4× smaller and faster but shifts
-embeddings ~2% and erodes the same-person margin slightly — and crucially we have
+embeddings ~2% and erodes the same-person margin slightly - and crucially we have
 **not** validated the *impostor / false-accept* side, which needs a **multi-identity**
 face set. fp32 ships forever; fp16 ships as a second flavor now.
 
-This folder is outside `app/src/`, so it is **never compiled into a build** — a safe
+This folder is outside `app/src/`, so it is **never compiled into a build** - a safe
 place to park int8 work until it's validated.
 
 ## When ready to add int8 (after validating on diverse faces)

@@ -1,7 +1,7 @@
-"""Announcements — targeted "what's new" notices with per-user read state.
+"""Announcements - targeted "what's new" notices with per-user read state.
 
-Admins and end users should learn about relevant changes — a new liveness prompt, a
-policy update, scheduled maintenance — without being spammed with irrelevant ones. This
+Admins and end users should learn about relevant changes - a new liveness prompt, a
+policy update, scheduled maintenance - without being spammed with irrelevant ones. This
 subsystem publishes announcements targeted at an audience, tracks which users have read
 which, and serves each user their unread, still-relevant notices. It is a small,
 self-contained in-product messaging surface, distinct from the transactional [[digest]]

@@ -2,14 +2,14 @@
 
 Every controller of personal data must maintain a written record of its processing
 activities and produce it on request from a supervisory authority. For a biometric
-platform that record is not optional paperwork — it is the artefact that
+platform that record is not optional paperwork - it is the artefact that
 demonstrates lawful, purpose-limited processing. This subsystem is a structured
 Art. 30 register: each activity captures the mandatory fields (purpose, lawful
 basis, data categories, recipients, retention, cross-border transfers) and the
 module flags records that are incomplete against the statutory minimum.
 
   * ``add_activity``   register a processing activity with its Art. 30 fields.
-  * ``update`` / ``retire`` — amend or mark an activity as no longer performed.
+  * ``update`` / ``retire`` - amend or mark an activity as no longer performed.
   * ``gaps``           per-activity list of missing mandatory fields.
   * ``export``         the full register (active by default) for the DPA.
 

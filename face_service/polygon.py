@@ -1,7 +1,7 @@
-"""Polygon geofences — arbitrary-shaped boundaries, not just circles.
+"""Polygon geofences - arbitrary-shaped boundaries, not just circles.
 
 A campus, a restricted wing, or a country border isn't a circle or a rectangular geohash
-cell — it's an arbitrary polygon. This subsystem stores polygon fences (ordered lat/lon
+cell - it's an arbitrary polygon. This subsystem stores polygon fences (ordered lat/lon
 vertices) and tests whether a coordinate lies inside one via the ray-casting algorithm,
 completing the geofencing family alongside radius-based [[geofence]], geohash [[geozones]]
 and nearest-site [[sitedirectory]].

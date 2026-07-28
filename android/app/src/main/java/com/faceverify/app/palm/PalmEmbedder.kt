@@ -10,13 +10,13 @@ import java.nio.FloatBuffer
 import kotlin.math.sqrt
 
 /** Palm-print embedding on-device via ONNX Runtime Mobile. Input: a normalised
- *  ROI_SIZE×ROI_SIZE palm crop, **grayscale, [0,1], NCHW (1 channel)** — matching the
+ *  ROI_SIZE×ROI_SIZE palm crop, **grayscale, [0,1], NCHW (1 channel)** - matching the
  *  CCNet `getFeatureCode` export (1×1×128×128). Output: an L2-normalised embedding.
  *  Mirrors the server's palm/engine.py preprocessing for the CCNet encoder.
  *
  *  The model is a CCNet-family palm-print encoder exported to ONNX (see
  *  assets/README_PALM_MODEL.md). When the asset is absent, [load] throws and palm
- *  falls back to the built-in PalmGabor encoder — the face app is unaffected. */
+ *  falls back to the built-in PalmGabor encoder - the face app is unaffected. */
 class PalmEmbedder private constructor(
     private val env: OrtEnvironment,
     private val session: OrtSession,

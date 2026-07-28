@@ -11,7 +11,7 @@ info:
     trust the allow/deny outcome.
 
 
-    Keys carry a **role**: `admin` (full control) or `verify` (recognition only —
+    Keys carry a **role**: `admin` (full control) or `verify` (recognition only -
     cannot enrol, delete, or list). Each tenant is isolated. Calls are metered
     per tenant (see `/v1/usage`) and may be subject to a monthly quota
     (HTTP 429 `quota_exceeded`).
@@ -145,7 +145,7 @@ paths:
                     Palm only. A person has up to two palms and one user_id may enrol
                     both (present either to verify). 'any' binds a second, non-matching
                     hand automatically with no round-trip (default when several images
-                    are sent — bulk/dataset upload); 'other' confirms a second hand
+                    are sent - bulk/dataset upload); 'other' confirms a second hand
                     after a 'different_hand' response; 'auto' (default for a single
                     image) returns code 'different_hand' for a non-matching hand so an
                     interactive UI can confirm. A third distinct hand is refused with
@@ -178,7 +178,7 @@ paths:
                       embeddings: { type: array, items: { type: array, items: { type: number } } }
                   description: >
                     One entry per person. A person's palm `images` may include BOTH
-                    hands in any order — they are clustered into up to two hands and up
+                    hands in any order - they are clustered into up to two hands and up
                     to samples_per_user each are stored (a third hand's shots are
                     dropped). Face images enrol under the same user_id.
       responses: { "200": { description: "Per-user enrolment results (enrolled counts reflect stored anchors, palm capped at two hands)." } }
@@ -186,13 +186,13 @@ paths:
     get:
       summary: "Hybrid sync: pull this tenant's templates for offline matching (role: admin, allow_export)"
       description: >
-        Streams the tenant's templates (PROTECTED embeddings — see /v1/templates/status —
+        Streams the tenant's templates (PROTECTED embeddings - see /v1/templates/status -
         never images or raw vectors), incremental by `since` (the previous `next_seq`);
         deletions come back as `deleted: true`. The response's `protection` block
         {scheme, seedref, seed, epoch} carries the domain seed the device uses to
         project live captures before matching; individually reissued users carry their
         own `seedref`/`seed` on their row. A changed `seedref` means the dataset was
-        reissued — discard the mirror and re-pull from 0. Requires the tenant's
+        reissued - discard the mirror and re-pull from 0. Requires the tenant's
         `allow_export` entitlement.
       parameters:
         - { name: since, in: query, required: false, schema: { type: integer, default: 0 } }
@@ -205,7 +205,7 @@ paths:
     post:
       summary: "Hybrid sync: upload on-device templates into this tenant (role: enroll)"
       description: >
-        Uploads on-device enrolments (RAW embeddings — the server protects them at
+        Uploads on-device enrolments (RAW embeddings - the server protects them at
         rest). Cross-identity dedupe: a biometric matching an EXISTING but
         differently-named person is a conflict resolved by `on_conflict` =
         skip (default) | merge | force.
@@ -267,7 +267,7 @@ paths:
     post:
       summary: "Managed: export templates as an encrypted offline provisioning bundle (role: admin, allow_export)"
       description: >
-        Export this tenant's templates (PROTECTED embeddings only — never images or
+        Export this tenant's templates (PROTECTED embeddings only - never images or
         raw vectors) as a passphrase-encrypted, integrity-protected bundle
         (PBKDF2-HMAC-SHA256 + AES-256-GCM) for provisioning an AIR-GAPPED device
         out-of-band. The payload's `protection` block carries each modality's domain
@@ -285,7 +285,7 @@ paths:
                   type: string
                   description: "Min 8 chars; the same secret is entered on the device to import."
       responses:
-        "200": { description: "{ counts, bundle } — the encrypted bundle object" }
+        "200": { description: "{ counts, bundle } - the encrypted bundle object" }
         "403": { description: Template export not enabled for this tenant }
         "503": { description: Encryption library unavailable }
   /v1/verify:
@@ -351,7 +351,7 @@ paths:
       responses: { "200": { description: Deletion result } }
   /v1/users/export:
     post:
-      summary: "Managed: data-subject access — metadata held for a user (role: manage)"
+      summary: "Managed: data-subject access - metadata held for a user (role: manage)"
       requestBody:
         required: true
         content:
@@ -361,7 +361,7 @@ paths:
               required: [user_id]
               properties: { user_id: { type: string } }
       responses:
-        "200": { description: "What we hold (counts, dim, recent audit) — not the raw template" }
+        "200": { description: "What we hold (counts, dim, recent audit) - not the raw template" }
         "404": { description: No record for that user }
   /v1/users/purge:
     post:
@@ -413,8 +413,8 @@ paths:
       summary: "Template-protection status (role: manage)"
       description: >
         Stored templates are kept in a scrambled, revocable form (cancelable
-        biometrics). Returns per-modality status — enabled, scheme, protection
-        epoch, last reissue, user counts — or one user's detail via ?user_id=.
+        biometrics). Returns per-modality status - enabled, scheme, protection
+        epoch, last reissue, user counts - or one user's detail via ?user_id=.
       parameters:
         - { name: user_id, in: query, required: false, schema: { type: string } }
       responses:
@@ -423,7 +423,7 @@ paths:
     post:
       summary: "Reissue (re-protect) stored templates (role: manage)"
       description: >
-        Moves templates to a NEW protection domain — like resetting a password:
+        Moves templates to a NEW protection domain - like resetting a password:
         every previously stored or exported protected copy stops matching, while
         enrolled people keep verifying with no recapture. Omit user_id to
         reissue the whole tenant; include it to reissue one person.
@@ -448,7 +448,7 @@ paths:
       description: >
         Issues a signed, expiring QR credential carrying the user's PROTECTED,
         int8-quantized template in its own matching domain. Any phone that trusts
-        the issuer can verify the holder offline — no network, no shared database.
+        the issuer can verify the holder offline - no network, no shared database.
         A stolen/photographed QR is unmatchable against any store, useless without
         the live person, revocable, and expiring.
       requestBody:
@@ -532,7 +532,7 @@ paths:
       summary: "Trust another tenant's credentials (cross-org) (role: manage)"
       description: >
         This tenant's verifiers will accept credentials ISSUED by the named
-        tenant. Adopting as a verifier needs no data import — trust the issuer,
+        tenant. Adopting as a verifier needs no data import - trust the issuer,
         scan their cards.
       parameters:
         - { name: tenant, in: path, required: true, schema: { type: string } }

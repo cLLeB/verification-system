@@ -1,10 +1,10 @@
-"""Cancelable template protection — seeded orthonormal projection (biohash family).
+"""Cancelable template protection - seeded orthonormal projection (biohash family).
 
 Every stored/matched vector lives in a *protection domain*: the image of the raw
 embedding under an orthogonal transform derived from a per-store secret and a
 context string (the ``seedref``). Cosine similarity is exactly preserved WITHIN
 a domain, so matching quality is unchanged; vectors from different domains
-(other tenants, other epochs, revoked exports) are unrelated — that
+(other tenants, other epochs, revoked exports) are unrelated - that
 unlinkability is the feature, and "reissue" = new epoch = new domain.
 
 Construction: three rounds of {seeded ±1 sign flips → orthonormal fast
@@ -37,7 +37,7 @@ _ENV_FLAG = "BIO_PROTECT_TEMPLATES"
 
 def enabled() -> bool:
     """Global default for new store instances (a store can override via its
-    ``protect_templates`` kwarg). Default ON — the accuracy gate
+    ``protect_templates`` kwarg). Default ON - the accuracy gate
     (``python -m bench.protected``) passed with a 0.0 TAR delta; set
     BIO_PROTECT_TEMPLATES=0 to opt out."""
     return os.environ.get(_ENV_FLAG, "1") == "1"
@@ -72,7 +72,7 @@ def _next_pow2(n: int) -> int:
 
 def _signs(seed: bytes, dim: int, rnd: int) -> np.ndarray:
     """Deterministic ±1 vector: bits (MSB-first) of SHA-256(seed || round ||
-    counter_be32) blocks — byte-for-byte reproducible in any language."""
+    counter_be32) blocks - byte-for-byte reproducible in any language."""
     chunks = []
     have, counter = 0, 0
     while have < dim:
@@ -120,7 +120,7 @@ class Protector:
     """Per-store protection state: a random 32-byte secret (encrypted at rest
     with the store's cipher when one exists). All projection goes through
     ``project(vecs, seedref)``; crypto-erasing the store's keys makes the
-    secret — and with it every domain — unrecoverable."""
+    secret - and with it every domain - unrecoverable."""
 
     def __init__(self, db_path: str, cipher=None) -> None:
         self.db_path = db_path

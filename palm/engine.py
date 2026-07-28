@@ -1,8 +1,8 @@
-"""Palm-print embedding engine — ONNX encoder (CCNet-family), lazy + thread-safe.
+"""Palm-print embedding engine - ONNX encoder (CCNet-family), lazy + thread-safe.
 
 ``detect()`` returns the prominent palm's embedding + capture quality (no liveness),
 used where a raw embedding is wanted. ``embed()`` adds the quality gate and passive
-anti-spoofing for single-shot enrol/verify — the palm analogue of ``face.engine``.
+anti-spoofing for single-shot enrol/verify - the palm analogue of ``face.engine``.
 
 The encoder is an ONNX model exported offline from a PyTorch CCNet-family network
 (see ``palm/models/README_MODEL.md``). It is loaded lazily; if the file or
@@ -33,7 +33,7 @@ _lock = threading.RLock()           # serialise model use across Flask worker th
 def ensure_model(cfg: PalmConfig = CONFIG) -> bool:
     """Make sure the CCNet ONNX is on disk: if it's missing but a Hugging Face repo
     is configured, download it once. Returns True if the file is present afterward.
-    Fails soft (returns False) so a missing model never crashes — palm falls back to
+    Fails soft (returns False) so a missing model never crashes - palm falls back to
     the built-in classical encoder."""
     if os.path.exists(cfg.model_path):
         return True
@@ -63,7 +63,7 @@ def _onnx_available(cfg: PalmConfig) -> bool:
 
 
 def available(cfg: PalmConfig = CONFIG) -> bool:
-    """Palm works out of the box on the built-in classical encoder — it only needs
+    """Palm works out of the box on the built-in classical encoder - it only needs
     the ROI stack (MediaPipe). A trained ONNX model is an optional accuracy upgrade,
     not a requirement, so palm is NOT gated on a model file."""
     return _roi.available(cfg)
@@ -168,7 +168,7 @@ def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
     """Single-shot enrol/verify: quality gate + passive anti-spoofing.
 
     ``for_enroll=True`` additionally applies the STRICT anchor-quality gate
-    (crisp, well-lit, palm filling the frame) — a weak verify frame costs one
+    (crisp, well-lit, palm filling the frame) - a weak verify frame costs one
     retry, but a weak enrolment anchor degrades that person's matching forever."""
     det = _roi.detect(image, cfg)
     fail = _roi.quality_ok(det, cfg)
@@ -180,7 +180,7 @@ def embed(image: np.ndarray, cfg: PalmConfig = CONFIG, *,
     if cfg.liveness_enabled and _liveness.available():
         live = _liveness.real_score(det.roi, cfg)
         if live < cfg.liveness_threshold:
-            raise PalmError("Liveness check failed — use a live hand, not a photo or screen.",
+            raise PalmError("Liveness check failed - use a live hand, not a photo or screen.",
                             code="palm_liveness")
     emb = _embed_roi(det.roi, cfg)
     return PalmSample(embedding=emb, hand_score=det.hand_score, roi_px=det.roi_px,

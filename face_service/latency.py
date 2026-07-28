@@ -1,4 +1,4 @@
-"""Latency percentiles — track response-time distributions with bounded memory.
+"""Latency percentiles - track response-time distributions with bounded memory.
 
 Averages hide the tail; what matters for a verification service is "how slow is the
 slowest 1% of requests". Percentiles answer that, but keeping every sample is
@@ -13,7 +13,7 @@ size histogram no matter how many samples arrive.
 
 Buckets are sub-bucketed powers of two, giving roughly 5% relative accuracy across a
 wide range while bounding memory. Reported percentile values are bucket upper bounds, so
-they slightly over-estimate — the safe direction for latency SLOs.
+they slightly over-estimate - the safe direction for latency SLOs.
 
 Registry: ``latency.json`` (env ``FACE_LATENCY_FILE``).
 """

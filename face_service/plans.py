@@ -1,10 +1,10 @@
-"""Subscription plans — tiers of features and limits a tenant is entitled to.
+"""Subscription plans - tiers of features and limits a tenant is entitled to.
 
 Commercially the platform is sold in tiers (Starter, Pro, Enterprise), each unlocking
 features and raising limits. Rather than scatter ``if tenant == ...`` checks, this
 subsystem is a plan catalog: define tiers with boolean feature entitlements and numeric
 limits, subscribe a tenant to a tier, then ask "may this tenant use feature X" and
-"what is their limit for Y". It complements per-key metering — plans set the ceilings,
+"what is their limit for Y". It complements per-key metering - plans set the ceilings,
 metering counts against them.
 
   * ``define_plan``  a tier with ``features`` (set of enabled capability names) and
@@ -16,7 +16,7 @@ metering counts against them.
 
 Subscribing to an unknown plan fails loudly so a billing mistake can't silently grant
 an empty entitlement set. A tenant with no subscription is denied all gated features
-and has no limits raised — safe by default.
+and has no limits raised - safe by default.
 
 Registry: ``plans.json`` (env ``FACE_PLANS_FILE``).
 """

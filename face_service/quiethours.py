@@ -1,16 +1,16 @@
-"""Quiet hours — hold back non-critical alerts when nobody is watching.
+"""Quiet hours - hold back non-critical alerts when nobody is watching.
 
 Alerting ([[alerts]]) is only useful if people act on it, and the fastest way to
 be ignored is to buzz someone's phone at 3am about a low-severity event. This
 subsystem defines per-tenant quiet windows (overnight, weekends) during which
-alerts below a severity floor are *suppressed* — held rather than delivered —
+alerts below a severity floor are *suppressed* - held rather than delivered -
 while genuinely urgent (critical) alerts still go through. Suppressed alerts can
 be released in a batch when quiet hours end, so nothing is lost, just deferred.
 
   * ``set_window``   a daily quiet window (start/end minute, optional days).
   * ``is_quiet``     is a given local moment inside a quiet window?
   * ``filter``       decide deliver-now / suppress for an alert at a moment.
-  * ``defer`` / ``release`` — park suppressed alerts and drain them later.
+  * ``defer`` / ``release`` - park suppressed alerts and drain them later.
 
 Severity ordering matches [[alerts]]: info < warning < critical. ``min_severity``
 is the floor that still gets through during quiet hours (default critical).

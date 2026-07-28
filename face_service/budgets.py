@@ -1,10 +1,10 @@
-"""Budgets — track consumption against a cap and fire threshold alerts.
+"""Budgets - track consumption against a cap and fire threshold alerts.
 
 Usage metering (see [[usage]]) counts calls; a budget turns that count into a
 managed limit with early warnings. A tenant sets a period budget (verifies per
 month, say); as consumption accrues, the subsystem reports which alert thresholds
 have been newly crossed (80%, 100%) so the caller can email the account owner
-before service is interrupted — and optionally hard-stop at the cap.
+before service is interrupted - and optionally hard-stop at the cap.
 
   * ``set_budget``  cap + alert thresholds (fractions) for a metric.
   * ``consume``     add usage; returns any thresholds crossed *by this call*.

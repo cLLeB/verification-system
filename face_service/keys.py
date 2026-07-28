@@ -1,7 +1,7 @@
 """API-key store with per-tenant isolation and per-key lifecycle.
 
 Keys authenticate an integrating app and scope it to its own tenant (its users
-never collide with another app's). Keys are stored HASHED — the raw key is shown
+never collide with another app's). Keys are stored HASHED - the raw key is shown
 only once at creation, so a leak of the key file does not expose usable keys.
 Each key carries:
   * a short ``key_id`` (safe to display/log; used to revoke a single key),
@@ -66,7 +66,7 @@ def _save(data: dict) -> None:
 
 def create_key(name: str, tenant: Optional[str] = None, role: str = "admin",
                expires_in_days: Optional[int] = None, sandbox: bool = False) -> dict:
-    """Mint a new API key. Returns the RAW key once (store it now — not recoverable).
+    """Mint a new API key. Returns the RAW key once (store it now - not recoverable).
     A sandbox key returns deterministic canned responses (no model/storage) so
     integrators can build and test before wiring up real cameras."""
     with _lock:

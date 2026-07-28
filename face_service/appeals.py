@@ -1,10 +1,10 @@
-"""Appeals — due process for people who were blocked, denied, or quarantined.
+"""Appeals - due process for people who were blocked, denied, or quarantined.
 
 Automated controls sometimes get it wrong: a legitimate person is locked out, quarantined
 on a false spoof signal, or caught by an over-broad block. Fair systems give them a way to
 contest it. This subsystem is a lightweight appeals workflow: a subject files an appeal
 against a specific action, a reviewer upholds or overturns it with a rationale, and the
-outcome is recorded — the audit trail a regulator or ombudsman expects.
+outcome is recorded - the audit trail a regulator or ombudsman expects.
 
   * ``submit``     file an appeal against an action (lockout / quarantine / denial),
                    with the appellant's statement.
@@ -12,7 +12,7 @@ outcome is recorded — the audit trail a regulator or ombudsman expects.
   * ``decide``     uphold (block stands) or overturn (block should be lifted), with a
                    required rationale; an overturn signals the caller to release the
                    underlying control.
-  * ``status`` / ``queue`` — inspect one, or list open appeals for a reviewer.
+  * ``status`` / ``queue`` - inspect one, or list open appeals for a reviewer.
 
 Each appellant may have at most one open appeal per action at a time, preventing spam;
 a decided appeal is terminal, and a fresh appeal must be filed to contest again.

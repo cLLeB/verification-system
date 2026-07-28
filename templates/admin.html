@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0B1020">
-    <title>Biometric Verify — Admin Console</title>
+    <title>Biometric Verify - Admin Console</title>
     <meta name="theme-color" content="#0B1020">
     <link rel="stylesheet" href="/static/theme.css?v=1">
     <link rel="stylesheet" href="/static/admin.css?v=2">
@@ -71,8 +71,8 @@
             <div class="card">
                 <h2>Invite people to self-enrol</h2>
                 <p class="muted">Send each person a private link. They open it on their own phone and
-                    enrol their face/print under the name <b>you</b> assign — no admin password shared.
-                    Each link is single-use and expires. Links are shown <b>once</b> below — copy or
+                    enrol their face/print under the name <b>you</b> assign - no admin password shared.
+                    Each link is single-use and expires. Links are shown <b>once</b> below - copy or
                     download them now; afterwards only their status is kept.</p>
                 <input id="inv-name" class="field" type="text" placeholder="Person's full name or ID (e.g. Kofi Mensah)">
                 <div class="row">
@@ -86,7 +86,7 @@
                 <button id="inv-create" class="btn primary">Create invite</button>
 
                 <p class="muted" style="margin-top:18px">…or create many at once from a list of names
-                    (one per line and/or comma-separated) — paste below or upload a <code>.txt</code> file:</p>
+                    (one per line and/or comma-separated) - paste below or upload a <code>.txt</code> file:</p>
                 <textarea id="inv-roster" class="field" rows="4"
                           placeholder="Kofi Mensah&#10;Ama Owusu&#10;Yaw Boateng"></textarea>
                 <input id="inv-file" class="field" type="file" accept=".txt,text/plain">
@@ -116,10 +116,10 @@
             <div class="card">
                 <h2>Create API keys</h2>
                 <p class="muted">One company = one tenant. Give it at least one <b>admin</b> (full)
-                    key to enrol, plus any number of <b>verify-only</b> keys. Keys are shown once —
+                    key to enrol, plus any number of <b>verify-only</b> keys. Keys are shown once -
                     download them now.</p>
                 <input id="key-name" class="field" type="text" placeholder="Company / app name (e.g. Acme HR)">
-                <input id="key-tenant" class="field" type="text" placeholder="Tenant id (optional — groups the keys)">
+                <input id="key-tenant" class="field" type="text" placeholder="Tenant id (optional - groups the keys)">
                 <div class="row">
                     <input id="key-admin-n" class="field" type="number" min="0" value="1" placeholder="# admin (full)">
                     <input id="key-verify-n" class="field" type="number" min="0" value="0" placeholder="# verify-only">
@@ -147,7 +147,7 @@
                 </div>
                 <div class="row">
                     <label class="chk"><input id="ent-export" type="checkbox"> Allow template export
-                        (hybrid offline sync — devices may pull this tenant's embeddings)</label>
+                        (hybrid offline sync - devices may pull this tenant's embeddings)</label>
                 </div>
                 <div class="row">
                     <label class="chk"><input id="ent-palm" type="checkbox" checked> Enable print modality
@@ -186,7 +186,7 @@
                 <h2>Access policies <span class="muted">(who is allowed, when)</span></h2>
                 <p class="muted">Verification says <b>who</b> someone is; a policy says whether
                     they're <b>allowed right now</b> (schedules, groups, bans). <b>Advise</b> only
-                    reports; <b>Enforce</b> denies. Off by default — nothing changes until you
+                    reports; <b>Enforce</b> denies. Off by default - nothing changes until you
                     switch it on.</p>
                 <div class="row">
                     <input id="pol-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
@@ -234,7 +234,7 @@
             <div class="card">
                 <h2>Guest passes <span class="muted">(identities that expire)</span></h2>
                 <p class="muted">Time-box a person: after expiry they stop verifying
-                    (<code>identity_expired</code>) even though the enrolment still exists —
+                    (<code>identity_expired</code>) even though the enrolment still exists -
                     extend the pass or purge them for good. QR cards issued to guests
                     never outlive the pass.</p>
                 <div class="row">
@@ -258,7 +258,7 @@
                 <h2>Devices <span class="muted">(kiosk fleet)</span></h2>
                 <p class="muted">Give every kiosk its own identity: mint a <b>pairing code</b>
                     (15 min, single use), enter it on the device, and it receives its own
-                    verify key. Disable cuts one device off instantly — nobody else's key
+                    verify key. Disable cuts one device off instantly - nobody else's key
                     is touched.</p>
                 <div class="row">
                     <input id="dev-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
@@ -277,7 +277,7 @@
                 <h2>Guardians <span class="muted">(verify on someone's behalf)</span></h2>
                 <p class="muted">For people who can't present a biometric (children, elderly,
                     patients): link a guardian, and the guardian's own live verification counts
-                    <b>for</b> the beneficiary — both names land in the audit trail.
+                    <b>for</b> the beneficiary - both names land in the audit trail.
                     Integrations pass <code>on_behalf_of</code> to <code>/v1/verify</code>.</p>
                 <div class="row">
                     <input id="gdn-tenant" class="field" type="text" placeholder="Tenant id (blank = this app)">
@@ -298,7 +298,7 @@
             <div class="card">
                 <h2>Consent <span class="muted">(lawful basis &amp; withdrawal)</span></h2>
                 <p class="muted">Every enrolment records the person's consent against your
-                    statement below (versioned — history stays pinned to the text they saw).
+                    statement below (versioned - history stays pinned to the text they saw).
                     A <b>withdrawal</b> blocks their verification immediately. People can view
                     their record and withdraw themselves at <code>/my-data</code>.</p>
                 <div class="row">
@@ -329,7 +329,7 @@
                 <p class="muted">Each tenant has a signing key. Anything the platform issues for
                     that tenant (credentials, export bundles) is signed with it, so any device can
                     prove it's genuine and untampered. Rotating creates a fresh key; things signed
-                    with the old key <b>stay valid</b> — only new items use the new key.</p>
+                    with the old key <b>stay valid</b> - only new items use the new key.</p>
                 <div class="row">
                     <input id="sec-tenant" class="field" type="text" placeholder="Tenant id (blank = default)">
                     <button id="sec-load" class="btn primary">Load keys</button>
@@ -356,7 +356,7 @@
             </div>
             <div class="card">
                 <h2>ID credentials <span class="muted">(offline QR cards)</span></h2>
-                <p class="muted">Issue a person a <b>signed QR credential</b> — printed or saved to
+                <p class="muted">Issue a person a <b>signed QR credential</b> - printed or saved to
                     their phone, it lets anyone you authorise verify them in seconds,
                     <b>fully offline</b>, with no access to your database. A stolen or photographed
                     code is useless without the live person, can be revoked instantly, and expires.</p>

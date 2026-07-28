@@ -91,7 +91,7 @@ class PalmRoi private constructor(private val landmarker: HandLandmarker) {
     }
 
     private fun sharpness(roi: Bitmap): Float {
-        // variance of a 3x3 Laplacian on luminance — same idea as cv2.Laplacian.var()
+        // variance of a 3x3 Laplacian on luminance - same idea as cv2.Laplacian.var()
         val w = roi.width; val h = roi.height
         val px = IntArray(w * h)
         roi.getPixels(px, 0, w, 0, 0, w, h)

@@ -3,7 +3,7 @@
 Every enrol / verify / identify / delete is recorded as one JSON line, per tenant,
 under ``<audit_dir>/<tenant>.log``. Lines are never edited or deleted in normal
 operation, so there is a tamper-evident record of who did what, when, and the
-outcome — important for biometric compliance and incident review.
+outcome - important for biometric compliance and incident review.
 
 Privacy: we log the *user_id* (the label the integrator chose) and the outcome,
 never the face image or the embedding.

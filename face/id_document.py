@@ -3,13 +3,13 @@ than a live/normal face capture.
 
 Design principle: we detect the **document**, not the face. A tightly-cropped
 passport headshot is indistinguishable from a selfie and is correctly left on
-the normal path; what marks an *ID* is the surrounding document context — a faint
+the normal path; what marks an *ID* is the surrounding document context - a faint
 second 'ghost' portrait, a small face inside a larger card, the card outline,
 dense printed text / an MRZ strip, and (on the live path) a flat, non-live image.
 
 Pure and model-free: it consumes the faces from a single detector pass (see
 ``engine.detect_all``) plus the raw image, and returns a confidence + per-signal
-breakdown. It never raises for ordinary inputs — callers fail open to the normal
+breakdown. It never raises for ordinary inputs - callers fail open to the normal
 enrolment path on any error.
 """
 
@@ -101,7 +101,7 @@ def _signal_small_face(primary_bbox, h: int, w: int) -> float:
 
 def _signal_card_rectangle(image, primary_bbox) -> float:
     """Largest 4-corner convex contour that covers a big-but-not-whole share of
-    the frame — the physical card outline. Guards against the image border itself
+    the frame - the physical card outline. Guards against the image border itself
     (which is a full-frame rectangle) by excluding near-100% coverage."""
     if not _HAVE_CV2:
         return 0.0
@@ -184,7 +184,7 @@ def assess(image: np.ndarray, faces: List, cfg: FaceConfig = CONFIG,
     ) / total_w
 
     # A clear ghost portrait (a smaller, same-identity second face) is on its own
-    # decisive — it is essentially only seen on ID documents, never in a normal
-    # one-person live capture — so it overrides the weighted threshold.
+    # decisive - it is essentially only seen on ID documents, never in a normal
+    # one-person live capture - so it overrides the weighted threshold.
     is_id = bool(score >= cfg.id_confidence_threshold or sig.ghost_portrait >= 0.5)
     return IdAssessment(is_id, float(score), sig, primary_idx, faces)

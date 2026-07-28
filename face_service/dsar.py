@@ -13,10 +13,10 @@ watch the statutory deadline.
   * ``fulfil``      close the request (access → returns the assembled bundle;
                     erasure → records confirmation); stamps completion time.
   * ``reject``      refuse with a reason (e.g. identity not verified, manifestly
-                    unfounded) — the lawful basis to decline must be recorded.
-  * ``overdue`` / ``status`` — deadline tracking for the compliance queue.
+                    unfounded) - the lawful basis to decline must be recorded.
+  * ``overdue`` / ``status`` - deadline tracking for the compliance queue.
 
-``overdue`` surfaces open requests past the deadline, ordered by how late they are —
+``overdue`` surfaces open requests past the deadline, ordered by how late they are -
 exactly the worklist a DPO needs.
 
 Registry: ``dsar.json`` (env ``FACE_DSAR_FILE``).

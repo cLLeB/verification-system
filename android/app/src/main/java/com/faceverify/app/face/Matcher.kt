@@ -25,7 +25,7 @@ object Matcher {
         return best
     }
 
-    /** 1:1 — does the probe match this person's stored embeddings? Face uses the
+    /** 1:1 - does the probe match this person's stored embeddings? Face uses the
      *  default threshold; palm passes its own (the logic is modality-agnostic). */
     fun verify(probe: FloatArray, embeddings: List<FloatArray>,
                matchThreshold: Float = Config.MATCH_THRESHOLD): Decision {
@@ -36,7 +36,7 @@ object Matcher {
     /** 1:N decision over ALREADY-SCORED identities: top must clear the threshold
      *  AND beat the runner-up by the margin, so look-alikes don't slip through.
      *  Split out so callers can score each user with a per-domain probe
-     *  (protected templates — see Protect.kt). */
+     *  (protected templates - see Protect.kt). */
     fun decide(scored: List<Pair<String, Float>>,
                matchThreshold: Float = Config.MATCH_THRESHOLD,
                identifyMargin: Float = Config.IDENTIFY_MARGIN): Decision {
@@ -50,7 +50,7 @@ object Matcher {
         return Decision(granted, if (granted) topId else null, top, margin)
     }
 
-    /** 1:N — who is this? (single-domain convenience over [decide]). */
+    /** 1:N - who is this? (single-domain convenience over [decide]). */
     fun identify(probe: FloatArray, people: List<Pair<String, List<FloatArray>>>,
                  matchThreshold: Float = Config.MATCH_THRESHOLD,
                  identifyMargin: Float = Config.IDENTIFY_MARGIN): Decision =

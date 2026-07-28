@@ -5,14 +5,14 @@ store, index and matcher code:
 
   * Caleb has been verifying for weeks, so his template has picked up adaptive
     vectors that widened it far beyond what he enrolled with.
-  * Samuel — a genuinely different person — turns up to enrol for the first time
+  * Samuel - a genuinely different person - turns up to enrol for the first time
     and is refused four times as "already enrolled as caleb", because the old
     gate scored him against Caleb's *widened* template at the ordinary 1:1 verify
     threshold.
 
 What these tests pin down:
   1. A widened template must not block a genuine new enrollee.
-  2. A real duplicate (same biometric, different name) is STILL blocked — most
+  2. A real duplicate (same biometric, different name) is STILL blocked - most
      importantly on the very first capture, when the new name has no template of
      its own to appeal to.
   3. Adaptation that drifts away from the enrolment anchors is refused, so the
@@ -92,7 +92,7 @@ def test_widened_template_does_not_block_a_genuine_new_enrollee(store):
     for e in store.load("caleb").adaptive:
         idx.add("caleb", e)
 
-    # The poisoned vector really does reach Samuel at the old verify threshold —
+    # The poisoned vector really does reach Samuel at the old verify threshold -
     # this is the condition that produced the false "duplicate".
     probe = store.protect_probe(nudge(samuel, caleb, 0.05))
     assert matcher.best_score(probe, store.load("caleb").embeddings) > 0.65
@@ -109,7 +109,7 @@ def test_real_duplicate_is_blocked_on_the_very_first_capture(store):
     _enrol(store, idx, "caleb", [nudge(caleb, unit(rng.standard_normal(DIM)), 0.08)
                                  for _ in range(3)])
 
-    # Same palm, new name, no self-template yet — judged on the absolute threshold.
+    # Same palm, new name, no self-template yet - judged on the absolute threshold.
     hit = _check(store, idx, nudge(caleb, unit(rng.standard_normal(DIM)), 0.05), "caleb2")
     assert hit is not None
     assert hit.user_id == "caleb"
@@ -187,7 +187,7 @@ def test_prune_adaptive_repairs_a_widened_template_and_keeps_anchors(store):
 
 
 def test_palm_never_learns_from_a_verify():
-    """A palm template must be exactly what was enrolled — nothing else.
+    """A palm template must be exactly what was enrolled - nothing else.
 
     Adaptive enrolment came from the face module, where it tracks a face changing
     over years. A palm print does not age, so palm carried the cost (a verify, whose

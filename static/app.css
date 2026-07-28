@@ -1,4 +1,4 @@
-/* Face Verify — mobile-first biometric UI ("Verified" design system, refreshed)
+/* Face Verify - mobile-first biometric UI ("Verified" design system, refreshed)
    Palette: deep indigo-ink base, bright iris-blue accent, emerald/rose semantics.
    Dark-first with a light theme (html[data-theme="light"]). oklch tokens mirror
    frontend/src/styles.css so the whole platform reads as one system. */
@@ -12,8 +12,8 @@
     --txt: oklch(0.98 0.003 250);          /* primary text */
     --txt-2: oklch(0.7 0.02 258);          /* secondary text */
     --txt-muted: oklch(0.56 0.02 258);     /* placeholders, captions */
-    --brand: oklch(0.7 0.2 262);           /* iris blue — primary / scanner ring */
-    --brand-2: oklch(0.78 0.15 262);       /* light — gradient pair / active glow */
+    --brand: oklch(0.7 0.2 262);           /* iris blue - primary / scanner ring */
+    --brand-2: oklch(0.78 0.15 262);       /* light - gradient pair / active glow */
     --brand-strong: oklch(0.62 0.2 262);   /* pressed / deep fill */
     --ok: oklch(0.72 0.17 155);            /* success / granted */
     --bad: oklch(0.65 0.2 22);             /* danger / denied */
@@ -102,7 +102,7 @@ body {
     outline: 2px solid var(--brand); outline-offset: 2px;
 }
 
-/* Segmented control — muted track, raised surface tab (matches reference) */
+/* Segmented control - muted track, raised surface tab (matches reference) */
 .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr;
     background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px; }
 .seg-btn { position: relative; z-index: 1; border: 0; background: transparent; cursor: pointer;
@@ -123,7 +123,7 @@ body {
     text-transform: uppercase; color: var(--txt-muted); margin-left: 4px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-/* styled dashed upload card — the native file input is hidden inside it */
+/* styled dashed upload card - the native file input is hidden inside it */
 .upload-card { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 14px;
     background: var(--bg-1); border: 1px dashed var(--line-strong); border-radius: var(--radius);
     transition: border-color .2s var(--ease); }
@@ -189,14 +189,14 @@ body {
     transition: box-shadow .3s var(--ease);
 }
 /* Children that get their OWN compositing layer escape the parent's
-   overflow:hidden + border-radius mask, and paint their full rectangle — that is
+   overflow:hidden + border-radius mask, and paint their full rectangle - that is
    the faint grey box around the oval, visible in EVERY state, not just on a
    result. Three separate triggers here: #video.mirror carries a transform, the
    result overlay carries backdrop-filter, and a <video> is composited anyway.
    border-radius on the child was the earlier workaround and is not enough on
    iOS Safari; clip-path is a geometric clip the compositor cannot ignore.
    Applied only to children that fill the whole oval box (inset:0 or 100%/100%),
-   so ellipse(50% 50%) is exactly the oval — .scan-bar is deliberately excluded
+   so ellipse(50% 50%) is exactly the oval - .scan-bar is deliberately excluded
    because it is a short band and would be clipped to its own tiny ellipse. */
 #video, .flash, .result, .cam-denied { clip-path: ellipse(50% 50% at 50% 50%); }
 #video { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
@@ -263,7 +263,7 @@ body {
 /* Result overlay */
 /* border-radius here is REQUIRED, not decoration: .scanner clips its children to
    the oval with overflow:hidden + border-radius, but a child carrying
-   backdrop-filter escapes that clip in WebKit/Blink and paints its full BOX —
+   backdrop-filter escapes that clip in WebKit/Blink and paints its full BOX -
    so the result overlay showed as a faint grey rectangle around the oval on a
    granted/denied result. Rounding the overlay itself makes it elliptical
    regardless of whether the parent's clip is honoured. */
@@ -288,7 +288,7 @@ html[data-theme="light"] .result.ok { background: color-mix(in oklab, var(--ok) 
 .btn-primary { background: var(--brand); color: var(--on-brand); animation: glow-pulse 2.4s var(--ease) infinite; }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost { background: var(--bg-1); color: var(--txt); border: 1px solid var(--line); }
-/* inverted "done" action — bg-foreground / text-background (per design) */
+/* inverted "done" action - bg-foreground / text-background (per design) */
 .btn-contrast { background: var(--txt); color: var(--bg-0); }
 .btn-contrast:hover { opacity: .9; }
 .install-btn { width: auto; gap: 6px; padding: 0 12px; border-radius: 999px; min-height: 38px; }

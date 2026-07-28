@@ -1,4 +1,4 @@
-"""Verification receipts — signed, portable proof that a verify happened.
+"""Verification receipts - signed, portable proof that a verify happened.
 
 A relying party often needs to prove *later* that a person authenticated: a
 delivery was released to the right recipient, a signature was witnessed, an exam
@@ -13,9 +13,9 @@ without it can forge one.
   * The secret is per-tenant and generated on first use; it never leaves the
     server and is never embedded in the receipt.
 
-Receipts carry no biometric data — only the decision and its metadata.
+Receipts carry no biometric data - only the decision and its metadata.
 
-Registry: ``receipts.json`` (env ``FACE_RECEIPTS_FILE``) — stores only the
+Registry: ``receipts.json`` (env ``FACE_RECEIPTS_FILE``) - stores only the
 per-tenant signing secret, not the receipts themselves (those are handed out).
 """
 

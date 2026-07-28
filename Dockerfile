@@ -1,4 +1,4 @@
-# Face Verification Backbone — production container (CPU, no GPU).
+# Face Verification Backbone - production container (CPU, no GPU).
 # Runs as a non-root user and listens on $PORT (default 7860) so it works on
 # Hugging Face Spaces AND a normal server/compose deployment unchanged.
 FROM python:3.12-slim
@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir --upgrade -r requirements-service.txt
 # Pre-download the ArcFace model pack (into the user's cache) so the first request
 # isn't slow and the container works offline after build. Bake BOTH packs: the
 # full buffalo_l (default) and the small buffalo_s (FACE_MODEL_NAME=buffalo_s on a
-# memory-tight host). Baking buffalo_s matters on such a host — otherwise it is
+# memory-tight host). Baking buffalo_s matters on such a host - otherwise it is
 # re-downloaded on every cold start, inside the same startup window where memory
 # is already tight, which is exactly when it must not be.
 ARG FACE_PREFETCH_MODELS="buffalo_l buffalo_s"
@@ -35,7 +35,7 @@ RUN python -c "import sys; from insightface.app import FaceAnalysis; \
 [FaceAnalysis(name=n, allowed_modules=['detection','recognition']).prepare(ctx_id=-1, det_size=(320,320)) \
 for n in '${FACE_PREFETCH_MODELS}'.split()]"
 
-# App code (fingerprint stack is intentionally NOT copied — see .dockerignore).
+# App code (fingerprint stack is intentionally NOT copied - see .dockerignore).
 COPY --chown=user biometric ./biometric
 COPY --chown=user face ./face
 COPY --chown=user palm ./palm

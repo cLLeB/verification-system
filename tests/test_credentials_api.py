@@ -44,7 +44,7 @@ def test_issue_verify_revoke_round_trip(client, fresh_keys):
     assert r["success"] and r["modalities"] == ["face"]
     cid, text = r["credential_id"], r["payload_b45"]
 
-    # the QR PNG actually scans back to the same payload (Aruco detector —
+    # the QR PNG actually scans back to the same payload (Aruco detector -
     # the classic one can't handle dense version-25 codes)
     png = base64.b64decode(r["qr_png_b64"])
     img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_GRAYSCALE)
@@ -120,7 +120,7 @@ def test_trust_store_is_signed_and_lists_revocations(client, fresh_keys):
                          json={"user_id": "alice"}).get_json()
     client.delete(f"/v1/credentials/{issued['credential_id']}", headers=_hdr(key))
 
-    d = client.get("/v1/trust-store").get_json()          # public — no API key
+    d = client.get("/v1/trust-store").get_json()          # public - no API key
     body, sig, root = d["trust_store"], base64.b64decode(d["sig"]), d["root_key"]
     import json as _json
     signed = _json.dumps(body, sort_keys=True, separators=(",", ":")).encode()

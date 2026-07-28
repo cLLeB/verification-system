@@ -1,6 +1,6 @@
 """Bulk-enrol a partner's image dataset, efficiently, into a tenant.
 
-Expected layout — one sub-folder per person, images inside:
+Expected layout - one sub-folder per person, images inside:
 
     dataset/
         alice/   img1.jpg  img2.jpg ...
@@ -8,14 +8,14 @@ Expected layout — one sub-folder per person, images inside:
 
 Each image is run through the face engine once to get its embedding; embeddings
 are written to the encrypted store in bulk (one transaction per batch), and the
-search index is built once at the end — far faster than one-by-one API enrolment.
+search index is built once at the end - far faster than one-by-one API enrolment.
 
     python bulk_enroll.py dataset/                       # into the default store
     python bulk_enroll.py dataset/ --tenant acme         # into tenant 'acme'
     python bulk_enroll.py dataset/ --samples 5           # keep up to 5 per person
 
 Run it while the service is stopped, or restart the service afterwards so it picks
-up the new index (a restart only replays the change tail — seconds).
+up the new index (a restart only replays the change tail - seconds).
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ def main() -> None:
     def is_duplicate(reps, person):
         if dedupe_idx is None:
             return None
-        # the index holds protection-domain vectors — project the probe to match.
+        # the index holds protection-domain vectors - project the probe to match.
         # Check each hand's representative so a second palm can't slip in as a dup.
         for rep in reps:
             for cu, sc in dedupe_idx.search(store.protect_probe(rep), top_k=3):

@@ -1,8 +1,8 @@
-"""Segments — named, reusable audiences defined by tag rules.
+"""Segments - named, reusable audiences defined by tag rules.
 
 Operators repeatedly want "everyone who is a contractor but not offboarded" or
 "night-shift on floor 3". Rather than recompute that by hand each time, a segment
-saves the rule — a small include/exclude set of tags — under a name, and resolves
+saves the rule - a small include/exclude set of tags - under a name, and resolves
 it live against the current [[tags]] data. Segments are the handle other features
 target: send a notice to a segment, apply a policy to a segment, export a segment.
 
@@ -11,7 +11,7 @@ target: send a notice to a segment, apply a policy to a segment, export a segmen
   * ``members``  resolve the segment against current tags.
   * ``matches``  does one identity fall in the segment?
 
-Registry: ``segments.json`` (env ``FACE_SEGMENTS_FILE``) — stores only rules; the
+Registry: ``segments.json`` (env ``FACE_SEGMENTS_FILE``) - stores only rules; the
 membership always comes live from tags, so it is never stale.
 """
 

@@ -9,13 +9,13 @@ object Config {
 
     // Template protection (cancelable biometrics). Synced/bundled templates arrive
     // projected into a revocable domain; live probes are projected with the shipped
-    // domain seed before matching. Mirrors biometric/core/protect.py — the scheme id
+    // domain seed before matching. Mirrors biometric/core/protect.py - the scheme id
     // must match the server's or pulled datasets are rejected as unmatchable.
     const val PROTECT_SCHEME = "hd3-v1"
 
     // Server template-envelope (BE1) version this app understands. Sync/bundle
     // payloads are decoded JSON today, but Phase 2 credentials carry BE1 envelopes;
-    // mirrors biometric/core/envelope.py VERSION — keep in sync.
+    // mirrors biometric/core/envelope.py VERSION - keep in sync.
     const val ENVELOPE_VERSION = 1
 
     // matching (cosine on L2-normalised embeddings)
@@ -23,17 +23,17 @@ object Config {
     const val IDENTIFY_MARGIN = 0.06f         // 1:N: top must beat 2nd identity by this
     const val SAMPLES_PER_USER = 3            // permanent anchor captures per person
 
-    // Glance (continuous on-device 1:N over the synced index) — calibrated
+    // Glance (continuous on-device 1:N over the synced index) - calibrated
     // SEPARATELY from 1:1: at scale the impostor MAX creeps up and glance has no
     // liveness. The server ships a calibrated threshold; the device CLAMPS it to
     // [GLANCE_MIN_THRESHOLD, +GLANCE_CLAMP_BAND] so a bad calibration can never
-    // loosen below the floor. Mirrors face_service/glance.py — keep in sync.
+    // loosen below the floor. Mirrors face_service/glance.py - keep in sync.
     const val GLANCE_MIN_THRESHOLD = 0.45f        // face 1:N floor
     const val GLANCE_MIN_THRESHOLD_PALM = 0.68f   // palm 1:N floor (mirrors glance.py GLANCE_FLOORS)
     const val GLANCE_CLAMP_BAND = 0.12f
     const val GLANCE_MARGIN = 0.08f
 
-    /** Hard device-side 1:N floor for an index of [modality] — the clamp uses this
+    /** Hard device-side 1:N floor for an index of [modality] - the clamp uses this
      *  so a bad/hostile server-sent threshold can never loosen matching below it. */
     fun glanceFloor(modality: String): Float =
         if (modality == "palm") GLANCE_MIN_THRESHOLD_PALM else GLANCE_MIN_THRESHOLD
@@ -62,7 +62,7 @@ object Config {
 
 /** Palm-print tuning. Mirrors the server's palm/config.py so the on-device palm
  *  modality behaves like the service. Palm data lives in its OWN encrypted DB
- *  (palmverify.db), fully isolated from face — never cross-matched. */
+ *  (palmverify.db), fully isolated from face - never cross-matched. */
 object PalmConfig {
     const val EMBED_DIM = 128                  // must match the exported palm ONNX output width
     const val ROI_SIZE = 128                   // square palm ROI fed to the encoder
@@ -73,7 +73,7 @@ object PalmConfig {
 
     // STRICTER gates for ENROLMENT only (anchor quality). A weak verify frame costs
     // one retry; a weak enrolment anchor drags every future verify for that person
-    // toward the impostor zone, permanently. Mirrors palm/config.py — keep in sync.
+    // toward the impostor zone, permanently. Mirrors palm/config.py - keep in sync.
     // 2026-07-10: dropped 120 -> 50. Variance-of-Laplacian is resolution-dependent
     // and camera frames are downscaled before the ROI, so the old 120 floor was
     // unreachable on real captures and rejected every enrolment. 50 stays stricter
@@ -83,8 +83,8 @@ object PalmConfig {
     const val ENROLL_MIN_BRIGHTNESS = 70.0f    // ROI luminance mean floor (too dark)
     const val ENROLL_MAX_BRIGHTNESS = 235.0f   // ...and ceiling (blown out)
 
-    // matching (cosine on L2-normalised embeddings) — palm-tuned.
-    // RE-CALIBRATED 2026-07-27 (late) on captures/ — clean, hand-curated, known-label,
+    // matching (cosine on L2-normalised embeddings) - palm-tuned.
+    // RE-CALIBRATED 2026-07-27 (late) on captures/ - clean, hand-curated, known-label,
     // known-time data. An earlier same-night pass calibrated on LIVE FIELD data gave
     // 0.75 and was wrong: field labels are only as good as the name typed at
     // enrolment, and several frames were filed under the wrong person (frames
@@ -92,19 +92,19 @@ object PalmConfig {
     // Those pairs inflated the apparent impostor ceiling and pushed the threshold up
     // until it rejected real people.
     // Method = what verify computes: probe vs that hand's OTHER captures, MAX over
-    // anchors, leave-one-out. GENUINE n=10 min 0.7161 mean 0.8003 max 0.8653 —
+    // anchors, leave-one-out. GENUINE n=10 min 0.7161 mean 0.8003 max 0.8653 -
     // INCLUDING probes 27 HOURS apart at 0.8380 and 0.8653. IMPOSTOR n=80 max 0.6462.
     // 0.65/0.68/0.70 all give 10/10 genuine and 0/80 impostors; 0.75 rejected 4 of 10
     // genuine. 0.68 is the midpoint of the gap [0.6462, 0.7161].
-    // NOTE: time is NOT the variable — a 27-hour pair scores 0.84 while two shots 36
+    // NOTE: time is NOT the variable - a 27-hour pair scores 0.84 while two shots 36
     // seconds apart score 0.73. Hand POSE is, and max-over-anchors absorbs it, which
     // is why enrolling several DIFFERENT presentations matters.
-    // Mirrors palm/calibration.json — keep the two in sync.
+    // Mirrors palm/calibration.json - keep the two in sync.
     const val MATCH_THRESHOLD = 0.68f
     const val IDENTIFY_MARGIN = 0.08f
     const val SAMPLES_PER_USER = 3            // anchor captures per HAND
     // A person has at most two palms; one identity may enrol both (present either to
-    // verify). Mirrors palm/config.py max_hands_per_user — keep in sync.
+    // verify). Mirrors palm/config.py max_hands_per_user - keep in sync.
     const val MAX_HANDS_PER_USER = 2
     // No one has two right (or two left) hands: reject a second hand whose detected
     // side equals an already-enrolled hand's side. Mirrors reject_same_side_hand.

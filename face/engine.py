@@ -1,7 +1,7 @@
 """ArcFace embedding engine (InsightFace, lazy-loaded, thread-safe).
 
 `detect()` returns the prominent face's embedding + pose + box (quality-gated but
-pose-agnostic) — used by the active-liveness challenge which needs turned poses.
+pose-agnostic) - used by the active-liveness challenge which needs turned poses.
 `embed()` adds the frontal-pose gate and passive anti-spoofing for single-shot
 enrol/verify.
 """
@@ -30,7 +30,7 @@ def _ensure(cfg: FaceConfig):
     with _lock:
         if _app is None:
             # Keep onnxruntime from grabbing large thread pools and pre-extending
-            # its memory arena — on a small host that transient is what tips a
+            # its memory arena - on a small host that transient is what tips a
             # boot over the memory limit. One intra-op thread is also plenty on a
             # shared single vCPU. Set before the first session is created.
             os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -55,7 +55,7 @@ def available() -> bool:
 
 
 # Face can be switched off entirely (BIO_FACE_ENABLED=0) so its ~150 MB of models
-# are never loaded — the way a small host (a 512 MB free tier) runs palm-only. The
+# are never loaded - the way a small host (a 512 MB free tier) runs palm-only. The
 # router already fails soft on an absent modality, so with the presence probe
 # forced to "no face" every request auto-routes to palm and nothing else changes.
 FACE_DISABLED = os.environ.get("BIO_FACE_ENABLED", "1").strip().lower() in ("0", "false", "no")
@@ -63,7 +63,7 @@ FACE_DISABLED = os.environ.get("BIO_FACE_ENABLED", "1").strip().lower() in ("0",
 
 def warm(cfg: FaceConfig = CONFIG) -> bool:
     if FACE_DISABLED:
-        print("[face] disabled (BIO_FACE_ENABLED=0) — palm-only; face models not loaded",
+        print("[face] disabled (BIO_FACE_ENABLED=0) - palm-only; face models not loaded",
               flush=True)
         return False
     try:
@@ -115,7 +115,7 @@ def detect(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceDetection:
     face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
     px = _bbox_px(face)
     if px < cfg.min_face_px:
-        raise FaceError("Face too small — move closer to the camera.")
+        raise FaceError("Face too small - move closer to the camera.")
     emb = np.asarray(face.normed_embedding, dtype=np.float32)
     n = float(np.linalg.norm(emb))
     if n > 0:
@@ -131,7 +131,7 @@ def detect(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceDetection:
 
 def has_face(image: np.ndarray, cfg: FaceConfig = CONFIG) -> Tuple[bool, float]:
     """Fast detection-only presence probe for the auto-router: is there a face, and
-    how confident? Runs ONLY the detector (no recognition), and fails soft — if the
+    how confident? Runs ONLY the detector (no recognition), and fails soft - if the
     model isn't installed or anything goes wrong, returns ``(False, 0.0)`` so the
     router simply treats face as absent rather than erroring the whole request."""
     if FACE_DISABLED or image is None or getattr(image, "size", 0) == 0:
@@ -215,7 +215,7 @@ def detect_pose(image: np.ndarray, cfg: FaceConfig = CONFIG) -> PoseFrame:
             pm.get(image, face)
     px = int(min(bbox[2] - bbox[0], bbox[3] - bbox[1]))
     if px < cfg.min_face_px:
-        raise FaceError("Face too small — move closer to the camera.")
+        raise FaceError("Face too small - move closer to the camera.")
     pose = getattr(face, "pose", None)
     pitch, yaw = (float(pose[0]), float(pose[1])) if pose is not None else (0.0, 0.0)
     return PoseFrame(yaw=yaw, pitch=pitch, det_score=float(face.det_score),
@@ -242,7 +242,7 @@ def embed(image: np.ndarray, cfg: FaceConfig = CONFIG) -> FaceSample:
     if cfg.liveness_enabled and _liveness.available():
         live = _liveness.real_score(image, d.bbox, cfg)
         if live < cfg.liveness_threshold:
-            raise FaceError("Liveness check failed — use a live face, not a photo or screen.",
+            raise FaceError("Liveness check failed - use a live face, not a photo or screen.",
                             code="liveness")
     return FaceSample(embedding=d.embedding, det_score=d.det_score,
                       face_px=d.face_px, live_score=live)

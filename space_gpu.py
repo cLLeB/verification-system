@@ -1,11 +1,11 @@
-"""GPU work for a ZeroGPU Space — batch embedding on CUDA.
+"""GPU work for a ZeroGPU Space - batch embedding on CUDA.
 
 ZeroGPU hands out the accelerator *per call*, inside a ``@spaces.GPU`` function,
 and refuses to start a Space that declares none. That shapes what belongs here:
 per-request verification stays on CPU (a live check is one small image, and paying
 the GPU-allocation cost per request would make it slower, not faster), while the
-genuinely GPU-shaped job — embedding a whole labelled set at once for threshold
-calibration and encoder evaluation — runs here.
+genuinely GPU-shaped job - embedding a whole labelled set at once for threshold
+calibration and encoder evaluation - runs here.
 
 That batch job is the accuracy workflow: ``palm/training/eval_eer.py`` wants an
 ``(N, D)`` embedding matrix plus labels, and producing it for thousands of ROIs is
@@ -60,12 +60,12 @@ def batch_embed(images_b64: List[str], modality: str = "palm") -> dict:
     """Embed many captures in one pass.
 
     The ``@spaces.GPU`` wrapper around this lives in ``space_app.py`` at module
-    scope, because that is where the ZeroGPU runtime looks for it — a decorator
+    scope, because that is where the ZeroGPU runtime looks for it - a decorator
     hidden behind a function-local import in another module is not found, which
     costs a deploy cycle to learn.
 
     Returns ``{embeddings: [[float]], failed: [index], provider, seconds}``.
-    Failures are reported per image rather than aborting the batch — one unusable
+    Failures are reported per image rather than aborting the batch - one unusable
     capture in a thousand shouldn't cost the whole run."""
     t0 = time.time()
     modality = modality if modality in ("palm", "face") else "palm"

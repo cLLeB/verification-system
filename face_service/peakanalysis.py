@@ -1,20 +1,20 @@
-"""Traffic peak analysis — find busy windows and size capacity from history.
+"""Traffic peak analysis - find busy windows and size capacity from history.
 
 Sites have rhythms: a 9am entry rush, a lunchtime spike, a dead night shift. Knowing
 them lets operators staff lanes, pre-warm devices, and set rate limits sensibly. This
 subsystem ingests verify timestamps into an hour-of-week profile (168 buckets: 7 days
-× 24 hours) and derives the analytics a capacity planner needs — busiest windows,
+× 24 hours) and derives the analytics a capacity planner needs - busiest windows,
 per-hour averages, and a peak-based throughput estimate.
 
   * ``ingest``       record one (or a batch of) event epoch-seconds.
   * ``profile``      average events per hour-of-week bucket, over the observed weeks.
   * ``busiest``      the top-N (weekday, hour) windows by average volume.
-  * ``peak_rate``    the p95 hourly volume — a defensible capacity target.
+  * ``peak_rate``    the p95 hourly volume - a defensible capacity target.
   * ``recommend``    suggested concurrent-capacity from peak_rate and a handling time.
 
 Buckets store total counts plus the span of weeks seen, so averages normalise for how
 long data has been collected. Weekday is Monday=0 … Sunday=6 (ISO), hour is local 0–23
-of the supplied timestamps (caller is responsible for tz — pair with [[timezone]]).
+of the supplied timestamps (caller is responsible for tz - pair with [[timezone]]).
 
 Registry: ``peakanalysis.json`` (env ``FACE_PEAKANALYSIS_FILE``).
 """

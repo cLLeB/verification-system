@@ -12,7 +12,7 @@ import java.util.Base64
  *  parsed from the server's signed `/v1/trust-store` response.
  *
  *  The signature covers the EXACT bytes in `payload_b64` (no JSON
- *  canonicalization anywhere). The root key is pinned on first use (TOFU) —
+ *  canonicalization anywhere). The root key is pinned on first use (TOFU) -
  *  a later refresh or file import signed by a different root is rejected.
  *  Verifiers bundle/import this once and refresh opportunistically; a stale
  *  copy still verifies credentials, it just lags on revocations. */
@@ -26,7 +26,7 @@ class TrustData private constructor(
     /** resolve (iss, kid) -> public key for CredentialVerifier.verify. */
     fun resolve(iss: String, kid: String): ByteArray? = keys["$iss/$kid"]
 
-    /** Revocation check (spec 6.5): exact list, or Bloom filter — a Bloom hit
+    /** Revocation check (spec 6.5): exact list, or Bloom filter - a Bloom hit
      *  means REVOKED (no false negatives; malformed data fails closed). */
     fun isRevoked(iss: String, cidHex: String): Boolean {
         val rev = revocations[iss] ?: return false
@@ -49,7 +49,7 @@ class TrustData private constructor(
     }
 
     companion object {
-        /** Double-hash positions in 64-bit WRAPPED unsigned arithmetic — must
+        /** Double-hash positions in 64-bit WRAPPED unsigned arithmetic - must
          *  mirror face_service/credentials.py exactly (it masks to 64 bits). */
         internal fun bloomPositions(cidHex: String, m: Int, k: Int): List<Int> {
             val cid = ByteArray(cidHex.length / 2) {
@@ -110,7 +110,7 @@ object TrustStoreManager {
     private const val PIN = "pinned_root"
 
     /** Verify a full `/v1/trust-store` response (fetched or imported as a file)
-     *  against the pinned root — pinning it on first use — then persist it.
+     *  against the pinned root - pinning it on first use - then persist it.
      *  Throws [IllegalArgumentException] on a bad signature or root mismatch. */
     fun save(ctx: Context, response: JSONObject): TrustData {
         val root = response.optString("root_key")
@@ -118,7 +118,7 @@ object TrustStoreManager {
         val pinned = prefs.getString(PIN, null)
         if (pinned != null) {
             require(pinned == root) {
-                "This trust store is signed by a DIFFERENT root than before — refusing it."
+                "This trust store is signed by a DIFFERENT root than before - refusing it."
             }
         }
         val data = TrustData.verifyAndParse(

@@ -2,7 +2,7 @@
 
 Env vars are set BEFORE any face_service module is imported so the key/audit/usage
 stores point at throwaway files and the admin password is deterministic. API tests
-import the Flask app once (which warms the ONNX models — a few seconds, then cached).
+import the Flask app once (which warms the ONNX models - a few seconds, then cached).
 """
 
 from __future__ import annotations

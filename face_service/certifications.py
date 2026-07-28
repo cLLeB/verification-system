@@ -1,4 +1,4 @@
-"""Certifications — require valid credentials before access to a scope.
+"""Certifications - require valid credentials before access to a scope.
 
 Many secured areas are conditional on a qualification, not just identity: only
 forklift-certified staff onto the warehouse floor, only fire-trained wardens into

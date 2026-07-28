@@ -1,7 +1,7 @@
 # Exam candidate identity
 
-Stops **impersonation at the exam seat** — a rampant problem for exam boards and
-universities — by verifying each candidate's **face or palm** against the index
+Stops **impersonation at the exam seat** - a rampant problem for exam boards and
+universities - by verifying each candidate's **face or palm** against the index
 number they claim, using the backbone's 1:1 verify.
 
 Pairs naturally with an exam-integrity / proctoring product (e.g. the **Protractor**

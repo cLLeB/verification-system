@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Point a custom hostname (e.g. verify.kyere.me) at the Container App and issue a
-# FREE Azure-managed TLS certificate for it. Idempotent — re-running a bound
+# FREE Azure-managed TLS certificate for it. Idempotent - re-running a bound
 # hostname is a no-op, so it's safe to use as the "add another subdomain" tool.
 #
 #   ./bind-domain.sh                      # defaults to verify.kyere.me
@@ -15,7 +15,7 @@
 #
 # The TXT record is Azure proving YOU own the name; the CNAME is the routing.
 # DNS propagation is usually seconds on Namecheap but the TTL can stretch it to
-# ~30 min — the wait loop below covers that.
+# ~30 min - the wait loop below covers that.
 set -euo pipefail
 
 RG="${AZ_RG:-verify-rg}"
@@ -62,7 +62,7 @@ for i in $(seq 1 60); do
         say "    both records live"
         break
     fi
-    [ "$i" = "60" ] && { echo "DNS still not propagated after ~10 min — check the records above" >&2; exit 1; }
+    [ "$i" = "60" ] && { echo "DNS still not propagated after ~10 min - check the records above" >&2; exit 1; }
     printf '    cname=%s txt=%s … retry %d/60\n' "$cname_ok" "$txt_ok" "$i"
     sleep 10
 done
@@ -72,12 +72,12 @@ done
 # RequireCustomHostnameInEnvironment, because issuing a managed certificate
 # requires the hostname to already exist on an app in the environment. `add`
 # attaches it (unsecured), `bind` then issues the cert and secures it.
-# `add` errors if the hostname is already attached — harmless on a re-run.
+# `add` errors if the hostname is already attached - harmless on a re-run.
 say "3/4 adding hostname ${HOSTNAME_}"
 az containerapp hostname add \
     -n "$APP" -g "$RG" \
     --hostname "$HOSTNAME_" \
-    -o none 2>/dev/null || say "    already attached — continuing"
+    -o none 2>/dev/null || say "    already attached - continuing"
 
 say "    issuing managed certificate (up to 20 min, usually ~2-5)"
 az containerapp hostname bind \
@@ -94,4 +94,4 @@ az containerapp show -n "$APP" -g "$RG" \
     -o table
 
 echo
-say "done — https://${HOSTNAME_}"
+say "done - https://${HOSTNAME_}"

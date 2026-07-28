@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Contactless Fingerprint — native-camera capture client.
+// Contactless Fingerprint - native-camera capture client.
 //
 // The reliable way to get ridges off a phone is the NATIVE camera (tap to
 // focus, pinch to zoom, you SEE the ridges before shooting). So we open it via
@@ -65,13 +65,13 @@ function croppedDataURL() {
     const sx = (iw - cw) / 2, sy = (ih - ch) / 2;
     canvas.height = OUT_H; canvas.width = Math.round(OUT_H * CROP_ASPECT);
     ctx.drawImage(preview, sx, sy, cw, ch, 0, 0, canvas.width, canvas.height);
-    // Lossless PNG — JPEG compression smears ridge detail and destabilises matching.
+    // Lossless PNG - JPEG compression smears ridge detail and destabilises matching.
     return canvas.toDataURL('image/png');
 }
 
 async function submit() {
     const img = croppedDataURL();
-    if (!img) { setHint('Could not read that photo — retake.'); return; }
+    if (!img) { setHint('Could not read that photo - retake.'); return; }
     confirmActions.classList.add('hidden');
     statusText.textContent = 'Processing';
     progressWrap.classList.remove('hidden');
@@ -88,7 +88,7 @@ async function submit() {
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
     } catch (e) {
-        clearInterval(anim); resetToIdle('Network error — is the server running?');
+        clearInterval(anim); resetToIdle('Network error - is the server running?');
     }
 }
 
@@ -97,13 +97,13 @@ function handle(data) {
     statusText.textContent = 'Ready';
     progressWrap.classList.add('hidden');
     if (data.code === 'low_quality' || data.code === 'liveness') {
-        resetToIdle(data.message || 'Capture not usable — retake with more light, filling the circle.');
+        resetToIdle(data.message || 'Capture not usable - retake with more light, filling the circle.');
         return;
     }
     if (mode === 'enroll') {
         const n = data.samples || 0;
         renderDots(n);
-        if (data.success && n < ENROLL_TARGET) { resetToIdle(`Captured ${n}/${ENROLL_TARGET} — scan the SAME finger again`); return; }
+        if (data.success && n < ENROLL_TARGET) { resetToIdle(`Captured ${n}/${ENROLL_TARGET} - scan the SAME finger again`); return; }
         if (data.success) { show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify`); userId.value = ''; renderDots(0); return; }
         if (data.code === 'inconsistent') { resetToIdle(data.message); return; }
         show('bad', ICON_BAD, 'Enrolment failed', data.message || '');

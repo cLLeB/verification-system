@@ -1,9 +1,9 @@
-"""Per-tenant branding — white-label the enrolment and verification surfaces.
+"""Per-tenant branding - white-label the enrolment and verification surfaces.
 
 When the platform is resold, each tenant wants their own name, logo and colours on the
 self-enrolment page, receipts and emails. This subsystem stores per-tenant branding
 tokens, validates them (colours must be real hex, URLs must look like URLs), and
-resolves an effective theme by layering a tenant's overrides over sensible defaults —
+resolves an effective theme by layering a tenant's overrides over sensible defaults -
 so a surface always has a complete theme to render even when a tenant sets only a logo.
 
   * ``set_branding``  update one or more tokens for a tenant (partial updates merge).

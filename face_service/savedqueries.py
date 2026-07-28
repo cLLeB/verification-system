@@ -1,4 +1,4 @@
-"""Saved queries — reusable, safe filters over identity records.
+"""Saved queries - reusable, safe filters over identity records.
 
 Admin consoles need "show me all contractors in the Accra site whose clearance
 expires this month" saved and re-runnable. Rather than embed a query language or,
@@ -10,7 +10,7 @@ module knows about.
   * ``save``    persist a named filter (a predicate tree).
   * ``run``     evaluate a saved filter against a list of records, returning matches.
   * ``evaluate`` run an ad-hoc predicate tree without saving.
-  * ``list_queries`` / ``delete`` — manage saved filters.
+  * ``list_queries`` / ``delete`` - manage saved filters.
 
 Predicate tree grammar (JSON-friendly):
     leaf : {"field": "dept", "op": "eq", "value": "ops"}

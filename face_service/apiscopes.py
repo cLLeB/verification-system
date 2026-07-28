@@ -1,7 +1,7 @@
 """Hierarchical API scopes for machine tokens.
 
 RBAC roles ([[roles]]) answer "what may this *person* do"; API scopes answer "what
-may this *token* do" — the OAuth-style least-privilege grant a caller stamps on a
+may this *token* do" - the OAuth-style least-privilege grant a caller stamps on a
 key so a compromised integration token can't do everything. Scopes are dotted and
 hierarchical (``verify.read``, ``enrol.write``, ``admin.*``) and a grant may use a
 trailing ``*`` wildcard to cover a whole branch.
@@ -13,7 +13,7 @@ trailing ``*`` wildcard to cover a whole branch.
   * ``scopes``  the effective scope set for a token.
 
 Matching is deliberately one-directional: a *grant* may be a wildcard that covers a
-concrete *required* scope, but a concrete grant never satisfies a wildcard request —
+concrete *required* scope, but a concrete grant never satisfies a wildcard request -
 so ``check(tok, "verify.*")`` needs an actual wildcard grant, preventing accidental
 privilege inflation.
 

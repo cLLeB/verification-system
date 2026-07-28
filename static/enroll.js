@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Self-enrolment — opened from an invite link (/enroll?token=...).
+// Self-enrolment - opened from an invite link (/enroll?token=...).
 //   * The person's identity is FIXED by the token (pre-assigned by an admin) and
 //     shown read-only; there is no name field to type.
 //   * The link is scoped to one or both modalities (face / palm). Only the allowed
@@ -25,7 +25,7 @@ let stepUp = { required: false, satisfied: true, modality: null };
 let liveness = false;                // server: self_enroll_liveness && active_liveness
 
 const DEAD_CODES = ['used', 'expired', 'revoked', 'invalid'];
-// Guided head-turn — see static/app.js for the reasoning. The old values here were
+// Guided head-turn - see static/app.js for the reasoning. The old values here were
 // worse still: 12 frames 130 ms apart is 1.5 SECONDS for a three-part instruction,
 // with each prompt shown only after its frame was already taken.
 const TURN_PHASES = [
@@ -36,10 +36,10 @@ const TURN_PHASES = [
 const PHASE_LEAD_MS = 350, BURST_GAP_MS = 250;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// --- Live-preview watchdog — production camera-freeze fix --------------------
+// --- Live-preview watchdog - production camera-freeze fix --------------------
 // iOS Safari pauses an inline, transformed <video> after a canvas capture plus
 // CSS animations, and never auto-resumes. A paused <video> keeps re-drawing its
-// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images —
+// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images -
 // that is why enrolment recorded the same frozen frame as samples 2 and 3. A
 // MUTED video may always be replayed programmatically (autoplay policy), so we
 // resume it on every pause / tab return, and wait for a genuinely fresh frame
@@ -119,7 +119,7 @@ function renderPhase() {
     if (inStepUp()) {
         setModeNote('Security check: this link adds a new biometric to an existing ' +
             "record. First confirm your identity with a biometric you've already " +
-            'enrolled — your face (front camera) OR your hand (rear camera).');
+            'enrolled - your face (front camera) OR your hand (rear camera).');
         captureBtn.textContent = 'Confirm identity';
         setHint('Show your enrolled face or hand, then tap Confirm identity');
     } else {
@@ -127,7 +127,7 @@ function renderPhase() {
         captureBtn.textContent = 'Capture';
         const label = allowed.length === 1
             ? (allowed[0] === 'palm' ? 'your open hand' : 'your face')
-            : 'your face — or your open hand';
+            : 'your face - or your open hand';
         setHint(`Show ${label}, then tap Capture`);
     }
 }
@@ -146,7 +146,7 @@ async function startCamera() {
         video.classList.toggle('mirror', facing === 'user');   // mirror the selfie view only
         captureBtn.disabled = false;
     } catch (err) {
-        setHint('Camera unavailable — allow camera access and reload.', 'warn');
+        setHint('Camera unavailable - allow camera access and reload.', 'warn');
         captureBtn.disabled = true;
     }
 }
@@ -155,7 +155,7 @@ function swapCamera() {
     if (busy) return;
     facing = facing === 'user' ? 'environment' : 'user';
     startCamera();
-    setHint(facing === 'user' ? 'Front camera — best for face' : 'Back camera — best for hand');
+    setHint(facing === 'user' ? 'Front camera - best for face' : 'Back camera - best for hand');
 }
 
 function grabFrame() {
@@ -229,7 +229,7 @@ async function captureBurst() {
     return frames;
 }
 
-// A short burst of fresh stills (no head-turn) — the server keeps the sharpest, so
+// A short burst of fresh stills (no head-turn) - the server keeps the sharpest, so
 // one soft/ghosted frame never decides a capture. Used for palm and non-liveness face.
 async function captureStillBurst(n = 5, gap = 110) {
     const frames = [];
@@ -256,7 +256,7 @@ async function captureBody() {
 
 async function doStepUp() {
     const body = await captureBody();
-    if (!body) { setHint('Camera not ready — try again.'); return; }
+    if (!body) { setHint('Camera not ready - try again.'); return; }
     setHint('Checking…');
     const res = await fetch('/api/invite/stepup', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -267,9 +267,9 @@ async function doStepUp() {
     if (data.success) {
         stepUp.satisfied = true;
         renderPhase();
-        setHint('Identity confirmed ✓ — now add your new biometric', 'ok');
+        setHint('Identity confirmed ✓ - now add your new biometric', 'ok');
     } else {
-        setHint(data.message || 'That did not match — try again.', 'warn');
+        setHint(data.message || 'That did not match - try again.', 'warn');
     }
 }
 
@@ -285,7 +285,7 @@ async function postEnroll(body, hand) {
 
 async function doEnroll() {
     const body = await captureBody();
-    if (!body) { setHint('Camera not ready — try again.'); return; }
+    if (!body) { setHint('Camera not ready - try again.'); return; }
     setHint('Checking…');
     let { res, data } = await postEnroll(body);
     // A palm that matches neither hand you've enrolled: offer to add it as your other
@@ -295,7 +295,7 @@ async function doEnroll() {
             setHint('Adding your other hand…');
             ({ res, data } = await postEnroll(body, 'other'));
         } else {
-            setHint('Okay — present the SAME hand you enrolled first.', 'warn');
+            setHint('Okay - present the SAME hand you enrolled first.', 'warn');
             return;
         }
     }
@@ -305,7 +305,7 @@ async function doEnroll() {
         return;
     }
     if (data.code === 'same_hand_side') {          // that side is already enrolled
-        setHint(data.message || 'That side is already enrolled — use your other hand.', 'warn');
+        setHint(data.message || 'That side is already enrolled - use your other hand.', 'warn');
         return;
     }
     if (data.code === 'step_up_required') {          // server insists on step-up first
@@ -324,25 +324,25 @@ async function doEnroll() {
         const nextLabel = more.length ? (more[0] === 'palm' ? 'hand' : more[0]) : '';
         // A palm needs SEVERAL SEPARATE PRESENTATIONS, not several shots of a hand
         // held still. Measured on the curated capture set: worst-case genuine score
-        // is 0.61-0.72 from one anchor and 0.62-0.73 from two — both under the 0.68
-        // accept — but 0.72-0.87 from three, which always clears it. What varies is
+        // is 0.61-0.72 from one anchor and 0.62-0.73 from two - both under the 0.68
+        // accept - but 0.72-0.87 from three, which always clears it. What varies is
         // hand POSE, so the user has to lower the hand and raise it again between
         // captures; telling them only about their "other hand" left the single
         // biggest driver of reliability to chance.
         const need = (data.samples_target || 3) - (data.hand_samples || 0);
         if (data.modality === 'palm' && need > 0) {
-            setHint(`Print captured ✓ (${data.hand_samples} of ${data.samples_target}) — `
+            setHint(`Print captured ✓ (${data.hand_samples} of ${data.samples_target}) - `
                 + `lower your hand, raise it again at a slightly different angle, `
                 + `and capture ${need} more time${need > 1 ? 's' : ''}.`, 'ok');
         } else {
             const palmHint = data.modality === 'palm' && data.hand === 1
-                ? ' — you can also add your OTHER hand' : '';
+                ? ' - you can also add your OTHER hand' : '';
             setHint(more.length
-                ? `${what} captured ✓ — now your ${nextLabel}, or tap Finish`
-                : `${what} captured ✓${palmHint} — tap Finish`, 'ok');
+                ? `${what} captured ✓ - now your ${nextLabel}, or tap Finish`
+                : `${what} captured ✓${palmHint} - tap Finish`, 'ok');
         }
     } else {
-        setHint(data.message || 'No usable biometric detected — try again.', 'warn');
+        setHint(data.message || 'No usable biometric detected - try again.', 'warn');
     }
 }
 
@@ -353,7 +353,7 @@ async function capture() {
         if (inStepUp()) await doStepUp();
         else await doEnroll();
     } catch (err) {
-        setHint('Network error — try again.', 'warn');
+        setHint('Network error - try again.', 'warn');
     } finally {
         busy = false; captureBtn.disabled = false;
     }
@@ -382,11 +382,11 @@ async function finish() {
         } else if (DEAD_CODES.includes(data.code)) {
             fatal(data.message);
         } else {
-            setHint(data.message || 'Could not finish — try again.', 'warn');
+            setHint(data.message || 'Could not finish - try again.', 'warn');
             busy = false; finishBtn.disabled = false;
         }
     } catch (err) {
-        setHint('Network error — try again.', 'warn');
+        setHint('Network error - try again.', 'warn');
         busy = false; finishBtn.disabled = false;
     }
 }

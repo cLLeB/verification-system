@@ -2,16 +2,16 @@
 # One-time (idempotent) provisioning of the face+palm service on Azure Container
 # Apps, sized for accuracy + speed on the GitHub Student $100 credit:
 #
-#   * 2 vCPU / 4 GB per replica  — restores the FULL models HF's 512 MB forced you
+#   * 2 vCPU / 4 GB per replica  - restores the FULL models HF's 512 MB forced you
 #     to gut (buffalo_l face + full palm pipeline + liveness). No degrade env vars.
-#   * scale 0..1                 — scale-to-zero is cheap during the pilot (a logo
+#   * scale 0..1                 - scale-to-zero is cheap during the pilot (a logo
 #     loading screen covers the ~15 s wake); max 1 keeps a SINGLE SQLite writer so
 #     the Azure Files mount never sees concurrent writers. Flip min to 1 when live.
-#   * image pulled from GHCR     — free (your pack), built by GitHub Actions.
-#   * /data on Azure Files (SMB) — durable templates + field data across restarts,
+#   * image pulled from GHCR     - free (your pack), built by GitHub Actions.
+#   * /data on Azure Files (SMB) - durable templates + field data across restarts,
 #     with BIO_SQLITE_JOURNAL=DELETE (WAL can't run on SMB; single writer is safe).
 #
-# Run it once, AFTER `az login`. Re-running is safe — every step is create-if-missing.
+# Run it once, AFTER `az login`. Re-running is safe - every step is create-if-missing.
 #
 #   az login                      # interactive; in this session type:  ! az login
 #   ./deploy-azure.sh <ghcr-user> <ghcr-pat>
@@ -34,7 +34,7 @@ ENVNAME="${AZ_ENV:-verify-env}"
 APP="${AZ_APP:-verify}"
 # Storage name must be globally unique + 3-24 lowercase alphanumerics. Derive it
 # from the subscription id so it's both unique to you AND identical on every run
-# (idempotent — a re-run reuses the same account instead of orphaning a new one).
+# (idempotent - a re-run reuses the same account instead of orphaning a new one).
 SUB="$(az account show --query id -o tsv 2>/dev/null | tr -d '\r')"
 STORAGE="${AZ_STORAGE:-vd$(echo "$SUB" | tr -cd '0-9a-f' | cut -c1-22)}"
 SHARE="${AZ_SHARE:-data}"
@@ -44,9 +44,9 @@ MEM="${AZ_MEM:-4.0Gi}"
 MIN_REPLICAS="${AZ_MIN_REPLICAS:-0}"           # 0 = scale-to-zero; set 1 when live
 MAX_REPLICAS="${AZ_MAX_REPLICAS:-1}"           # 1 = single SQLite writer (do not raise)
 PORT="${AZ_PORT:-7860}"
-# Face recognition pack — see the note by the env-vars block for the measurements.
+# Face recognition pack - see the note by the env-vars block for the measurements.
 FACE_MODEL_NAME="${AZ_FACE_MODEL:-buffalo_s}"
-# Seconds between durable snapshots — this is the restart data-loss window.
+# Seconds between durable snapshots - this is the restart data-loss window.
 PERSIST_INTERVAL="${AZ_PERSIST_INTERVAL:-10}"
 
 GHCR_USER="${1:-}"
@@ -124,7 +124,7 @@ else
             FACE_PERSIST_INTERVAL="$PERSIST_INTERVAL" \
         --only-show-errors 1>/dev/null
 fi
-# FACE_PERSIST_INTERVAL: the share is mounted at /snapshot, NOT at /data — the live
+# FACE_PERSIST_INTERVAL: the share is mounted at /snapshot, NOT at /data - the live
 # SQLite lives on the container's ephemeral disk and is copied to durable storage
 # every INTERVAL seconds (SQLite is deliberately kept off the SMB share; see the
 # WAL/journal notes). So the interval IS the data-loss window on a restart. At the
@@ -136,22 +136,22 @@ fi
 # this container's 2 vCPU (ONNX Runtime, 2 intra-op threads), per model call:
 #   buffalo_l  detector 133 ms  landmarks  65 ms  recognition(r50)  1561 ms
 #   buffalo_s  detector  39 ms  landmarks 134 ms  recognition(mbf)    24 ms
-# Recognition dominated everything — a verify burst (5 detected frames + 2
+# Recognition dominated everything - a verify burst (5 detected frames + 2
 # recognitions) cost 4.11 s, and a face enrolment 1.76 s. On buffalo_s the same
 # burst is 0.91 s and an enrolment 0.20 s, WITHOUT dropping a single frame or
 # either security check. Accuracy was A/B'd on the pilot's own recorded faces
 # (leave-one-out): buffalo_l genuine 0.666-0.792 vs impostor max 0.232;
-# buffalo_s genuine 0.665-0.780 vs impostor max 0.305 — same accept/reject
+# buffalo_s genuine 0.665-0.780 vs impostor max 0.305 - same accept/reject
 # decision on every one of the 36 pairs at the 0.40 threshold. The margin is
 # smaller, so revisit this if the population grows into the thousands.
-# NOTE: the two packs' embeddings are NOT interchangeable — switching invalidates
+# NOTE: the two packs' embeddings are NOT interchangeable - switching invalidates
 # existing face templates and everyone must re-enrol.
 # FACE_FIELD_DIR points field captures STRAIGHT at the durable mount instead of
 # relying on the 60s snapshot loop. Captures are plain JPEG/JSONL, so unlike
-# SQLite they write to SMB fine — and the pilot's training data is then durable
+# SQLite they write to SMB fine - and the pilot's training data is then durable
 # the instant it is recorded, with no window where a restart can eat it.
 # FACE_PERSIST_DIR=/data is REQUIRED, not cosmetic: persistence.py defaults its
-# snapshot SOURCE to /data, but fielddata.py and the collect dir default to "." —
+# snapshot SOURCE to /data, but fielddata.py and the collect dir default to "." -
 # so leaving it unset silently writes every field capture to the container's
 # ephemeral working dir, outside the snapshot, and loses it on each revision.
 # BIO_DB_KEY_STATELESS=1 is REQUIRED on Azure Files: the encryption key derives from
@@ -177,7 +177,7 @@ for c in tmpl["containers"]:
     if not any((m or {}).get("volumeName") == "data" for m in mounts):
         # Mount the durable share at /snapshot (NOT /data): SQLite runs live on the
         # container's local /data; persistence.py snapshots it here. SQLite cannot
-        # run directly on the SMB share — its file locking breaks ("database is locked").
+        # run directly on the SMB share - its file locking breaks ("database is locked").
         mounts.append({"volumeName": "data", "mountPath": "/snapshot"})
     c["volumeMounts"] = mounts
 yaml.safe_dump(doc, open(path, "w"), sort_keys=False)

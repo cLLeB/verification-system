@@ -1,8 +1,8 @@
 /**
- * Biometric Verification Backbone — JavaScript SDK (browser & Node 18+, zero deps).
+ * Biometric Verification Backbone - JavaScript SDK (browser & Node 18+, zero deps).
  *
  * Face AND palm in one API: the server AUTO-DETECTS whether each image is a face or
- * a palm and routes it — you never declare the modality. A user can enrol either or
+ * a palm and routes it - you never declare the modality. A user can enrol either or
  * both under one id; presenting either verifies them (`r.modality` says which).
  *
  *   import { FaceVerifyClient } from "./faceverify.js";
@@ -13,7 +13,7 @@
  *
  * Images are passed as base64 strings or data-URLs (the server strips the prefix).
  * Pass an optional `modality` ("face" | "palm") only to pin routing; omit it to
- * auto-detect. NOTE: an admin/enroll key in browser code is exposed to users — keep
+ * auto-detect. NOTE: an admin/enroll key in browser code is exposed to users - keep
  * enrol keys server-side and only ship a `verify`-role key to the browser if at all.
  */
 export class FaceVerifyClient {
@@ -52,7 +52,7 @@ export class FaceVerifyClient {
     return this._call("POST", "/v1/compare", body);
   }
 
-  // managed — image may be a face OR a palm; auto-detected unless `modality` is set.
+  // managed - image may be a face OR a palm; auto-detected unless `modality` is set.
   // Palm holds BOTH hands under one id (present either to verify). Several palm
   // images at once auto-bind up to two hands (bulk). `hand`: "any" (auto-bind 2nd,
   // default for multi-image) | "other" (confirm after a different_hand prompt) |

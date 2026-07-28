@@ -1,4 +1,4 @@
-"""Quorum — an action needs N distinct approvers out of an eligible set.
+"""Quorum - an action needs N distinct approvers out of an eligible set.
 
 Where [[twoperson]] fixes the count at two, some decisions need a configurable
 threshold: 3 of the 5 key-holders to open the safe, a majority of trustees to
@@ -10,7 +10,7 @@ approvers are in within the window, the action is authorized.
                       window).
   * ``approve``       one identity casts approval by verifying; duplicates and
                       ineligible identities are ignored; returns live tally.
-  * ``is_authorized`` / ``consume`` — check then single-use spend.
+  * ``is_authorized`` / ``consume`` - check then single-use spend.
 
 If no eligible list is given, any identity counts (open quorum). Expired sessions
 resolve to not-authorized.

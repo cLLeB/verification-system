@@ -1,7 +1,7 @@
-"""Cooldown — lock an identity out after repeated failed verifies.
+"""Cooldown - lock an identity out after repeated failed verifies.
 
 Rate limiting on the API key (see [[keys]]) stops a caller hammering the service,
-but it does not stop repeated attempts against *one identity* — a spoofing rig
+but it does not stop repeated attempts against *one identity* - a spoofing rig
 grinding presentation attacks at Ama's face, or a stolen photo tried over and
 over. This subsystem counts consecutive failures per (tenant, user_id or subject
 key) and, once a threshold is crossed inside a window, refuses further verifies

@@ -1,7 +1,7 @@
 """Active-liveness challenge tokens: unique, signed, single-use (anti-replay).
 
 Imports the face engine module, so it skips where models/cv2 are absent (run via the
-venv). The logic under test is pure HMAC + a nonce set — no model inference needed.
+venv). The logic under test is pure HMAC + a nonce set - no model inference needed.
 """
 
 import time

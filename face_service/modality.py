@@ -1,4 +1,4 @@
-"""Modality orchestration — the auto-router wired to face + palm, plus tenant policy.
+"""Modality orchestration - the auto-router wired to face + palm, plus tenant policy.
 
 This is the single place the service calls for enrol / verify / identify when the
 caller has NOT pinned a modality (the default). It:
@@ -6,12 +6,12 @@ caller has NOT pinned a modality (the default). It:
   1. routes the image (face vs palm vs both vs none) via ``biometric.router``,
   2. dispatches to ``face.api`` and/or ``palm.api`` for the routed modality, and
   3. combines results under the tenant's ``match_policy``:
-       * "or"       — either modality granting is a grant (default),
-       * "fallback" — same grant rule; face is just preferred first at capture,
-       * "and"      — a step-up: a user who has BOTH enrolled must pass both.
+       * "or"       - either modality granting is a grant (default),
+       * "fallback" - same grant rule; face is just preferred first at capture,
+       * "and"      - a step-up: a user who has BOTH enrolled must pass both.
 
 The caller passes the tenant-scoped **face config** (so the routed face path carries
-the app's runtime overrides — e.g. liveness disabled via env — and behaves exactly
+the app's runtime overrides - e.g. liveness disabled via env - and behaves exactly
 like the direct face path). The palm config shares the same tenant data root; the
 palm profile stores under ``<root>/palm/`` so the two never mix. Everything fails
 soft: if a modality's model is unavailable, its probe reports "absent" and routing
@@ -62,7 +62,7 @@ def _load_calibrated_threshold(face_cfg: FaceConfig) -> Optional[float]:
 
 def _palm_cfg_for(face_cfg: FaceConfig) -> PalmConfig:
     """Palm config sharing the tenant's data root with the given face config. Applies
-    the tenant's data-driven (auto-calibrated) threshold when one has been learned —
+    the tenant's data-driven (auto-calibrated) threshold when one has been learned -
     but ONLY to tighten: the learned value is clamped to [base, base+0.12] so a
     small-sample auto-calibration can never drop below the curated baseline
     (re-opening false-accepts) or drift so high it locks genuine users out."""
@@ -76,8 +76,8 @@ def _palm_cfg_for(face_cfg: FaceConfig) -> PalmConfig:
 
 def _no_biometric() -> dict:
     return {"success": False, "code": "no_biometric_detected", "modality": "none",
-            "message": "No face or palm detected. Center your face — or hold an open "
-                       "palm to the camera — in good light.",
+            "message": "No face or palm detected. Center your face - or hold an open "
+                       "palm to the camera - in good light.",
             "hint": "Show one clearly: your face, or your open palm."}
 
 
@@ -92,7 +92,7 @@ def route(image: np.ndarray, face_cfg: FaceConfig, palm_enabled: bool = True,
 
     ``primary`` defaults to PALM, not face. Face-first meant any detectable face
     short-circuited the decision, so a palm presented in a room with people in the
-    background routed to face and was then asked for a head-turn — three of
+    background routed to face and was then asked for a head-turn - three of
     Dorsphil's palm verifies failed exactly that way on 2026-07-27. Palm-first is
     correct because presenting an open, spread hand is deliberate while a face in
     shot is often a bystander; a face-only capture still finds no hand and falls
@@ -126,7 +126,7 @@ def _routed(image, face_cfg, palm_enabled, modality, prefer=None,
             short_circuit=False, primary="palm") -> _router.RouteResult:
     # MUST match route()'s default. This passes ``primary`` through explicitly, so
     # leaving it at "face" here silently overrode the palm-first fix for every
-    # verify/identify call that goes through this helper — /api/detect (which calls
+    # verify/identify call that goes through this helper - /api/detect (which calls
     # route directly) said "palm" while /api/verify said "face" on the SAME frame.
     return (_pinned(modality) if modality in ("face", "palm", "both")
             else route(image, face_cfg, palm_enabled, prefer=prefer,
@@ -165,7 +165,7 @@ def enroll(user_id: str, image: np.ndarray, face_cfg: FaceConfig,
 # --- users (across both modalities) ----------------------------------------
 def list_users(face_cfg: FaceConfig, palm_enabled: bool = True) -> dict:
     """Union of face + palm enrolled identities (a user may have either or both),
-    with which modality each holds — so the admin count reflects palm too."""
+    with which modality each holds - so the admin count reflects palm too."""
     fset = set(_face_api._store(face_cfg, None).list_users())
     pset = set(_palm_api._store(_palm_cfg_for(face_cfg), None).list_users()) if palm_enabled else set()
     users = sorted(fset | pset)
@@ -200,7 +200,7 @@ def user_modalities(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = Tru
 
 def is_fully_enrolled(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True) -> bool:
     """True when this user already holds every modality this deployment offers (face,
-    and palm when enabled) — so an add-a-modality invite would have nothing to add."""
+    and palm when enabled) - so an add-a-modality invite would have nothing to add."""
     have = set(user_modalities(user_id, face_cfg, palm_enabled))
     available = {"face"} | ({"palm"} if palm_enabled else set())
     return bool(have) and have >= available
@@ -237,7 +237,7 @@ def purge_modalities(user_id: str, face_cfg: FaceConfig, mods, palm_enabled: boo
 def delete_modality(user_id: str, face_cfg: FaceConfig, modality: str,
                     palm_enabled: bool = True) -> dict:
     """Delete ONLY one modality for a user (leaving the other intact). Lets
-    revoke-with-purge undo exactly what a scoped invite bound — e.g. remove a
+    revoke-with-purge undo exactly what a scoped invite bound - e.g. remove a
     palm an invite added, without wiping the pre-existing face."""
     uid = (user_id or "").strip()
     if modality == "palm":
@@ -264,7 +264,7 @@ def export_record(user_id: str, face_cfg: FaceConfig, palm_enabled: bool = True)
 
 
 def store_and_index(face_cfg: FaceConfig, modality: str = "face"):
-    """The (store, index, match_threshold) for one modality — lets generic features
+    """The (store, index, match_threshold) for one modality - lets generic features
     (hybrid sync) work on palm exactly like face."""
     if modality == "palm":
         from palm.profile import PALM_PROFILE
@@ -278,7 +278,7 @@ def store_and_index(face_cfg: FaceConfig, modality: str = "face"):
 def export_templates(face_cfg: FaceConfig, modality: str = "face",
                      palm_enabled: bool = True) -> list:
     """All (user_id, [embedding lists]) for one modality, for building an offline
-    provisioning bundle. Embeddings only (KB per person) — never raw images. Palm
+    provisioning bundle. Embeddings only (KB per person) - never raw images. Palm
     is skipped when the tenant has palm disabled."""
     if modality == "palm" and not palm_enabled:
         return []
@@ -330,7 +330,7 @@ def _maybe_recalibrate(face_cfg: FaceConfig) -> None:
 
 
 def best_palm_frame(images: list, face_cfg: FaceConfig):
-    """From a short client burst, the frame with the SHARPEST detectable palm ROI —
+    """From a short client burst, the frame with the SHARPEST detectable palm ROI -
     so one soft/ghosted frame (dim light, motion) doesn't sink the whole attempt.
     Fail-soft: if no frame yields a palm ROI, return the middle frame unchanged."""
     pcfg = _palm_cfg_for(face_cfg)
@@ -346,7 +346,7 @@ def best_palm_frame(images: list, face_cfg: FaceConfig):
 
 
 def best_enroll_frame(images: list, face_cfg: FaceConfig, palm_enabled: bool = True):
-    """From a client capture BURST, the best single frame to enrol/verify from — the
+    """From a client capture BURST, the best single frame to enrol/verify from - the
     sharpest palm ROI if any frame holds a palm, else the middle frame (a face; the
     client's freeze watchdog keeps it fresh). So no enrol/step-up ever hinges on one
     soft still. Fail-soft: returns None only if nothing decodes."""
@@ -444,7 +444,7 @@ def _combine(results: dict, rr: _router.RouteResult, match_policy: str,
     """Fold one or two per-modality results into a single decision under policy.
 
     A *match is a match*: under "or"/"fallback", any granting modality grants. Under
-    "and", a subject enrolled in both modalities must satisfy both — a single
+    "and", a subject enrolled in both modalities must satisfy both - a single
     modality alone yields ``step_up_required``."""
     policy = match_policy if match_policy in ("or", "fallback", "and") else "or"
     granted = [m for m, r in results.items() if r.get("success")]
@@ -460,7 +460,7 @@ def _combine(results: dict, rr: _router.RouteResult, match_policy: str,
         out = _envelope(False, best, results, rr, policy, granted, user_id)
         out["code"] = "step_up_required"
         other = "palm" if rr.modality == "face" else "face"
-        out["message"] = (f"{rr.modality.title()} matched, but this account requires both — "
+        out["message"] = (f"{rr.modality.title()} matched, but this account requires both - "
                           f"also present your {other}.")
         out["step_up_modality"] = other
         return out

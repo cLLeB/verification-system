@@ -1,18 +1,18 @@
-"""Emergency contacts — who to reach for a person during an incident.
+"""Emergency contacts - who to reach for a person during an incident.
 
 When a duress event, medical situation or evacuation involves a specific person, whoever
 is responding needs their emergency contacts immediately and in the right order. This
-subsystem stores a prioritised contact list per subject and returns it ready to dial —
+subsystem stores a prioritised contact list per subject and returns it ready to dial -
 a small but genuinely operational record that pairs with [[duress]] and [[mustering]].
 
   * ``add``       a contact for a subject (name, relationship, phone, priority).
-  * ``update`` / ``remove`` — maintain the list.
+  * ``update`` / ``remove`` - maintain the list.
   * ``contacts``  the subject's contacts, ordered by priority then name.
   * ``primary``   the single highest-priority contact (first to call).
 
 Priority is a small integer where lower = called first; ties break by name so the order
 is deterministic. Phone numbers are lightly normalised (kept as given, whitespace
-trimmed) — this record is for humans to dial, not for machine validation.
+trimmed) - this record is for humans to dial, not for machine validation.
 
 Registry: ``emergencycontacts.json`` (env ``FACE_EMERGENCYCONTACTS_FILE``).
 """

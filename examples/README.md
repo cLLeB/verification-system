@@ -1,17 +1,17 @@
-# Verticals — the backbone, embedded
+# Verticals - the backbone, embedded
 
 Each folder here is a **separate, self-contained product** that solves a real
 problem, and does its identity check by calling the **Biometric Verification
-Backbone** (`/v1`) through the shipped SDK — nothing more. They exist to prove one
+Backbone** (`/v1`) through the shipped SDK - nothing more. They exist to prove one
 thing:
 
 > The backbone is a drop-in identity layer. Any product that needs to answer
 > *"is this really the right person?"* or *"who is this?"* can weave it in with a
-> few API calls — no biometric code of its own, no special hardware, works offline.
+> few API calls - no biometric code of its own, no special hardware, works offline.
 
 The one-line pitch the whole project rallies behind:
 
-> **Inclusive, contactless identity on any phone — no scanner, works offline.**
+> **Inclusive, contactless identity on any phone - no scanner, works offline.**
 > Face *or* palm, so the people whose fingerprints don't work aren't excluded.
 
 ## How a vertical uses the backbone
@@ -46,6 +46,6 @@ export BACKBONE_API_KEY="fk_...admin_or_verify_key..."
 Each has its own `backbone.py` (SDK wrapper) + `store.py` (its domain data) + `app.py`
 (Flask endpoints) + `test_store.py` (pure-Python domain-logic tests) + `README.md`.
 
-All four are the **same integration pattern** — copy `attendance/` and swap the
+All four are the **same integration pattern** - copy `attendance/` and swap the
 domain logic. That sameness *is* the proof: the backbone doesn't care what product
 sits on top of it.

@@ -1,4 +1,4 @@
-"""Roles — role-based access control with permission bundles.
+"""Roles - role-based access control with permission bundles.
 
 Tags (see [[tags]]) group people; roles grant them *permissions*. A role is a
 named bundle of permission strings ("door.open", "vault.open", "report.view"); an

@@ -1,15 +1,15 @@
 # Clinic patient identification
 
-Cardless patient matching across visits — find a patient's record by their **face or
+Cardless patient matching across visits - find a patient's record by their **face or
 palm**, prevent duplicate records, and keep continuity even when the paper/plastic
 card is lost. Offline-friendly for rural facilities (the backbone runs offline too).
 
 ## The problem it kills
-- **Lost cards / no ID** — patients can't be matched to their record, so care
+- **Lost cards / no ID** - patients can't be matched to their record, so care
   restarts from zero. Biometric look-up finds them instantly.
-- **Duplicate records** — the same patient registered many times fragments their
+- **Duplicate records** - the same patient registered many times fragments their
   history. A de-dup check at registration prevents it.
-- **Continuity over time** — the backbone's adaptive enrolment keeps recognising a
+- **Continuity over time** - the backbone's adaptive enrolment keeps recognising a
   patient as they age across visits.
 
 ## How it uses the backbone

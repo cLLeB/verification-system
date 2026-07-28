@@ -1,4 +1,4 @@
-"""Threshold profiles — per-scope match strictness for one identity engine.
+"""Threshold profiles - per-scope match strictness for one identity engine.
 
 A single match score means different things in different places: unlocking a phone
 wants convenience (accept a slightly weaker match), opening a bank vault wants

@@ -5,8 +5,8 @@ Two modes:
   * identify(1:N) -- "which enrolled user, if any, is this probe?"
 
 A grant requires that at least one of the two independent matchers (our minutiae
-matcher OR SourceAFIS) accepts at its own conservative threshold, AND — for 1:N
-— that the best user beats the runner-up by a margin (so we never report the
+matcher OR SourceAFIS) accepts at its own conservative threshold, AND - for 1:N
+- that the best user beats the runner-up by a margin (so we never report the
 WRONG user when scores are close). This is what prevents false/"hallucinated"
 results: an unenrolled finger is rejected, and an ambiguous one is rejected too.
 """

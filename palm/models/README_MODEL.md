@@ -1,4 +1,4 @@
-# Palm-print encoder model (ONNX) — OPTIONAL accuracy upgrade
+# Palm-print encoder model (ONNX) - OPTIONAL accuracy upgrade
 
 Palm recognition works **out of the box with no trained model**, using the built-in
 classical Gabor encoder (`palm/classical.py`). This file is the *optional* upgrade:
@@ -8,7 +8,7 @@ instead of the classical one for higher accuracy. The server runs it with
 
 So: **no file → palm still runs (classical encoder); file present → palm runs the
 trained encoder.** Palm is never gated off by the absence of this file. (Palm does
-require the MediaPipe hand detector for ROI extraction — a standard dependency.)
+require the MediaPipe hand detector for ROI extraction - a standard dependency.)
 
 Expected file: `palm/models/palm_ccnet.onnx`
 (override with `PALM_MODEL_PATH=/abs/path.onnx`)
@@ -30,7 +30,7 @@ encoder). The `palm_ccnet.onnx` above is the optional accuracy upgrade.
 ## Contract the ONNX must satisfy
 
 - **Input:** `float32` NCHW, pixel values scaled to `[0, 1]`.
-  - 1 channel (grayscale) or 3 channels (RGB) — the engine reads the channel count
+  - 1 channel (grayscale) or 3 channels (RGB) - the engine reads the channel count
     from the model and preprocesses the ROI to match.
   - Spatial size read from the model (e.g. 128×128); falls back to `PalmConfig.roi_size`.
 - **Output:** a single `[N, D]` embedding tensor. The engine L2-normalises it and
@@ -69,7 +69,7 @@ torch.onnx.export(Embed(net), dummy, "palm_ccnet.onnx",
 
 Pretrained Tongji/PolyU weights work as a baseline. For best mobile accuracy,
 fine-tune on smartphone palm datasets before export:
-- **MPD** (Mobile Palmprint Dataset) — phone-captured, finger-gap annotated
+- **MPD** (Mobile Palmprint Dataset) - phone-captured, finger-gap annotated
 - **NTU-CP-v1**, **XJTU-UP**, **BJTU_PalmV2**
 
 Then re-run the offline accuracy check and calibrate `match_threshold` /

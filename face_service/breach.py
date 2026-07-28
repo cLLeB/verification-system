@@ -3,14 +3,14 @@
 A biometric platform processes special-category data, so a breach carries statutory
 duties: under GDPR Art. 33 the controller must notify the supervisory authority
 "without undue delay and, where feasible, not later than 72 hours after having
-become aware" — and, under Art. 34, notify affected individuals when the risk to
+become aware" - and, under Art. 34, notify affected individuals when the risk to
 them is high. This subsystem is the register auditors and DPAs ask for: it records
 each incident, tracks the deadline against the discovery time, and captures the
 notification decisions and their justification.
 
   * ``record``     open a breach from its discovery time; computes the 72h deadline.
   * ``assess``     set risk level and whether individuals must be told (Art. 34).
-  * ``notify_authority`` / ``notify_subjects`` — stamp when each notice was sent.
+  * ``notify_authority`` / ``notify_subjects`` - stamp when each notice was sent.
   * ``overdue``    breaches past the 72h authority deadline that are still un-notified.
   * ``status``     full state incl. hours remaining / hours late.
 

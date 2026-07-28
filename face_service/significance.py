@@ -1,10 +1,10 @@
-"""Statistical significance for A/B experiments — is the difference real?
+"""Statistical significance for A/B experiments - is the difference real?
 
 [[experiments]] collects conversions per variant; before acting on a winner you must know
 the difference isn't noise. This subsystem runs the standard two-proportion z-test on two
 variants' conversion counts, returning the z statistic, a p-value, the observed lift, and a
 significance verdict at a chosen alpha. It also estimates the sample size needed to detect
-a given effect, so teams can plan how long to run a test. Pure statistics — no state beyond
+a given effect, so teams can plan how long to run a test. Pure statistics - no state beyond
 what you pass in.
 
   * ``two_proportion_test``  compare (conversions_a/n_a) vs (conversions_b/n_b): z,

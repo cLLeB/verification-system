@@ -31,7 +31,7 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
      *  arrive PROTECTED (projected into a revocable domain); the response's
      *  `protection` block carries the domain seed used to project live probes. If
      *  the domain changed since the last pull (a reissue), the whole mirror is
-     *  stale — wipe the synced rows and re-pull from scratch. */
+     *  stale - wipe the synced rows and re-pull from scratch. */
     suspend fun pull(): Result = withContext(Dispatchers.IO) {
         try {
             var since = prefs.lastSeq
@@ -80,7 +80,7 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
             prefs.lastMsg = msg
             Result(true, msg)
         } catch (e: SyncClient.HttpError) {
-            val hint = if (e.code == 403) " — ask the provider to enable template export for your account." else ""
+            val hint = if (e.code == 403) " - ask the provider to enable template export for your account." else ""
             Result(false, "Pull failed (${e.code}): ${e.message}$hint")
         } catch (e: Exception) {
             Result(false, "Pull failed: ${e.message ?: "network error"}")
@@ -102,7 +102,7 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
 
     /** Redeem a pairing code minted in the console/portal: this device gets its
      *  own identity + verify key (stored separately from the sync key). The code
-     *  is the auth — no key is needed for this one call. */
+     *  is the auth - no key is needed for this one call. */
     suspend fun pairDevice(code: String): Result = withContext(Dispatchers.IO) {
         try {
             val resp = SyncClient(prefs.serverUrl, "").post(
@@ -120,7 +120,7 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
     }
 
     /** Best-effort device check-in with the DEVICE key (console shows last-seen).
-     *  Never fails a sync — a missed heartbeat is a dashboard gap, not an error. */
+     *  Never fails a sync - a missed heartbeat is a dashboard gap, not an error. */
     suspend fun heartbeat(event: String = "sync") : Unit = withContext(Dispatchers.IO) {
         if (!prefs.paired) return@withContext
         try {
@@ -151,7 +151,7 @@ class SyncManager(private val repo: FaceRepository, private val prefs: SyncPrefs
                 for (i in 0 until ca.length()) {
                     val c = ca.getJSONObject(i)
                     conflicts.add("${c.optString("user_id")} ↔ ${c.optString("matched")} " +
-                        "(${c.optDouble("score")}) — ${c.optString("action")}")
+                        "(${c.optDouble("score")}) - ${c.optString("action")}")
                 }
                 prefs.lastSyncMs = System.currentTimeMillis()
                 val msg = "Pushed ${resp.optInt("pushed")}, merged ${resp.optInt("merged")}, " +

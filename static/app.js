@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Face Verify — front-camera client.
+// Face Verify - front-camera client.
 //   Enroll : center your face, tap Capture (x3).
 //   Verify : tap Verify -> server issues a head-turn challenge -> we record a
 //            short burst while you turn your head -> server checks liveness +
@@ -47,8 +47,8 @@ function refreshCaptureLabel() {
 // white flash over the oval at the moment of capture
 function flashOval() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 const OUT_W = 720;
-// Guided head-turn. The old loop grabbed 7 frames 280 ms apart — under 2 SECONDS
-// for "turn left, turn right, look at camera" — and set the instruction AFTER
+// Guided head-turn. The old loop grabbed 7 frames 280 ms apart - under 2 SECONDS
+// for "turn left, turn right, look at camera" - and set the instruction AFTER
 // grabbing each frame, so the first frames were recorded before the user had been
 // told anything. Nobody can perform that, which is why live verifies failed with
 // "Turn your head a bit more, side to side". Each instruction now appears BEFORE
@@ -63,10 +63,10 @@ const BURST_GAP_MS = 250;                      // ~3.8s total, vs 2s before
 let mode = 'verify', busy = false;
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-// --- Live-preview watchdog — production camera-freeze fix --------------------
+// --- Live-preview watchdog - production camera-freeze fix --------------------
 // iOS Safari pauses an inline, transformed <video> after a canvas capture plus
 // CSS animations, and never auto-resumes. A paused <video> keeps re-drawing its
-// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images —
+// LAST decoded frame, so drawImage()/toDataURL() return byte-identical images -
 // that is why enrolment recorded the same frozen frame as samples 2 and 3. A
 // MUTED video may always be replayed programmatically (autoplay policy), so we
 // resume it on every pause / tab return, and wait for a genuinely fresh frame
@@ -159,7 +159,7 @@ function renderTip(adv, autoHideMs) {
     if (tipTimer) clearTimeout(tipTimer);
     if (autoHideMs) tipTimer = setTimeout(() => tip.classList.add('hidden'), autoHideMs);
 }
-// One gentle note at the start of a session — shown once, auto-dismissed, never spammed.
+// One gentle note at the start of a session - shown once, auto-dismissed, never spammed.
 async function showDeviceTip() {
     if (deviceTipDismissed || !window.DeviceGuide) return;
     if (sessionStorage.getItem('palmTipShown')) return;
@@ -191,8 +191,8 @@ function startBusy(status) {
     statusPill.classList.remove('ok');
     // Clear the PREVIOUS outcome before a new attempt. The result card used to be
     // hidden only by the "Start over" button, so after enrolling one hand its green
-    // "Enrolled — ready to verify" card stayed up while the person captured their
-    // OTHER hand (or their face) under the same name — the screen then showed
+    // "Enrolled - ready to verify" card stayed up while the person captured their
+    // OTHER hand (or their face) under the same name - the screen then showed
     // "Enrolled" and "Captured 1/3, tap Capture again" at the same time.
     result.classList.add('hidden');
     setCaptureLabel('Capturing…');
@@ -223,7 +223,7 @@ async function ensureAdmin() {
 let lastEnrollPayload = null;                 // last capture body ({frames}|{image}) for the "add other hand" confirm
 let lastEnrollThumb = null;                   // a single frame for the dots row
 
-// One place that POSTs an enrolment. `payload` is {frames:[...]} (a burst — preferred)
+// One place that POSTs an enrolment. `payload` is {frames:[...]} (a burst - preferred)
 // or {image:...}. `hand` ("other"/"any") is sent to bind a person's second palm.
 function postEnroll(payload, hand) {
     const body = { user_id: userId.value.trim(), ...payload };
@@ -232,7 +232,7 @@ function postEnroll(payload, hand) {
         body: JSON.stringify(body) }).then((r) => r.json());
 }
 
-// A short burst of fresh stills — the server keeps the sharpest, so one soft/ghosted
+// A short burst of fresh stills - the server keeps the sharpest, so one soft/ghosted
 // frame never decides an enrolment (no single-still captures anywhere).
 async function captureStillBurst(n = 5, gap = 110) {
     const frames = [];
@@ -254,14 +254,14 @@ async function enrollCapture() {
     const anim = setInterval(() => { p = Math.min(95, p + 6); bar.style.width = p + '%'; }, 140);
     try {
         const frames = await captureStillBurst();
-        if (!frames.length) { clearInterval(anim); reset('Camera not ready — try again.', 'warn'); return; }
+        if (!frames.length) { clearInterval(anim); reset('Camera not ready - try again.', 'warn'); return; }
         lastEnrollPayload = { frames };
         lastEnrollThumb = frames[frames.length - 1];
         const data = await postEnroll(lastEnrollPayload);
         if (data.success) shots.push(lastEnrollThumb);   // sample thumbnail for the dots row
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
-    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
+    } catch (e) { clearInterval(anim); reset('Network error - is the server running?', 'warn'); }
 }
 
 // Read a File into a data URL (base64) for /api/enroll.
@@ -298,14 +298,14 @@ async function enrollFromFiles() {
     }
     $('enroll-files').value = '';
     if (last) handle(last);                       // show the final per-photo result + dots
-    else reset('Could not read those photos — try different files.', 'warn');
+    else reset('Could not read those photos - try different files.', 'warn');
     if (ok > 1) setHint(`Enrolled ${ok}/${files.length} photo(s).`);
 }
 
 async function verify() {
     await ensureLiveVideo(video);
     const img0 = grabFrame();
-    if (!img0) { setHint('Camera not ready — try again.'); return; }
+    if (!img0) { setHint('Camera not ready - try again.'); return; }
     flashOval();
     startBusy('Detecting');
     // Quick modality check so a palm skips the face head-turn challenge.
@@ -316,11 +316,11 @@ async function verify() {
         modality = d.modality || 'face';
     } catch (e) { /* default to face */ }
     if (modality === 'palm') return palmVerify();
-    if (modality === 'none') { reset('Show your face — or your open hand — clearly', 'warn'); return; }
+    if (modality === 'none') { reset('Show your face - or your open hand - clearly', 'warn'); return; }
 
     let ch;
     try { ch = await (await fetch('/api/challenge')).json(); }
-    catch (e) { reset('Network error — is the server running?', 'warn'); return; }
+    catch (e) { reset('Network error - is the server running?', 'warn'); return; }
 
     if (!ch || !ch.active) {                       // active liveness off -> single shot
         return singleVerify(img0);
@@ -348,10 +348,10 @@ async function verify() {
             body: JSON.stringify({ frames, token: ch.token }) });
         const data = await res.json();
         setTimeout(() => handle(data), 120);
-    } catch (e) { reset('Network error — is the server running?', 'warn'); }
+    } catch (e) { reset('Network error - is the server running?', 'warn'); }
 }
 
-// Palm verify: a short steady burst (no head-turn — that's a face challenge). The
+// Palm verify: a short steady burst (no head-turn - that's a face challenge). The
 // server picks the SHARPEST frame, so one motion-ghosted frame in dim light doesn't
 // sink the attempt.
 async function palmVerify() {
@@ -365,7 +365,7 @@ async function palmVerify() {
         bar.style.width = (20 + i * 10) + '%';
         if (i < 2) await wait(220);
     }
-    if (!frames.length) { reset('Camera not ready — try again.', 'warn'); return; }
+    if (!frames.length) { reset('Camera not ready - try again.', 'warn'); return; }
     let p = 50; bar.style.width = '50%';
     const anim = setInterval(() => { p = Math.min(95, p + 8); bar.style.width = p + '%'; }, 120);
     try {
@@ -374,7 +374,7 @@ async function palmVerify() {
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 120);
-    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
+    } catch (e) { clearInterval(anim); reset('Network error - is the server running?', 'warn'); }
 }
 
 async function singleVerify(img) {
@@ -386,13 +386,13 @@ async function singleVerify(img) {
         const data = await res.json();
         clearInterval(anim); bar.style.width = '100%';
         setTimeout(() => handle(data), 150);
-    } catch (e) { clearInterval(anim); reset('Network error — is the server running?', 'warn'); }
+    } catch (e) { clearInterval(anim); reset('Network error - is the server running?', 'warn'); }
 }
 
 async function handle(data) {
     statusText.textContent = 'Ready'; scanner.classList.remove('busy');
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
-    // The server routed this to palm (a hand was seen) — if the camera isn't ideal
+    // The server routed this to palm (a hand was seen) - if the camera isn't ideal
     // for palm, nudge toward the rear/face now. This is the accurate palm-intent signal.
     if (data.modality === 'palm' || data.matched_modality === 'palm' ||
         (typeof data.code === 'string' && data.code.startsWith('palm_'))) palmCameraNudge();
@@ -402,12 +402,12 @@ async function handle(data) {
         const n = data.samples || 0;
         renderDots(n);
         const idNote = data.source === 'id_document'
-            ? ' (from ID document — add a live capture for best accuracy)' : '';
+            ? ' (from ID document - add a live capture for best accuracy)' : '';
         const handLabel = data.hand === 2 ? "this person's other hand" : 'this hand';
-        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} for ${handLabel}${idNote} — tap Capture again`); return; }
+        if (data.success && n < ENROLL_TARGET) { reset(`Captured ${n}/${ENROLL_TARGET} for ${handLabel}${idNote} - tap Capture again`); return; }
         if (data.success) {
             const more = data.hand === 1
-                ? ' — capture their OTHER hand now for either-hand verify, or Start over'
+                ? ' - capture their OTHER hand now for either-hand verify, or Start over'
                 : '';
             show('ok', ICON_OK, 'Enrolled', `${userId.value.trim()} is ready to verify${idNote}${more}`);
             if (data.hand !== 1) { userId.value = ''; }   // keep the name to add the 2nd hand
@@ -421,7 +421,7 @@ async function handle(data) {
                 if (d2.success && lastEnrollThumb) shots.push(lastEnrollThumb);
                 return handle(d2);
             }
-            reset('Okay — present the SAME hand you enrolled first.', 'warn'); return;
+            reset('Okay - present the SAME hand you enrolled first.', 'warn'); return;
         }
         if (data.code === 'same_hand_side') { show('warn', ICON_BAD, 'Same hand again', data.message || ''); return; }
         if (data.code === 'hands_full') { show('warn', ICON_BAD, 'Both hands already enrolled', data.message || ''); return; }
@@ -434,22 +434,22 @@ async function handle(data) {
         const tag = (via === 'face' || via === 'palm') ? ` (via ${viaLabel})` : '';
         // Guardianship: a verified guardian sees who they may collect for.
         const wards = (data.wards || []).map(w => w.beneficiary || w).join(', ');
-        const wardNote = wards ? ` — may collect for: ${wards}` : '';
+        const wardNote = wards ? ` - may collect for: ${wards}` : '';
         show('ok', ICON_OK, 'Access granted', data.user_id ? `Welcome, ${data.user_id}${tag}${wardNote}` : '');
     } else if (data.code === 'no_biometric_detected') {
-        show('bad', ICON_BAD, 'Nothing detected', 'Show your face — or your open hand — clearly');
+        show('bad', ICON_BAD, 'Nothing detected', 'Show your face - or your open hand - clearly');
     } else if (data.code === 'step_up_required') {
         show('warn', ICON_BAD, 'One more step', data.message || 'Also present your other biometric');
     } else if (data.code === 'access_denied') {
-        // Recognised, but an access policy denies right now — say so honestly.
+        // Recognised, but an access policy denies right now - say so honestly.
         show('warn', ICON_BAD, 'Not allowed right now',
             data.message || 'You were recognised, but access is not permitted at this time.');
     } else if (data.code === 'identity_expired') {
         show('warn', ICON_BAD, 'Guest pass expired',
-            data.message || 'You were recognised, but this guest pass has expired — see the front desk.');
+            data.message || 'You were recognised, but this guest pass has expired - see the front desk.');
     } else if (data.code === 'consent_withdrawn' || data.code === 'consent_missing') {
         show('warn', ICON_BAD, 'Consent required',
-            data.message || 'Verification is paused for this record — see the operator.');
+            data.message || 'Verification is paused for this record - see the operator.');
     } else {
         show('bad', ICON_BAD, 'Access denied', 'Face or print not recognised');
     }
@@ -476,7 +476,7 @@ function reset(msg, kind = '') {
 }
 function defaultHint() {
     return mode === 'enroll' ? 'Show your face or open hand, then tap Capture (3 times)'
-                             : 'Show your face — or your open hand — then tap Verify';
+                             : 'Show your face - or your open hand - then tap Verify';
 }
 
 againBtn.addEventListener('click', () => { result.classList.add('hidden'); reset(); });
@@ -528,7 +528,7 @@ swapBtn.addEventListener('click', swapCamera);
 {
     const dismiss = $('device-tip-dismiss');
     if (dismiss) dismiss.addEventListener('click', () => {
-        deviceTipDismissed = true;          // user dismissed — don't nudge again this session
+        deviceTipDismissed = true;          // user dismissed - don't nudge again this session
         hideDeviceTip();
     });
 }

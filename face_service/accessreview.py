@@ -1,19 +1,19 @@
-"""Access reviews — periodic recertification of who still needs access.
+"""Access reviews - periodic recertification of who still needs access.
 
 Access tends to accrete: people change teams, projects end, contractors linger,
-and nobody revokes. Auditors (SOC 2, ISO 27001, ITGC) require *access reviews* —
+and nobody revokes. Auditors (SOC 2, ISO 27001, ITGC) require *access reviews* -
 a manager periodically confirming each person on a list still needs their access,
 with the un-confirmed ones revoked. This subsystem runs that campaign: open a
 review over a set of identities, let a reviewer certify (keep) or revoke each, and
-close it with a report of who was removed — the evidence an auditor asks for.
+close it with a report of who was removed - the evidence an auditor asks for.
 
   * ``open_review``  start a campaign over a list of identities.
-  * ``certify`` / ``flag_revoke`` — the reviewer's decision per identity.
+  * ``certify`` / ``flag_revoke`` - the reviewer's decision per identity.
   * ``status``       progress: decided vs pending, and the running verdicts.
   * ``close``        finish; returns the revoke list (identities to offboard).
 
 An undecided identity at close counts as ``pending`` and is surfaced, not silently
-kept — the whole point is to force an explicit decision.
+kept - the whole point is to force an explicit decision.
 
 Registry: ``accessreview.json`` (env ``FACE_ACCESSREVIEW_FILE``).
 """

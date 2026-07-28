@@ -1,8 +1,8 @@
-"""Geofencing — accept verifies only from allowed geographic regions.
+"""Geofencing - accept verifies only from allowed geographic regions.
 
 A verify carries the coordinates of the device that captured it (phone GPS,
-kiosk location). A tenant can define circular allowed zones — a campus, a store,
-a border post — and require that a successful match physically happened inside
+kiosk location). A tenant can define circular allowed zones - a campus, a store,
+a border post - and require that a successful match physically happened inside
 one of them. A match from the wrong side of the planet is a strong signal the
 credential (or a replayed capture) has leaked. Enforcement is post-match:
 

@@ -45,7 +45,7 @@ def _forbidden(scope):
 
 
 def require_key(view):
-    """Authenticate only — any valid key may call the endpoint."""
+    """Authenticate only - any valid key may call the endpoint."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         if _authenticate() is None:

@@ -1,4 +1,4 @@
-"""Clinic patient identification — cardless patient matching across visits, with a
+"""Clinic patient identification - cardless patient matching across visits, with a
 duplicate-record guard, using the backbone.
 
     Register:  new patient (MRN + capture). A biometric de-dup check first prevents
@@ -57,7 +57,7 @@ def checkin():
     hit = fv.identify(image)
     if not hit.get("success") or not hit.get("user_id"):
         return jsonify({"ok": False, "code": "no_record",
-                        "message": "No matching patient — register them first."})
+                        "message": "No matching patient - register them first."})
     mrn = hit["user_id"]
     rec = store.patient(mrn)
     if not rec:

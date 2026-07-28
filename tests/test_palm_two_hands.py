@@ -3,7 +3,7 @@
 A person has up to two palms; one identity may enrol both and verify with either.
 The self-consistency guard that used to hard-reject the second hand
 ("This doesn't match the earlier capture") now returns a soft ``different_hand``
-prompt, and an explicit ``hand="other"`` binds the second hand — while a THIRD
+prompt, and an explicit ``hand="other"`` binds the second hand - while a THIRD
 distinct hand is refused and a stranger's palm is still blocked as a duplicate.
 
 Runs WITHOUT the ONNX model: the engine's embed/available are monkeypatched to feed

@@ -1,4 +1,4 @@
-"""Floor grants — which elevator floors an identity may select.
+"""Floor grants - which elevator floors an identity may select.
 
 Destination-dispatch elevators authorise by person: you verify in the lobby and
 only the floors you're allowed to reach light up. This subsystem records the floor

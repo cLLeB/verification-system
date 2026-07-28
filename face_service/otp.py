@@ -1,7 +1,7 @@
-"""OTP — out-of-band one-time passcodes for step-up verification.
+"""OTP - out-of-band one-time passcodes for step-up verification.
 
 For a risky action (see [[risk]] step-up), a biometric match can be reinforced by
-a code sent to a channel the person controls — an SMS or email one-time passcode.
+a code sent to a channel the person controls - an SMS or email one-time passcode.
 This subsystem generates a numeric OTP bound to (tenant, user, purpose), stores
 only its salted hash, and verifies a presented code once, within a short window,
 with a small number of attempts before it is burned. The actual sending is left to
@@ -14,7 +14,7 @@ the caller's transport (this returns the code to hand to your SMS/email worker).
 Codes are numeric and configurable length (default 6). After ``max_attempts``
 wrong tries the challenge is destroyed so guessing is bounded.
 
-Registry: ``otp.json`` (env ``FACE_OTP_FILE``) — stores hash, not the code.
+Registry: ``otp.json`` (env ``FACE_OTP_FILE``) - stores hash, not the code.
 """
 
 from __future__ import annotations

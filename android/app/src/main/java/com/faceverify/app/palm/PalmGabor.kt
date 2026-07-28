@@ -6,7 +6,7 @@ import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sqrt
 
-/** Built-in palm-print encoder — a Gabor texture descriptor, NO trained model.
+/** Built-in palm-print encoder - a Gabor texture descriptor, NO trained model.
  *  Mirrors the server's palm/classical.py so on-device palm works out of the box:
  *  bandpass the palm ROI at several orientations/scales, pool the responses over a
  *  spatial grid, L2-normalise. Deterministic (same ROI -> same vector). A bundled

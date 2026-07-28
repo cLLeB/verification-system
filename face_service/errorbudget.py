@@ -1,7 +1,7 @@
-"""Error budgets — track SLOs and how much failure allowance remains.
+"""Error budgets - track SLOs and how much failure allowance remains.
 
 Reliability is managed with Service Level Objectives: "99.5% of verifications succeed".
-The inverse — the 0.5% allowed to fail — is the *error budget*. Tracking its
+The inverse - the 0.5% allowed to fail - is the *error budget*. Tracking its
 consumption tells operators whether they can keep shipping or must freeze and stabilise.
 This subsystem records success/failure events per SLO and computes the achieved rate,
 budget consumed, and burn state.
@@ -9,11 +9,11 @@ budget consumed, and burn state.
   * ``define``    an SLO: target success ratio (e.g. 0.995) over a rolling window.
   * ``record``    log ``good``/``total`` counts (a batch or a single event).
   * ``report``    achieved ratio, budget consumed %, remaining %, and breach flag.
-  * ``burn_rate`` consumption relative to budget — >1 means burning faster than
+  * ``burn_rate`` consumption relative to budget - >1 means burning faster than
                   sustainable for the window, the signal to slow down.
 
 The budget is ``(1 - target) * total`` allowable failures; consumed is actual failures.
-Everything is derived from counters, so it is exact and needs no event log — feed it
+Everything is derived from counters, so it is exact and needs no event log - feed it
 rollups from your metrics pipeline.
 
 Registry: ``errorbudget.json`` (env ``FACE_ERRORBUDGET_FILE``).

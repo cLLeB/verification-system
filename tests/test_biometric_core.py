@@ -52,7 +52,7 @@ def test_palm_like_profile_isolated_from_face(tmp_path):
     face_store.add_embedding("alice", _unit(1, 512))
     palm_store.add_embedding("alice", _unit(1, 128))
 
-    # Separate files, separate directories — no collision.
+    # Separate files, separate directories - no collision.
     assert os.path.exists(os.path.join(str(tmp_path), "faces.db"))
     assert os.path.exists(os.path.join(str(tmp_path), "palm", "palms.db"))
     # Each store sees only its own modality's dimension.

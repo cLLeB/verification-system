@@ -1,8 +1,8 @@
-"""Identity aliases — resolve many external IDs to one canonical person.
+"""Identity aliases - resolve many external IDs to one canonical person.
 
 The same human shows up under different keys in different systems: an HR employee
 number, a badge id, an email, a legacy enrolment id. When two of those turn out to
-be the same person, you do not want to re-enrol — you want to say "these are
+be the same person, you do not want to re-enrol - you want to say "these are
 aliases of one identity". This subsystem keeps an alias -> canonical map per
 tenant, so any surface can normalise an incoming id to the canonical one before
 applying policy, logging, or counting.

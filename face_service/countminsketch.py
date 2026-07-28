@@ -1,13 +1,13 @@
-"""Count-Min Sketch — approximate frequencies of a high-volume stream.
+"""Count-Min Sketch - approximate frequencies of a high-volume stream.
 
 Bloom filters answer "seen it?" and HyperLogLog answers "how many distinct?"; the
-Count-Min Sketch answers "how often?" — estimating each item's frequency in sub-linear
+Count-Min Sketch answers "how often?" - estimating each item's frequency in sub-linear
 memory. It's how you find heavy hitters (the device fingerprints hammering the API, the
 most-used doors) without a per-item counter. This subsystem implements it with conservative
 update (which reduces over-estimation) and a bounded top-K tracker for the heavy hitters.
 
   * ``create``       a sketch sized by width/depth (or from error/confidence bounds).
-  * ``add`` / ``add_many`` — increment an item's count (one write for a batch).
+  * ``add`` / ``add_many`` - increment an item's count (one write for a batch).
   * ``estimate``     approximate count for an item (never underestimates).
   * ``heavy_hitters`` the tracked top items by estimated count.
 

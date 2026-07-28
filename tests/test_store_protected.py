@@ -145,7 +145,7 @@ def test_protect_cli_materialises_legacy_rows(tmp_path):
 
 def test_stale_domain_blob_self_heals(tmp_path):
     """An interrupted reissue leaves the epoch bumped but a row's protected blob
-    in the OLD domain — reads must detect the stale seedref and re-project from
+    in the OLD domain - reads must detect the stale seedref and re-project from
     raw instead of silently failing to match."""
     st = _store(tmp_path)
     raw = _unit(seed=21)

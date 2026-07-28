@@ -1,16 +1,16 @@
-"""Invoicing — line-item invoices with tax, totals, and a payment lifecycle.
+"""Invoicing - line-item invoices with tax, totals, and a payment lifecycle.
 
 Billing needs an artefact the customer can be sent and finance can reconcile: an
 invoice with dated line items, a tax calculation, and a status that moves draft →
 issued → paid (or void). This subsystem builds those. It is intentionally arithmetic-
-exact (integer minor units — cents) so totals never drift, and it enforces a sane
+exact (integer minor units - cents) so totals never drift, and it enforces a sane
 lifecycle so an issued invoice can't be edited out from under a customer.
 
   * ``create``    open a draft invoice for a tenant/period.
   * ``add_line``  append a line item (description, quantity, unit price in cents);
                   only allowed while draft.
   * ``issue``     finalise: computes subtotal, tax, and total, and locks the lines.
-  * ``pay`` / ``void`` — record payment or cancel.
+  * ``pay`` / ``void`` - record payment or cancel.
   * ``get``       the full invoice with computed totals.
   * ``outstanding`` issued-but-unpaid invoices, for dunning.
 

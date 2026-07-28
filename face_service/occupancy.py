@@ -1,11 +1,11 @@
-"""Occupancy — live roster of who is currently inside, with a capacity cap.
+"""Occupancy - live roster of who is currently inside, with a capacity cap.
 
 Every ``in`` / ``out`` verify updates a live presence set per tenant (and
 optionally per named area). Two things fall out of that for free:
 
   * **A capacity limit.** A tenant can cap how many people may be inside at once
     (fire code, a lab with N seats). An ``in`` verify that would exceed the cap
-    is refused with ``at_capacity`` — the last person in has to wait for someone
+    is refused with ``at_capacity`` - the last person in has to wait for someone
     to leave.
   * **A live roster.** Security/reception can list exactly who is inside right
     now, and how long they have been in. This is the data an evacuation muster

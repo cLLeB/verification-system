@@ -7,14 +7,14 @@ devices and resolves an effective policy for any device by merging the policies 
 the groups it belongs to, in a defined precedence order, over a tenant default.
 
   * ``create_group``   a named group carrying a policy dict, with a priority.
-  * ``add_member`` / ``remove_member`` — group membership (a device may be in many).
+  * ``add_member`` / ``remove_member`` - group membership (a device may be in many).
   * ``set_default``    the tenant-wide baseline policy every device inherits.
   * ``resolve``        the effective policy for a device: default, then each of its
                        groups applied in ascending priority (higher wins on conflict),
                        with the list of contributing groups for auditability.
 
 Merging is last-writer-wins per key by priority, so a high-priority group can
-override the baseline while low-priority groups fill in gaps — the standard layered
+override the baseline while low-priority groups fill in gaps - the standard layered
 configuration model.
 
 Registry: ``devicegroups.json`` (env ``FACE_DEVICEGROUPS_FILE``).

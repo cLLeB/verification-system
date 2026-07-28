@@ -56,7 +56,7 @@ def over_limit() -> bool:
 
 def rate_limited_response(status: dict = None):
     body = {"success": False, "code": "rate_limited",
-            "message": "Too many requests — slow down and retry.",
+            "message": "Too many requests - slow down and retry.",
             "hint": "Respect the X-RateLimit-* headers; retry after 'reset' seconds."}
     return jsonify(body), 429
 

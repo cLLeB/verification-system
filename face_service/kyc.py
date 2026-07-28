@@ -2,7 +2,7 @@
 
 Onboarding a person to a high-trust use (opening an account, issuing a credential) often
 requires identity proofing beyond a face match: a government document, a liveness check,
-a sanctions screen. This subsystem tracks that proofing as a case — record each check's
+a sanctions screen. This subsystem tracks that proofing as a case - record each check's
 outcome, and derive an overall status and Level of Assurance (LOA) from which checks
 passed. It complements the biometric [[sanctions]] and document-detection features by
 being the case record auditors and onboarding flows read.
@@ -15,7 +15,7 @@ being the case record auditors and onboarding flows read.
 
 LOA is derived from the set of *passed* checks: LOA1 = liveness only; LOA2 adds a valid
 document; LOA3 adds a passed sanctions screen. Any *failed* check marks the case
-rejected regardless of others — proofing fails closed.
+rejected regardless of others - proofing fails closed.
 
 Registry: ``kyc.json`` (env ``FACE_KYC_FILE``).
 """

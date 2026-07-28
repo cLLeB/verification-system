@@ -21,7 +21,7 @@ data class EnrollResult(
  *  Mirrors the server's api.py / storage.py behaviour (anchors + adaptive, anti-drift).
  *
  *  Protected templates: users pulled from sync or a bundle arrive PROTECTED (projected
- *  into a revocable domain — see Protect.kt) and carry a domain seed. Matching scores
+ *  into a revocable domain - see Protect.kt) and carry a domain seed. Matching scores
  *  each user against the right probe: the raw live embedding for local enrolments, or
  *  the embedding projected with that user's seed for synced/bundled rows. */
 class FaceRepository(context: Context) {
@@ -84,7 +84,7 @@ class FaceRepository(context: Context) {
         if (existing != null && existing.isNotEmpty()) {
             val probe = probeFor(id, emb, HashMap())
             if (Matcher.bestScore(probe, existing) < Config.MATCH_THRESHOLD) {
-                return@withLock EnrollResult(false, "This doesn't match the earlier capture — use the SAME person.", "inconsistent")
+                return@withLock EnrollResult(false, "This doesn't match the earlier capture - use the SAME person.", "inconsistent")
             }
         } else {
             dao.insertPerson(Person(id))
@@ -101,7 +101,7 @@ class FaceRepository(context: Context) {
         if (anchors.size > Config.SAMPLES_PER_USER) {
             val drop = anchors.size - Config.SAMPLES_PER_USER
             for (i in 0 until drop) dao.deleteEmbedding(anchors[i])
-            // index holds anchors first (load order) — drop the oldest from the front
+            // index holds anchors first (load order) - drop the oldest from the front
             val list = index[id]!!
             repeat(drop) { if (list.isNotEmpty()) list.removeAt(0) }
         }
@@ -158,7 +158,7 @@ class FaceRepository(context: Context) {
     // --- hybrid sync support (only used by the hybrid build) -----------------
 
     /** On-device templates as (userId, embeddings) for pushing to the server.
-     *  Only RAW local enrolments are pushed — protected mirrors came FROM the
+     *  Only RAW local enrolments are pushed - protected mirrors came FROM the
      *  server (it already has them, and it expects raw vectors on push). */
     suspend fun exportTemplates(selected: Set<String>? = null): List<Pair<String, List<FloatArray>>> =
         mutex.withLock {
@@ -187,7 +187,7 @@ class FaceRepository(context: Context) {
     }
 
     /** Drop every user that came from sync (used when the server's protection
-     *  domain changes — the mirror is re-pulled from scratch). */
+     *  domain changes - the mirror is re-pulled from scratch). */
     suspend fun deleteSynced(): Int = mutex.withLock {
         var removed = 0
         val synced = dao.allEmbeddings().filter { it.source == "synced" }.map { it.ownerId }.toSet()

@@ -2,7 +2,7 @@
 
 Beyond the tamper-evident audit chain, operators want an ordinary, queryable event log:
 "show me all ``verify.denied`` events for actor X between these times, a page at a time".
-This subsystem is that log — append events, then query them by type, actor and time range
+This subsystem is that log - append events, then query them by type, actor and time range
 with stable cursor pagination so a UI can page through large histories without missing or
 duplicating rows.
 

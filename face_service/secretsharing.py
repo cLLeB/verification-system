@@ -1,10 +1,10 @@
-"""Shamir secret sharing — split a key so K of N holders can recover it.
+"""Shamir secret sharing - split a key so K of N holders can recover it.
 
 The templates are encrypted with a master key. Holding that key in one place is a single
 point of catastrophic compromise; destroying it means unrecoverable data. Shamir's Secret
 Sharing resolves the dilemma: split the key into ``n`` shares such that any ``k`` reconstruct
-it, but ``k-1`` reveal nothing. This subsystem implements it over GF(256) — the standard
-finite field for byte-wise sharing — so a key can be escrowed across officers/HSMs and
+it, but ``k-1`` reveal nothing. This subsystem implements it over GF(256) - the standard
+finite field for byte-wise sharing - so a key can be escrowed across officers/HSMs and
 recovered only by a quorum.
 
   * ``split``    split a secret (bytes) into ``n`` shares, threshold ``k``.

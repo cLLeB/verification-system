@@ -1,7 +1,7 @@
 """Palm engine configuration (immutable), mirroring ``face.config`` in spirit.
 
 All thresholds are overridable via a ``palm/calibration.json`` file or environment
-variables, so the modality can be tuned per deployment without code changes — the
+variables, so the modality can be tuned per deployment without code changes - the
 same pattern the face and fingerprint engines use.
 """
 
@@ -20,7 +20,7 @@ class PalmConfig:
     # absent the modality is simply unavailable (engine.available() == False).
     model_path: str = os.path.join(os.path.dirname(__file__), "models", "palm_ccnet.onnx")
     # Optional Hugging Face source for the CCNet ONNX (too big for git). When set and
-    # the local file is missing, the engine downloads it once on first use — so every
+    # the local file is missing, the engine downloads it once on first use - so every
     # deployment gets the trained encoder automatically (like the face model pack).
     model_hf_repo: str = ""                  # e.g. "your-org/palm-ccnet-onnx"
     model_hf_file: str = "palm_ccnet.onnx"
@@ -50,11 +50,11 @@ class PalmConfig:
     # --- STRICTER gates for ENROLMENT only (anchor quality) ---
     # A weak verify frame costs one retry; a weak enrolment ANCHOR drags every future
     # verify for that person toward the impostor zone, permanently. So anchors clear a
-    # higher bar than verify — but the bar MUST stay reachable on the frames live
+    # higher bar than verify - but the bar MUST stay reachable on the frames live
     # surfaces actually send. Variance-of-Laplacian is resolution-dependent: every
     # capture surface downscales to <=720px JPEG (web OUT_W=720, Android) before the
     # ROI, and even crisp full-res stills (164-332 varLap) fall to ~60-320 through
-    # that pipeline — so the original 120 floor was UNREACHABLE live and rejected
+    # that pipeline - so the original 120 floor was UNREACHABLE live and rejected
     # every real enrolment (2026-07-10: a textbook Safari open-palm capture ->
     # "Enrolment needs a crisp capture"). 50 is stricter than verify's 35, clears
     # careful live captures, and still rejects genuine motion-ghosting (~20-35 at
@@ -71,13 +71,13 @@ class PalmConfig:
     # baseline cosines), so each needs its own operating point. ``load_config``
     # selects the classical pair automatically when no ONNX model is installed.
     # Calibrate both from your data with palm/training/eval_eer.py.
-    # ONNX-encoder operating point. 0.40 is a conservative placeholder — CCNet
+    # ONNX-encoder operating point. 0.40 is a conservative placeholder - CCNet
     # features are ArcFace-style, but the right threshold depends on YOUR capture
     # domain (a Tongji-pretrained model has a domain gap on phone shots). CALIBRATE
     # with palm/training/eval_eer.py before trusting it in production.
     match_threshold: float = 0.40           # ONNX-encoder accept threshold (CALIBRATE)
     identify_margin: float = 0.05           # ONNX-encoder 1:N margin
-    # Enrolment duplicate gate — DELIBERATELY not match_threshold. Rejecting an
+    # Enrolment duplicate gate - DELIBERATELY not match_threshold. Rejecting an
     # enrolment as "already someone else's palm" is a far stronger claim than
     # accepting a verify, and its failure mode is worse: the person cannot enrol at
     # all. Measured on the 2026-07-27 pilot (46 real frames, scored against
@@ -94,11 +94,11 @@ class PalmConfig:
     # question than "is this a different person?", and must not share the identify
     # threshold. It is asked only AFTER the cross-user duplicate gate has cleared,
     # i.e. within one claimed identity, so it needs to separate a person's left hand
-    # from their right — not one person from another. Raising match_threshold to
+    # from their right - not one person from another. Raising match_threshold to
     # 0.75 silently made this strict too, and the live pilot immediately showed the
     # cost: two of Samuel's four enrolment captures scored 0.69-0.74 against his own
     # first anchor, were declared "a different hand", and were refused as
-    # ``same_hand_side`` — a real person turned away again, just by another name.
+    # ``same_hand_side`` - a real person turned away again, just by another name.
     same_hand_threshold: float = 0.60       # intra-identity hand clustering
     samples_per_user: int = 3               # anchor embeddings stored per HAND
     # A person has at most two palms. One identity may enrol both hands (present
@@ -118,7 +118,7 @@ class PalmConfig:
     # Inherited from the face module (palm/api.py mirrors face/api.py), where it earns
     # its keep: a FACE genuinely changes over months and years, and a static template
     # would eventually lock the real person out. A PALM PRINT DOES NOT AGE, so palm was
-    # carrying the mechanism without the problem it solves — while paying its whole
+    # carrying the mechanism without the problem it solves - while paying its whole
     # cost: adaptation is the only path by which a verify, whose identity nobody has
     # confirmed, can WRITE into a stored template. One false accept becomes permanent.
     # That is precisely how the 2026-07-27 pilot failed: the busiest palm accumulated
@@ -129,7 +129,7 @@ class PalmConfig:
     # but PRESENTATION variance (the same palm re-presented hours later scores
     # 0.63-0.74 against its own anchors, vs 0.95 within one burst), and extra variants
     # barely help: rebuilding a template from TWO full sessions instead of one moved a
-    # 3-day probe from 0.5583 to 0.6076 — still far under the 0.75 accept. So palm was
+    # 3-day probe from 0.5583 to 0.6076 - still far under the 0.75 accept. So palm was
     # taking a proven, severe risk for a benefit that does not materialise.
     #
     # A palm template is now exactly what was enrolled, under supervision, with the
@@ -142,7 +142,7 @@ class PalmConfig:
     adaptive_novelty: float = 0.92
     # Floor on how far an adaptive sample may sit from the user's own enrolment
     # anchors. Without it, novelty-gating only ever rejects samples for being too
-    # SIMILAR, so a template can only widen — and since a user's score is the max
+    # SIMILAR, so a template can only widen - and since a user's score is the max
     # over their vectors, the busiest identity slowly becomes a magnet that matches
     # everyone. That is exactly what happened to the most-verified palm in the
     # 2026-07-27 pilot (an adaptive vector 0.60 from its own anchors but 0.62 from
@@ -152,7 +152,7 @@ class PalmConfig:
     # Face deliberately leaves this at 0 because a face must be free to drift away
     # from its enrolment over years. Palm sets it because (a) a palm print does not
     # age the way a face does, so there is little legitimate long-term drift to
-    # track, and (b) palm has nothing like face's separation — the measured gap here
+    # track, and (b) palm has nothing like face's separation - the measured gap here
     # is thin enough that an untethered template reaches other identities, and did.
     adaptive_min_anchor_sim: float = 0.75
 
@@ -216,7 +216,7 @@ def load_config() -> PalmConfig:
             pass
     # The enrolment duplicate gate and the adaptive anchor floor are the two knobs
     # that decide whether a real person can enrol at all, so keep them tunable in
-    # seconds during a live session — the same reasoning as the capture gates below.
+    # seconds during a live session - the same reasoning as the capture gates below.
     for _env, _field in (("PALM_DUPE_THRESHOLD", "dupe_threshold"),
                          ("PALM_DUPE_SELF_MARGIN", "dupe_self_margin"),
                          ("PALM_ADAPTIVE_MIN_ANCHOR_SIM", "adaptive_min_anchor_sim")):
@@ -227,7 +227,7 @@ def load_config() -> PalmConfig:
             except ValueError:
                 pass
     # Passive palm anti-spoof (moiré/specular re-presentation cues): PALM_LIVENESS=0
-    # disables it; PALM_LIVENESS_THRESHOLD tunes strictness — parity with the face
+    # disables it; PALM_LIVENESS_THRESHOLD tunes strictness - parity with the face
     # modality's FACE_LIVENESS / FACE_LIVENESS_THRESHOLD env switches.
     if os.environ.get("PALM_LIVENESS") == "0":
         cfg = replace(cfg, liveness_enabled=False)
@@ -254,10 +254,10 @@ def load_config() -> PalmConfig:
     env_db = os.environ.get("FACE_DB_PATH")   # shared tenant root with face
     if env_db:
         cfg = replace(cfg, db_path=env_db)
-    # Capture-quality gates — env-tunable so a live pilot can loosen/tighten them in
+    # Capture-quality gates - env-tunable so a live pilot can loosen/tighten them in
     # SECONDS without a rebuild. A too-strict enrol gate silently blocks real phone
     # palms (variance-of-Laplacian is measured on the small 128px ROI, so the floor
-    # must stay low — see enroll_min_sharpness history above). Lets us relax for data
+    # must stay low - see enroll_min_sharpness history above). Lets us relax for data
     # collection now and re-tighten once the encoder is calibrated.
     _gate_env = {
         "PALM_MIN_HAND_SCORE": "min_hand_score",

@@ -1,5 +1,5 @@
 // Device + camera capability detection for smart capture guidance.
-// Pure JS, no models, instant — decides whether to nudge the user toward the rear
+// Pure JS, no models, instant - decides whether to nudge the user toward the rear
 // camera (best for palm) or toward face (on laptops / poor webcams). The palm
 // modality is sharpest on a phone's rear camera; this surfaces that *before* capture.
 (function () {
@@ -52,11 +52,11 @@
     }
     if (rear && facing !== "environment") {
       return { action: "switch-rear",
-        text: "Scanning your hand? Your back camera is sharper — tap to switch." };
+        text: "Scanning your hand? Your back camera is sharper - tap to switch." };
     }
     if (facing === "environment" && width && width < 640) {
       return { action: "use-face",
-        text: "This camera is low-resolution — face will be more reliable than your hand." };
+        text: "This camera is low-resolution - face will be more reliable than your hand." };
     }
     return null; // phone on a decent rear camera: optimal for palm
   }

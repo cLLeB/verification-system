@@ -1,10 +1,10 @@
-"""Money arithmetic — split and allocate amounts without losing or inventing cents.
+"""Money arithmetic - split and allocate amounts without losing or inventing cents.
 
 Billing math ([[invoicing]], [[ratecards]], [[slacredits]]) must be exact: splitting a
 charge across line items, applying a percentage discount, or dividing a credit among seats
 can't leak or fabricate a cent through floating-point rounding. This subsystem works in
-integer minor units (cents) and implements the classic Money patterns — allocate by ratios
-and split evenly — using largest-remainder distribution so the parts always sum back to the
+integer minor units (cents) and implements the classic Money patterns - allocate by ratios
+and split evenly - using largest-remainder distribution so the parts always sum back to the
 whole. Pure and stateless.
 
   * ``allocate``   split ``amount`` across ``ratios`` (e.g. tax shares) so parts sum

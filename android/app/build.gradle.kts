@@ -23,10 +23,10 @@ android {
     // Each flavor bundles a different ArcFace model (same asset filename, different
     // per-flavor source set) and produces a distinctly-named, side-by-side-installable
     // APK. fp32 = full precision (default, shipped forever). fp16 = half size, ~lossless.
-    // (int8 is intentionally NOT a flavor yet — add one here once validated; see
+    // (int8 is intentionally NOT a flavor yet - add one here once validated; see
     //  app/src/int8-experimental/README.)
     // Two dimensions:
-    //  * connectivity: "offline" (no INTERNET permission — provably airgapped) vs
+    //  * connectivity: "offline" (no INTERNET permission - provably airgapped) vs
     //    "hybrid" (adds INTERNET + opt-in server sync; BuildConfig.HYBRID gates the code).
     //  * model: fp32 (full) vs fp16 (~lossless, half size).
     // => 4 side-by-side-installable variants: offline/hybrid × fp32/fp16.
@@ -113,7 +113,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax")
     implementation("androidx.camera:camera-view:$camerax")
 
-    // On-device face detection (bundled model — no network, no download).
+    // On-device face detection (bundled model - no network, no download).
     implementation("com.google.mlkit:face-detection:16.1.7")
 
     // On-device palm (hand) landmark detection for the palm modality's ROI.
@@ -132,14 +132,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
-    // Ed25519 signature verification for offline FV1 credentials (minSdk 26 —
+    // Ed25519 signature verification for offline FV1 credentials (minSdk 26 -
     // java.security only gains Ed25519 at API 33).
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 
     // On-device QR scanning for the credential verifier (bundled model, offline).
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
-    // JVM unit tests (Protect.kt golden vectors — real org.json instead of the stub).
+    // JVM unit tests (Protect.kt golden vectors - real org.json instead of the stub).
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

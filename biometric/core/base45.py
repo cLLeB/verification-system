@@ -1,8 +1,8 @@
-"""Base45 codec (RFC 9285) — the alphanumeric-QR-friendly encoding used by
+"""Base45 codec (RFC 9285) - the alphanumeric-QR-friendly encoding used by
 EU DCC-style credentials. QR alphanumeric mode packs these 45 characters at
 5.5 bits each, so base45 payloads fit ~30% more data per QR than base64.
 
-Self-contained (no dependency); strict decode — any character outside the
+Self-contained (no dependency); strict decode - any character outside the
 alphabet or an invalid final chunk raises ``Base45Error``.
 """
 

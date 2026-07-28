@@ -1,8 +1,8 @@
-"""Match-score drift monitor — detect when the score distribution shifts.
+"""Match-score drift monitor - detect when the score distribution shifts.
 
 A biometric system's genuine/impostor score distributions are stable when the
-population, cameras and environment are stable. When they drift — a new phone model,
-worse lighting, a coordinated presentation attack, or a model regression — accuracy
+population, cameras and environment are stable. When they drift - a new phone model,
+worse lighting, a coordinated presentation attack, or a model regression - accuracy
 silently degrades. This subsystem watches the stream of match scores, holds a frozen
 baseline, and flags when a recent window departs from it, so operators are warned
 *before* users notice false rejects.
@@ -11,7 +11,7 @@ baseline, and flags when a recent window departs from it, so operators are warne
   * ``observe``       feed a live score into a bounded rolling window.
   * ``report``        compare the rolling window to the baseline: mean shift
                       (in baseline sigmas), and Population Stability Index (PSI)
-                      over fixed score bins — the standard drift metric.
+                      over fixed score bins - the standard drift metric.
   * ``status``        drift verdict (ok / warn / alert) from the PSI thresholds.
 
 PSI bands follow the common convention: < 0.1 stable, 0.1–0.25 moderate (warn),

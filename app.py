@@ -59,7 +59,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 # CORS for /v1 is allow-listed: an origin is permitted if it's in FACE_CORS_ORIGINS
 # (env) OR registered by any tenant (admin console). The API key still scopes what
-# the caller can do — CORS only controls which browser origins may send the request.
+# the caller can do - CORS only controls which browser origins may send the request.
 _env_cors = set(o.strip() for o in os.environ.get("FACE_CORS_ORIGINS", "").split(",") if o.strip())
 
 
@@ -75,12 +75,12 @@ def _before():
     request._t0 = time.time()
     g.request_id = uuid.uuid4().hex[:12]
     # Private-link gate (no-op unless FACE_LINK_TOKEN is set): the site answers only
-    # to someone holding the invite link. Runs first — an uninvited request never
+    # to someone holding the invite link. Runs first - an uninvited request never
     # reaches a route.
     gated = linkgate.check()
     if gated is not None:
         return gated
-    # CORS preflight for the integration API — answer directly.
+    # CORS preflight for the integration API - answer directly.
     if request.method == "OPTIONS" and request.path.startswith("/v1/"):
         return make_response("", 204)
     if request.path.startswith(_API_PREFIXES):
@@ -206,15 +206,15 @@ def widget_demo():
 import dataclasses
 
 CONFIG = load_config()
-# Passive single-shot liveness (CelebA-Spoof model) — off by default until tuned.
+# Passive single-shot liveness (CelebA-Spoof model) - off by default until tuned.
 if os.environ.get("FACE_LIVENESS", "0") == "0":
     CONFIG = dataclasses.replace(CONFIG, liveness_enabled=False)
-# Active head-turn challenge liveness on verify — ON by default.
+# Active head-turn challenge liveness on verify - ON by default.
 if os.environ.get("FACE_ACTIVE_LIVENESS", "1") == "0":
     CONFIG = dataclasses.replace(CONFIG, active_liveness=False)
 # The 3D-68 landmark model exists solely to give head pose to that challenge
 # (engine.detect_pose -> liveness_active). With the challenge off it is dead
-# weight — and expensive weight: 137 MB on disk but ~329 MB resident once
+# weight - and expensive weight: 137 MB on disk but ~329 MB resident once
 # onnxruntime has its arenas. Dropping it roughly halves the service's memory,
 # which is the difference between fitting a 512 MB host and being OOM-killed.
 # Matching and palm are unaffected; only the face head-turn check needs pose.
@@ -234,7 +234,7 @@ if _lt:
     except ValueError:
         pass
 
-# Restore saved state (keys, operators, templates) BEFORE anything reads it —
+# Restore saved state (keys, operators, templates) BEFORE anything reads it -
 # a no-op unless FACE_PERSIST_DATASET + HF_TOKEN are set (durable state on
 # ephemeral hosts like free Hugging Face Spaces).
 persistence.restore()
@@ -252,9 +252,9 @@ DEBUG = os.environ.get("FACE_DEBUG", "0") == "1"
 SELF_ENROLL_LIVENESS = os.environ.get("FACE_SELF_ENROLL_LIVENESS", "0") == "1"
 # Public 1:N identify on the open web client (/api/verify with no user_id). On by
 # default; set to 0 to require a claimed user_id (1:1 only) so the open endpoint
-# can't be used to probe "is this person in your DB" (fix F — identify privacy).
+# can't be used to probe "is this person in your DB" (fix F - identify privacy).
 PUBLIC_IDENTIFY = os.environ.get("FACE_PUBLIC_IDENTIFY", "1") == "1"
-# PILOT: open enrolment — no admin login on /api/enroll, so anyone opening the link
+# PILOT: open enrolment - no admin login on /api/enroll, so anyone opening the link
 # can enrol themselves with zero friction. Set FACE_OPEN_ENROLL=0 to put the operator
 # password back (the console at /admin stays password-protected either way).
 OPEN_ENROLL = os.environ.get("FACE_OPEN_ENROLL", "1") == "1"
@@ -300,7 +300,7 @@ def save_debug(img, tag, result=None):
 
 def _subject_gates(result: dict) -> dict:
     """First-party post-match gates (guest expiry -> consent -> access policy),
-    applied strictly AFTER the biometric decision — mirrors /v1. A granted
+    applied strictly AFTER the biometric decision - mirrors /v1. A granted
     guardian's result also lists who they may collect for (kiosk shows it)."""
     out = _policies.apply(_FP_TENANT,
                           _consent.gate(_FP_TENANT,
@@ -333,7 +333,7 @@ def index():
 # --- portable offline credentials: public pages + demo verifier --------------
 @app.route("/card")
 def credential_card():
-    """Save-to-phone / printable card page. The payload rides in ?d= — it is the
+    """Save-to-phone / printable card page. The payload rides in ?d= - it is the
     signed public credential by design (what gets printed), so no session."""
     from biometric.core import credential as _credential
     text = (request.args.get("d") or "").strip()
@@ -357,7 +357,7 @@ def verify_credential_page():
 
 @app.route("/glance")
 def glance_page():
-    """Web 'Glance' — continuous on-device-style 1:N from a laptop/phone browser
+    """Web 'Glance' - continuous on-device-style 1:N from a laptop/phone browser
     (trust platform Phase 3 web parity, spec 7.2)."""
     return render_template("glance.html")
 
@@ -366,7 +366,7 @@ def glance_page():
 def api_glance():
     """One continuous-identification frame: 1:N against the store with the stricter,
     SEPARATELY-calibrated glance operating point (higher floor + margin than 1:1, no
-    liveness — it's an identification aid; access decisions stay in Verify)."""
+    liveness - it's an identification aid; access decisions stay in Verify)."""
     from face_service import glance as _glance
     img = decode_image((request.get_json(silent=True) or {}).get("image", ""))
     if img is None:
@@ -383,7 +383,7 @@ def api_glance():
     uid = cands[0]["user_id"] if cands else out.get("user_id")
     granted = top >= floor and (len(cands) <= 1 or (top - second) >= _glance.GLANCE_MARGIN)
     # Identifying someone IS processing their data: a withdrawn consent or an
-    # expired guest pass hides them from glance too (policies stay out of it —
+    # expired guest pass hides them from glance too (policies stay out of it -
     # glance is an identification aid, not an access decision).
     if granted and uid:
         gated = _consent.gate(_FP_TENANT, _guests.gate(
@@ -661,7 +661,7 @@ def admin_tenant_portal_password():
 @admin.require_admin
 def admin_tenant_offboard():
     """Crypto-erase a tenant: revoke all its keys and delete its store AND its
-    encryption key — making the data cryptographically unrecoverable."""
+    encryption key - making the data cryptographically unrecoverable."""
     import shutil
     data = request.get_json(silent=True) or {}
     tenant = (data.get("tenant") or "").strip()
@@ -893,7 +893,7 @@ def admin_keys_revoke():
 # --- enrolment invites (first-party; admin may target any tenant) ----------
 def _invite_links(batch: list) -> list:
     """Attach the full self-enrol link to each freshly-minted invite. The raw token
-    is present ONLY here (creation response) — it's never stored or re-exposed."""
+    is present ONLY here (creation response) - it's never stored or re-exposed."""
     base = request.host_url.rstrip("/")
     return [{**b, "link": f"{base}/enroll?token={b['token']}"} for b in batch]
 
@@ -910,7 +910,7 @@ def _req_modalities(data: dict):
 
 def _invite_scope(user_id: str, tenant: str, requested):
     """Decide an invite's modality whitelist + step-up from what the target user
-    already holds (fix A — second-modality hijack). Delegates to the canonical
+    already holds (fix A - second-modality hijack). Delegates to the canonical
     ``modality.invite_scope`` so the admin console and tenant portal agree.
 
       * brand-new identity  -> requested (or both), NO step-up.
@@ -925,7 +925,7 @@ def _invite_scope(user_id: str, tenant: str, requested):
 def _create_scoped_invite(name: str, tenant: str, expires_in_hours, requested=None,
                           issue_credential=False) -> dict:
     """Mint an invite with its modality scope + step-up computed from the current
-    store — used by BOTH single and bulk creation so a roster name that already
+    store - used by BOTH single and bulk creation so a roster name that already
     exists is scoped/step-up'd too (never an open re-bind)."""
     mods, step_up, step_mod = _invite_scope(name, tenant, requested)
     return invites.create_invite(name, tenant, expires_in_hours=expires_in_hours,
@@ -970,7 +970,7 @@ def admin_invites_create():
 @app.route("/admin/api/invites/bulk", methods=["POST"])
 @admin.require_admin
 def admin_invites_bulk():
-    """Mint one invite per name from an uploaded roster (.txt — names separated by
+    """Mint one invite per name from an uploaded roster (.txt - names separated by
     newlines and/or commas). Raw links returned ONCE for the console to show + export."""
     data = request.get_json(silent=True) or {}
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
@@ -984,7 +984,7 @@ def admin_invites_bulk():
     requested = _req_modalities(data)
     hours = data.get("expires_in_hours")
     issue_cred = bool(data.get("issue_credential"))
-    # Skip names that are already fully enrolled — no invite to mint for them.
+    # Skip names that are already fully enrolled - no invite to mint for them.
     _fc, _pe = _invite_target(tenant)
     skipped = [n for n in names if _modality.is_fully_enrolled(n, _fc, _pe)]
     to_mint = [n for n in names if n not in set(skipped)]
@@ -1003,7 +1003,7 @@ def _purge_invite_enrolments(rec: dict) -> list:
     """Delete exactly the biometrics an invite bound (only the modalities it
     enrolled, leaving any pre-existing modality intact). Returns modalities purged.
     Also revokes any credential auto-issued through the invite (a purge means
-    suspected compromise — the self-contained card must not outlive the data)."""
+    suspected compromise - the self-contained card must not outlive the data)."""
     if not rec:
         return []
     tenant = rec.get("tenant") or _FP_TENANT
@@ -1020,7 +1020,7 @@ def admin_invites_revoke():
     invite_id = (data.get("invite_id") or "").strip()
     # Optional: also delete biometrics this invite already bound. Revoke only blocks
     # further use of the LINK; if you revoke because of suspected compromise, purge
-    # removes what it captured (fix C — soft-revoke otherwise leaves the template live).
+    # removes what it captured (fix C - soft-revoke otherwise leaves the template live).
     purge = bool(data.get("purge"))
     rec = invites.get_by_invite_id(invite_id) if purge else None
     ok = invites.revoke(invite_id)
@@ -1034,7 +1034,7 @@ def admin_invites_revoke():
 @app.route("/admin/api/export/bundle", methods=["POST"])
 @admin.require_admin
 def admin_export_bundle():
-    """Export a tenant's templates (embeddings only — never images) as a passphrase-
+    """Export a tenant's templates (embeddings only - never images) as a passphrase-
     encrypted, integrity-protected bundle for provisioning an AIR-GAPPED device. The
     admin moves the file to the device out-of-band and imports it with the same
     passphrase; no network path to the offline app is opened."""
@@ -1044,7 +1044,7 @@ def admin_export_bundle():
     data = request.get_json(silent=True) or {}
     tenant = (data.get("tenant") or _FP_TENANT).strip() or _FP_TENANT
     face_cfg, palm_enabled = _invite_target(tenant)
-    # protected templates travel with their domain seeds (same as /v1/export/bundle) —
+    # protected templates travel with their domain seeds (same as /v1/export/bundle) -
     # without them an air-gapped device could never match its live captures
     protection = {}
     for m in ("face", "palm") if palm_enabled else ("face",):
@@ -1105,7 +1105,7 @@ def admin_export_glance_index():
 @app.route("/api/analytics/templates", methods=["GET"])
 def analytics_templates():
     """TEMPORARY, secret-gated analytics export of FIRST-PARTY face+palm TEMPLATES
-    (embeddings only — never images, never tenant data) for offline accuracy tuning.
+    (embeddings only - never images, never tenant data) for offline accuracy tuning.
 
     Disabled (404) unless FACE_ANALYTICS_TOKEN is set on the server; requires that
     token in the ``X-Analytics-Token`` header. Read-only. Delete the secret to turn
@@ -1132,12 +1132,12 @@ def _collect_enabled(supplied: str) -> bool:
 @app.route("/collect")
 def collect_page():
     """TEMPORARY data-collection screen for building a liveness/anti-spoof (PAD) test
-    set on real captures. If you're signed in to /admin, just open /collect — no token
+    set on real captures. If you're signed in to /admin, just open /collect - no token
     needed. Tap LIVE for a genuine person, SPOOF for a held-up photo / phone-screen
     replay. Images save under the persisted dir. Available when an admin is signed in
     OR FACE_ANALYTICS_TOKEN is set."""
     if not (admin.valid_session() or ANALYTICS_TOKEN):
-        return ("Collection is off — sign in to /admin, or set FACE_ANALYTICS_TOKEN.", 404)
+        return ("Collection is off - sign in to /admin, or set FACE_ANALYTICS_TOKEN.", 404)
     return render_template("collect.html", token=request.args.get("token", ""),
                            admin=admin.valid_session())
 
@@ -1196,7 +1196,7 @@ def analytics_collect_export():
 def analytics_field_manifest():
     """What the live deployment currently holds: how many attempts recorded, over
     which days, how big. Token-gated. Use it to check the pilot is capturing before
-    people start arriving — and to see what a pull will bring back."""
+    people start arriving - and to see what a pull will bring back."""
     if not ANALYTICS_TOKEN:
         return jsonify({"success": False, "code": "disabled"}), 404
     if not _collect_enabled(request.headers.get("X-Analytics-Token", "")):
@@ -1274,7 +1274,7 @@ def health():
                     "active_liveness": CONFIG.active_liveness,
                     "encrypted_at_rest": ENCRYPTED_AT_REST,
                     "signing": bool(SIGNING_SECRET),
-                    # pilot switches — so a glance at /api/health confirms the
+                    # pilot switches - so a glance at /api/health confirms the
                     # deployment is capturing data and open for walk-up enrolment
                     "open_enroll": OPEN_ENROLL,
                     "link_gated": linkgate.enabled(),
@@ -1282,7 +1282,7 @@ def health():
                     "analytics": bool(ANALYTICS_TOKEN),
                     # active(), not enabled(): enabled() only answers for the HF
                     # backend, so a snapshot-backed deploy reported "not persisted"
-                    # while persisting fine — which masked a real data-loss bug.
+                    # while persisting fine - which masked a real data-loss bug.
                     "persisted": persistence.active()})
 
 
@@ -1362,7 +1362,7 @@ def api_invite_info():
                     "step_up_satisfied": invites.is_step_up_satisfied(rec),
                     "active_liveness": CONFIG.active_liveness,
                     "self_enroll_liveness": SELF_ENROLL_LIVENESS,
-                    # informed consent: the enrollee SEES what they agree to —
+                    # informed consent: the enrollee SEES what they agree to -
                     # the recorded consent (method 'self') then refers to this text
                     "consent_text": _consent.policy(rec["tenant"])["text"]})
 
@@ -1371,7 +1371,7 @@ def api_invite_info():
 def api_invite_stepup():
     """Step-up for an add-a-modality invite: the enrollee proves an EXISTING modality
     (they really are the pre-assigned person) before a new modality may be bound.
-    Accepts a liveness burst (``frames`` + challenge ``token``) for face — preferred —
+    Accepts a liveness burst (``frames`` + challenge ``token``) for face - preferred -
     or a single ``image``. On success the session is marked stepped-up."""
     data = request.get_json(silent=True) or {}
     token = data.get("token", "")
@@ -1387,18 +1387,18 @@ def api_invite_stepup():
 
     frames = data.get("frames")
     if frames and CONFIG.active_liveness and data.get("token_challenge"):
-        # A face liveness burst (head-turn) — verify the face.
+        # A face liveness burst (head-turn) - verify the face.
         imgs = [im for im in (decode_image(f) for f in frames) if im is not None]
         if not imgs:
             return jsonify({"success": False, "message": "Failed to decode frames."})
         if not _active.valid_token(data.get("token_challenge", "")):
             return jsonify({"success": False, "code": "liveness",
-                            "message": "Challenge expired — try again."})
+                            "message": "Challenge expired - try again."})
         res = engine.verify_live(uid, imgs, face_cfg)
         shot = imgs                            # burst; the recorder keeps the last frame
     else:
         # A palm (or non-liveness) burst: confirm from the sharpest frame. Accept ANY
-        # biometric this person already holds — proving either their face OR a palm
+        # biometric this person already holds - proving either their face OR a palm
         # proves they're the pre-assigned person, so the capture is auto-routed.
         if frames:
             decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
@@ -1418,7 +1418,7 @@ def api_invite_stepup():
     fielddata.record("stepup", shot, res, tenant=tenant, claimed_user_id=uid, actor="invite")
     return jsonify({"success": ok,
                     "code": "step_up_ok" if ok else "step_up_failed",
-                    "message": ("Identity confirmed — you can now add the new modality."
+                    "message": ("Identity confirmed - you can now add the new modality."
                                 if ok else "That didn't match your existing record. Try again."),
                     "step_up_modality": step_mod})
 
@@ -1430,7 +1430,7 @@ def api_invite_enroll():
     rec, err = _invite_or_error(token)
     if err:
         return err
-    uid = rec["user_id"]                       # FORCED from token — client cannot choose
+    uid = rec["user_id"]                       # FORCED from token - client cannot choose
     tenant = rec["tenant"]
     allowed = invites.allowed_modalities(rec)
     face_cfg, palm_enabled = _invite_target(tenant)
@@ -1451,7 +1451,7 @@ def api_invite_enroll():
             return jsonify({"success": False, "message": "Failed to decode frames."})
         if not _active.valid_token(data.get("token_challenge", "")):
             return jsonify({"success": False, "code": "liveness",
-                            "message": "Challenge expired — try again."})
+                            "message": "Challenge expired - try again."})
         result = engine.enroll_live(uid, imgs, face_cfg)
         result["modality"] = "face"
         _record_self_enroll(token, tenant, rec, result, imgs[len(imgs) // 2])
@@ -1513,7 +1513,7 @@ def _record_self_enroll(token, tenant, rec, result, img):
 
 @app.route("/api/invite/finish", methods=["POST"])
 def api_invite_finish():
-    """Enrollee tapped Finish — burn the token. Resumable until this point."""
+    """Enrollee tapped Finish - burn the token. Resumable until this point."""
     data = request.get_json(silent=True) or {}
     token = data.get("token", "")
     rec, err = _invite_or_error(token)
@@ -1527,7 +1527,7 @@ def api_invite_finish():
               user_id=rec["user_id"], success=True, detail=f"modalities={rec.get('enrolled')}")
     out = {"success": True, "user_id": rec["user_id"], "enrolled": rec.get("enrolled", [])}
     # Auto-issue option (trust platform phase 2): the invite ends with a QR card
-    # the enrollee saves to their phone or prints — verifiable offline anywhere.
+    # the enrollee saves to their phone or prints - verifiable offline anywhere.
     if rec.get("issue_credential"):
         try:
             face_cfg, palm_enabled = _invite_target(rec["tenant"])
@@ -1545,7 +1545,7 @@ def api_invite_finish():
 
 
 def _enroll_auth(view):
-    """Admin login on enrolment — unless FACE_OPEN_ENROLL is on (the pilot default),
+    """Admin login on enrolment - unless FACE_OPEN_ENROLL is on (the pilot default),
     in which case the walk-up client enrols with no password at all. Verifying was
     always open; this makes enrolling equally frictionless while we gather data."""
     guarded = admin.require_admin(view)
@@ -1560,7 +1560,7 @@ def _enroll_auth(view):
 @_enroll_auth
 def api_enroll():
     data = request.get_json(silent=True) or {}
-    # Accept a capture burst (preferred — the sharpest frame wins) or a single image.
+    # Accept a capture burst (preferred - the sharpest frame wins) or a single image.
     frames = data.get("frames")
     if frames:
         decoded = [im for im in (decode_image(f) for f in frames) if im is not None]
@@ -1612,7 +1612,7 @@ def api_verify():
                         "message": "Enter your name/ID to verify."}), 400
 
     # Burst path: a face does the head-turn challenge; a palm burst is auto-detected
-    # and verified on its SHARPEST frame — so one soft/ghosted frame (dim light,
+    # and verified on its SHARPEST frame - so one soft/ghosted frame (dim light,
     # motion) doesn't sink the attempt. Works whether or not face active liveness is
     # enabled; the head-turn check itself still applies only to faces.
     frames = data.get("frames")
@@ -1629,7 +1629,7 @@ def api_verify():
         elif CONFIG.active_liveness:
             if not _active.valid_token(data.get("token", "")):
                 return jsonify({"success": False, "code": "liveness",
-                                "message": "Challenge expired — try again."})
+                                "message": "Challenge expired - try again."})
             result = engine.verify_live(user_id, imgs, CONFIG)
         else:                                   # face, active liveness off: single shot
             result = (_modality.verify(user_id, mid, CONFIG, palm_enabled=True) if user_id
@@ -1644,7 +1644,7 @@ def api_verify():
                          extra={"mode": "burst", "routed": routed.modality})
         return jsonify(sign(result))
 
-    # Single-image path (active liveness off, or palm) — auto-routed.
+    # Single-image path (active liveness off, or palm) - auto-routed.
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"success": False, "message": "Failed to decode image."})
@@ -1922,7 +1922,7 @@ def admin_consent_withdraw():
 
 # --- data-subject rights: the person's own "my data" surface ------------------
 # The person authenticates with their own biometric (the untouched verify
-# pipeline — head-turn liveness included when enabled), gets a short-lived
+# pipeline - head-turn liveness included when enabled), gets a short-lived
 # signed session token, and can then read their record, download a consent
 # receipt, and withdraw consent. Nobody else's data is ever reachable: the
 # token binds to the user_id that VERIFIED.
@@ -1951,7 +1951,7 @@ def my_data_page():
 @app.route("/api/subject/session", methods=["POST"])
 def subject_session():
     """Prove who you are (your own biometric, full liveness) -> a 10-minute
-    signed session for the data-subject endpoints. 1:N only — the person just
+    signed session for the data-subject endpoints. 1:N only - the person just
     presents themselves; no name is typed, no name can be chosen."""
     data = request.get_json(silent=True) or {}
     frames = data.get("frames")
@@ -1967,7 +1967,7 @@ def subject_session():
         elif CONFIG.active_liveness:
             if not _active.valid_token(data.get("token", "")):
                 return jsonify({"success": False, "code": "liveness",
-                                "message": "Challenge expired — try again."})
+                                "message": "Challenge expired - try again."})
             result = engine.verify_live("", imgs, CONFIG)
         else:
             result = _modality.identify(mid, CONFIG, palm_enabled=True)
@@ -1976,13 +1976,13 @@ def subject_session():
         if img is None:
             return jsonify({"success": False, "message": "'image' or 'frames' required."})
         result = _modality.identify(img, CONFIG, palm_enabled=True)
-    # NOTE: deliberately NOT gated on guest expiry / withdrawal — an expired or
+    # NOTE: deliberately NOT gated on guest expiry / withdrawal - an expired or
     # withdrawn person must still be able to see their data and their standing.
     if not result.get("success") or not result.get("user_id"):
         audit.log(_FP_TENANT, "subject_session", actor="subject", success=False,
                   detail=f"code={result.get('code')}")
         return jsonify({"success": False, "code": result.get("code", "no_match"),
-                        "message": "We couldn't confirm who you are — try again."})
+                        "message": "We couldn't confirm who you are - try again."})
     uid = result["user_id"]
     audit.log(_FP_TENANT, "subject_session", actor="subject", user_id=uid, success=True)
     return jsonify({"success": True, "user_id": uid,
@@ -1997,7 +1997,7 @@ def subject_data():
     uid = _subject_uid()
     if not uid:
         return jsonify({"success": False, "code": "session_expired",
-                        "message": "Session expired — verify yourself again."}), 401
+                        "message": "Session expired - verify yourself again."}), 401
     record = _modality.export_record(uid, CONFIG, True)
     events = [e for e in audit.tail(_FP_TENANT, 1000) if e.get("user_id") == uid][:50]
     audit.log(_FP_TENANT, "subject_access", actor="subject", user_id=uid, success=True)
@@ -2021,7 +2021,7 @@ def subject_withdraw():
     uid = _subject_uid()
     if not uid:
         return jsonify({"success": False, "code": "session_expired",
-                        "message": "Session expired — verify yourself again."}), 401
+                        "message": "Session expired - verify yourself again."}), 401
     if data.get("confirm") is not True:
         return jsonify({"success": False, "code": "confirm_required",
                         "message": "Set 'confirm': true to withdraw consent."}), 400

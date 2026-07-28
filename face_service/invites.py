@@ -1,4 +1,4 @@
-"""Enrolment-invite store — unsupervised, token-gated self-enrolment.
+"""Enrolment-invite store - unsupervised, token-gated self-enrolment.
 
 An *invite* lets a pre-named person enrol themselves once, on their own device,
 without the admin password and without an operator present. It is the human-facing
@@ -6,17 +6,17 @@ equivalent of an ``enroll``-scoped credential:
 
   * **Pre-assigned identity (A-model).** Each invite fixes the ``user_id`` the
     enrollee will become. They prove their face/palm; they cannot choose *who*
-    they are — the name comes from the token, never from a form field.
+    they are - the name comes from the token, never from a form field.
   * **Authentication ≠ authorisation.** The name authorises the identity; a
     cryptographically-random token (``inv_`` + 32 urlsafe bytes, ~190 bits)
     authenticates the bearer. The two are decoupled: the token is NOT derived
     from the name, so it can't be guessed from a roster.
-  * **Stored hashed.** Only ``sha256(token)`` is persisted — a leak of the file
+  * **Stored hashed.** Only ``sha256(token)`` is persisted - a leak of the file
     never yields a usable link. The raw token is returned ONCE at creation.
   * **Single onboarding session, burns on Finish.** ``mark_progress`` records a
     completed modality without consuming the token, so a dropped network or page
     refresh is resumable. ``consume`` burns it when the enrollee taps Finish.
-  * **Short, configurable expiry** (default 24h) and admin-``revoke`` — the
+  * **Short, configurable expiry** (default 24h) and admin-``revoke`` - the
     standard mitigations for an intercepted-before-use link.
   * **Tenant-scoped.** Each invite belongs to one tenant and only ever writes to
     that tenant's store, so a tenant's portal invites never touch another's data.
@@ -42,10 +42,10 @@ MIN_EXPIRY_HOURS = 1
 MAX_EXPIRY_HOURS = 72
 
 # The biometric modalities an invite may bind. An invite's ``modalities`` is a
-# subset of these — a first-time invite defaults to BOTH; an invite that adds a
+# subset of these - a first-time invite defaults to BOTH; an invite that adds a
 # missing modality to an ALREADY-ENROLLED person is scoped to just that modality
 # (and marked ``requires_step_up`` so the enrollee must first prove an existing
-# modality before the new one is bound — closes the "bind a rogue palm to an
+# modality before the new one is bound - closes the "bind a rogue palm to an
 # existing face account" hijack).
 MODALITIES = ("face", "palm")
 
@@ -97,7 +97,7 @@ def parse_roster(text: str) -> List[str]:
     """Parse an uploaded roster into a de-duplicated, order-preserving name list.
 
     Names are separated by newlines AND/OR commas (admin's choice). Each name is
-    trimmed at the ends only — inner spaces (``Kofi Mensah``) are preserved.
+    trimmed at the ends only - inner spaces (``Kofi Mensah``) are preserved.
     Blank entries are dropped; duplicates keep their first occurrence."""
     out: List[str] = []
     seen = set()
@@ -122,7 +122,7 @@ def create_invite(user_id: str, tenant: str,
     ``modalities`` scopes which biometrics this link may bind (defaults to both).
     When the target ``user_id`` already exists, the caller passes the MISSING
     modality here plus ``requires_step_up=True`` and the existing
-    ``step_up_modality`` — so the enrollee must prove they are the real person
+    ``step_up_modality`` - so the enrollee must prove they are the real person
     (verify against the existing modality) before the new modality is bound."""
     user_id = (user_id or "").strip()
     if not user_id:
@@ -290,7 +290,7 @@ def _status(rec: dict) -> str:
 
 def list_invites(tenant: Optional[str] = None) -> List[dict]:
     """Status view of invites (NEVER the raw token). Filtered to ``tenant`` when
-    given — the portal passes its session tenant so a company sees only its own."""
+    given - the portal passes its session tenant so a company sees only its own."""
     out = []
     for v in _load().values():
         if tenant is not None and v.get("tenant") != tenant:
@@ -305,7 +305,7 @@ def list_invites(tenant: Optional[str] = None) -> List[dict]:
 
 
 def revoke(invite_id: str) -> bool:
-    """Revoke a SINGLE invite by its public ``invite_id`` (soft — the row stays so
+    """Revoke a SINGLE invite by its public ``invite_id`` (soft - the row stays so
     the enrollee sees a clear 'revoked' message and the admin table keeps history).
     Returns True if a matching invite was revoked."""
     with _lock:

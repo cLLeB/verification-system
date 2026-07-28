@@ -1,10 +1,10 @@
-"""Geohash zones — resolve which named zones a coordinate falls in.
+"""Geohash zones - resolve which named zones a coordinate falls in.
 
 Sites, campuses and regions are naturally spatial, and a fast way to ask "which zones is
 this point in" is to index them by geohash: encode a coordinate to a short base-32 string
 where a shared prefix means geographic proximity, then match zones defined by a geohash
 prefix. This subsystem provides geohash encoding and prefix-based zone membership without
-any geometry library — cheap, deterministic, and good enough for coarse zoning that
+any geometry library - cheap, deterministic, and good enough for coarse zoning that
 complements the radius-based [[geofence]].
 
   * ``encode``      lat/lon → geohash string at a chosen precision.

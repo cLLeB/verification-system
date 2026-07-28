@@ -1,14 +1,14 @@
 """Palm threshold safety: serving-consistent auto-calibration + clamped application.
 
 Background (2026-07-02 incident): the palm threshold 0.60 sat BELOW the measured
-impostor ceiling (~0.62 max-over-anchors) — three different people's palms would
+impostor ceiling (~0.62 max-over-anchors) - three different people's palms would
 false-accept. Two systemic guards now exist:
 
   1. ``biometric.calibrate.impostor_scores`` measures impostors the way SERVING
-     matches (max cosine over stored anchors), not via mean embeddings — means pull
+     matches (max cosine over stored anchors), not via mean embeddings - means pull
      different people together (a pair read 0.69 by means vs 0.622 by max-pairwise).
   2. ``modality._palm_cfg_for`` applies a tenant's learned threshold only within
-     [base, base+0.12] — a small-sample auto-calibration can never LOOSEN below the
+     [base, base+0.12] - a small-sample auto-calibration can never LOOSEN below the
      curated palm/calibration.json baseline, nor lock genuine users out.
 """
 
@@ -32,7 +32,7 @@ def test_impostor_scores_use_max_over_anchors():
     imp = calibrate.impostor_scores([("a", a), ("b", b), ("c", c)])
     assert imp.size == 3
     # max-pairwise: a's impostor best = 0.8. A mean-based implementation would give
-    # c·mean(a) = 0.57 — the distortion this test pins against.
+    # c·mean(a) = 0.57 - the distortion this test pins against.
     assert abs(float(imp.max()) - 0.8) < 1e-3
 
 

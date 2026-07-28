@@ -1,29 +1,29 @@
-"""Consent records & data-subject rights — the lawful-basis layer.
+"""Consent records & data-subject rights - the lawful-basis layer.
 
 Biometric data is special-category data almost everywhere (GDPR art. 9, and
 its African/Asian equivalents). The platform encrypts and protects templates,
-but until now it had NO record that the person ever AGREED — nothing to show
+but until now it had NO record that the person ever AGREED - nothing to show
 an auditor, nothing for the person to withdraw. This module adds exactly that,
 without touching the biometric pipeline:
 
-  * **Tenant consent text** — each tenant registers the consent statement its
+  * **Tenant consent text** - each tenant registers the consent statement its
     enrollees accept. Versioned; the stored record pins the version + SHA-256
     of the exact text agreed to, so later edits never rewrite history.
-  * **Automatic capture** — every enrol path records consent for the enrolled
+  * **Automatic capture** - every enrol path records consent for the enrolled
     person: ``operator`` (admin console / API on their behalf) or ``self``
-    (invite self-enrolment — the strongest form). Recording is idempotent per
+    (invite self-enrolment - the strongest form). Recording is idempotent per
     (tenant, user); re-enrolment refreshes the timestamp on the same record.
-  * **Withdrawal** — a withdrawal is honoured IMMEDIATELY at verify time:
+  * **Withdrawal** - a withdrawal is honoured IMMEDIATELY at verify time:
     the biometric match still runs untouched, then the granted result is
     flipped to ``consent_withdrawn`` (enforcement mirrors [[guests]]). The
     templates are then due for erasure via the normal delete path.
-  * **Receipt** — a signed-worthy, exportable statement of what was agreed,
+  * **Receipt** - a signed-worthy, exportable statement of what was agreed,
     when, how, and whether it stands. The subject-facing surface hands this
     to the person; the console shows the tenant its compliance position.
 
 Registry: ``consent.json`` (env ``FACE_CONSENT_FILE``), same JSON/lock/env
 pattern as [[keys]] / [[invites]]. The registry stores user_ids, hashes and
-timestamps — never images, never embeddings.
+timestamps - never images, never embeddings.
 """
 
 from __future__ import annotations
@@ -100,8 +100,8 @@ def set_policy(tenant: Optional[str], text: Optional[str] = None,
                require_consent: Optional[bool] = None) -> dict:
     """Update the consent statement (bumps the version when the text changes)
     and/or the enforcement toggles:
-      * enforce_withdrawal — flip granted verifies for withdrawn users (default on).
-      * require_consent    — refuse verification for users with NO consent record
+      * enforce_withdrawal - flip granted verifies for withdrawn users (default on).
+      * require_consent    - refuse verification for users with NO consent record
                              (default off: pre-existing datasets keep working)."""
     t = _norm(tenant)
     with _lock:
@@ -168,7 +168,7 @@ def get(tenant: Optional[str], user_id: str) -> Optional[dict]:
 
 
 def status(tenant: Optional[str], user_id: str) -> str:
-    """'granted' | 'withdrawn' | 'none' — the person's standing right now."""
+    """'granted' | 'withdrawn' | 'none' - the person's standing right now."""
     rec = get(tenant, user_id)
     if rec is None:
         return "none"
@@ -245,12 +245,12 @@ def gate(tenant: Optional[str], result: dict) -> dict:
     if st == "withdrawn" and pol["enforce_withdrawal"]:
         result["success"] = False
         result["code"] = "consent_withdrawn"
-        result["message"] = (f"'{uid}' has withdrawn consent — verification is "
+        result["message"] = (f"'{uid}' has withdrawn consent - verification is "
                              f"blocked and their data is due for erasure.")
     elif st == "none" and pol["require_consent"]:
         result["success"] = False
         result["code"] = "consent_missing"
         result["message"] = (f"No consent on record for '{uid}' and this tenant "
-                             f"requires one — re-enrol them through a consent-"
+                             f"requires one - re-enrol them through a consent-"
                              f"carrying flow.")
     return result

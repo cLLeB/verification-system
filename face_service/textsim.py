@@ -1,4 +1,4 @@
-"""String similarity — measure how close two strings are.
+"""String similarity - measure how close two strings are.
 
 Fuzzy matching underlies dedupe, [[sanctions]] screening, and typo-tolerant lookup. Beyond
 the token/phonetic approaches already here ([[phonetics]]), character-level metrics quantify
@@ -8,7 +8,7 @@ dependency-free, so callers can pick the right notion of "close".
 
   * ``levenshtein``     the minimum single-character edits (insert/delete/substitute).
   * ``levenshtein_ratio`` a 0–1 similarity from edit distance and length.
-  * ``jaro`` / ``jaro_winkler`` — the Jaro and prefix-boosted Jaro-Winkler scores.
+  * ``jaro`` / ``jaro_winkler`` - the Jaro and prefix-boosted Jaro-Winkler scores.
   * ``similarity``      dispatch to a named metric returning a 0–1 score.
 
 Jaro-Winkler is the recommended default for personal names; ``levenshtein_ratio`` is better

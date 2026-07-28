@@ -2,7 +2,7 @@
 
 The whole state directory (templates, keys, operators, tenants, usage, audit) is
 restored from a PRIVATE Hugging Face Dataset on startup and synced back in the
-background whenever it changes — so nothing is lost when the host rebuilds, sleeps,
+background whenever it changes - so nothing is lost when the host rebuilds, sleeps,
 or restarts. The search index is NOT synced (it's large and rebuilds itself from
 the store on first use).
 
@@ -39,7 +39,7 @@ _IGNORE = ["*/index/*", "*.lock", "*/.cache/*", ".cache/*"]   # index rebuilds i
 # --- filesystem snapshot backend --------------------------------------------
 # For clouds where the container disk is ephemeral but a DURABLE directory can be
 # mounted (Azure Files, an NFS/SMB share, a persistent volume). SQLite runs on the
-# fast LOCAL disk (it cannot run live on a network share — locking breaks); this
+# fast LOCAL disk (it cannot run live on a network share - locking breaks); this
 # copies a CONSISTENT snapshot of the state to the durable dir and restores it on
 # boot. DB files are snapshotted via SQLite's backup API (safe on a live DB);
 # everything else is copied when newer. Set FACE_SNAPSHOT_DIR to the mounted path.
@@ -61,7 +61,7 @@ def active() -> bool:
 
     ``enabled()`` only answers for the Hugging Face dataset backend, so reporting
     it alone on a snapshot-backed deploy reads as "nothing is persisted" while the
-    snapshot loop is in fact running — which is exactly how a real field-capture
+    snapshot loop is in fact running - which is exactly how a real field-capture
     loss went unnoticed. Status surfaces should use this.
     """
     return enabled() or _snap_enabled()
@@ -81,13 +81,13 @@ def _iter_files(base: str):
 
 
 # Large, append-heavy trees: snapshot by mtime (don't recopy old captures every cycle).
-# EVERYTHING ELSE — the small critical state (encryption salt/keys, JSON registries) —
+# EVERYTHING ELSE - the small critical state (encryption salt/keys, JSON registries) -
 # is copied EVERY cycle so related files (e.g. .salt + .key.wrapped) can never desync
 # in the durable store. A desynced key set makes the whole DB undecryptable on restore.
 _BULK_DIRS = ("fielddata", "collect", "audit_logs")
 
 
-# NB: shutil.copyfile — NOT copy2/copy — because copy2 also copies permissions
+# NB: shutil.copyfile - NOT copy2/copy - because copy2 also copies permissions
 # (copystat -> os.chmod), and the durable store is Azure Files (SMB), which rejects
 # chmod with "Operation not permitted", making the whole copy fail. The key files are
 # chmod 0600, so copy2 silently dropped them and desynced the encryption key material.
@@ -113,7 +113,7 @@ def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
     The backup is written to LOCAL disk first and only then byte-copied to the
     destination. Writing it straight to the destination looks simpler but breaks
     on an SMB share (Azure Files): SQLite needs locking the share doesn't provide,
-    so ``connect(dst)`` creates the file and then writes nothing — leaving a
+    so ``connect(dst)`` creates the file and then writes nothing - leaving a
     0-byte "backup" that silently loses every enrolment, with no error raised.
     Observed in production. A plain byte copy of the finished file needs no
     locking and is safe on SMB.
@@ -125,7 +125,7 @@ def _backup_db(src_db: str, src_base: str, dst_base: str) -> None:
     dst = os.path.join(dst_base, os.path.relpath(src_db, src_base))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     # Same directory as the source, so the temp file is on the local disk where
-    # SQLite works — never in dst_base.
+    # SQLite works - never in dst_base.
     fd, tmp = tempfile.mkstemp(suffix=".dbsnap", dir=os.path.dirname(src_db) or ".")
     os.close(fd)
     try:
@@ -197,7 +197,7 @@ def restore() -> None:
         except Exception as exc:
             print(f"[persist] snapshot restore skipped ({exc})", flush=True)
         return
-    print("[persist] disabled — set FACE_SNAPSHOT_DIR (or FACE_PERSIST_DATASET + HF_TOKEN).", flush=True)
+    print("[persist] disabled - set FACE_SNAPSHOT_DIR (or FACE_PERSIST_DATASET + HF_TOKEN).", flush=True)
 
 
 def _latest_mtime() -> float:

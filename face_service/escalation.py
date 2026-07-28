@@ -1,4 +1,4 @@
-"""Escalation policies — page the next tier when an alert goes unacknowledged.
+"""Escalation policies - page the next tier when an alert goes unacknowledged.
 
 An alert (a duress trigger, a tamper event, a spoof spike) is only useful if a
 human actually responds. Escalation policies encode "notify tier 1; if nobody
@@ -9,13 +9,13 @@ incident climbs the chain instead of dying in an inbox.
   * ``trigger``     open an incident on a policy; notifies tier 0 immediately.
   * ``acknowledge`` a responder claims the incident; escalation stops.
   * ``due``         given the current time, which incidents have breached their
-                    tier timeout and must advance — returns the tier to notify
+                    tier timeout and must advance - returns the tier to notify
                     now (and records the advance) or marks the chain exhausted.
-  * ``resolve`` / ``status`` — close and inspect.
+  * ``resolve`` / ``status`` - close and inspect.
 
 ``due`` is pull-based and deterministic: the caller runs it on a timer, and it
 advances each unacknowledged incident by exactly the tiers whose timeouts have
-elapsed, returning the recipients to page. This keeps the module pure — it never
+elapsed, returning the recipients to page. This keeps the module pure - it never
 sends anything itself.
 
 Registry: ``escalation.json`` (env ``FACE_ESCALATION_FILE``).

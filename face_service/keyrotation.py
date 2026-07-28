@@ -1,9 +1,9 @@
-"""Key rotation lifecycle — rotate signing keys with a dual-key overlap window.
+"""Key rotation lifecycle - rotate signing keys with a dual-key overlap window.
 
 Signing secrets (webhook secrets, token keys, issuer keys) must be rotated on a
 schedule, but rotation can't be instant: consumers verifying with the *old* key need a
 grace window to pick up the new one, or in-flight signatures break. This subsystem
-tracks rotation metadata and models that overlap — after a rotation the previous
+tracks rotation metadata and models that overlap - after a rotation the previous
 version stays valid until its overlap expires, so verification accepts both keys during
 the hand-off. It also flags keys that are overdue for rotation.
 

@@ -1,4 +1,4 @@
-# Palm as a Second Biometric Modality — Design
+# Palm as a Second Biometric Modality - Design
 
 **Date:** 2026-06-23
 **Status:** Approved, in implementation
@@ -8,35 +8,35 @@
 
 Add contactless **palm-print** recognition as a second biometric modality alongside
 the existing face (ArcFace) system, so that a user is recognized whether they present
-their **face or their palm** — without the user (or an API caller) ever having to declare
+their **face or their palm** - without the user (or an API caller) ever having to declare
 which. Face must **not** be compromised: its math, thresholds, and behavior stay identical.
 
 > Not palm-**vein** (subsurface, needs near-infrared hardware consumer phones/laptops lack).
 > This is RGB palm-**print** (principal lines, creases, texture), which is discriminative at
-> a coarser resolution than fingerprint ridges — the reason contactless fingerprint failed on
+> a coarser resolution than fingerprint ridges - the reason contactless fingerprint failed on
 > phone cameras but palm-print does not.
 
 ## Decisions (locked)
 
-1. **Engine room — shared core + modality profiles.** The already-generic machinery
+1. **Engine room - shared core + modality profiles.** The already-generic machinery
    (`index`, `storage`, `matcher`, and most of `face_service/`) is extracted into a
    modality-agnostic `biometric/` core, parameterized by a **Profile**. Face becomes a
    profile with byte-identical behavior (guarded by the existing test suite); palm is a new
    profile.
-2. **Front door — auto-router is the DEFAULT.** Every entry point (live capture, image
+2. **Front door - auto-router is the DEFAULT.** Every entry point (live capture, image
    upload, API) runs a fast face-vs-palm detector first and routes automatically. Explicit
    `modality=face|palm` exists only as an override and for the combined "face+palm in one
    image" case.
-3. **Identity — shared `user_id`.** A person may enrol face only, palm only, or both, all
+3. **Identity - shared `user_id`.** A person may enrol face only, palm only, or both, all
    under one `user_id`. Face and palm embeddings live in **separate per-tenant, per-modality
    stores and indexes** and are **never cross-matched** (different vector spaces). Either
    modality verifying the enrolled person = a match.
-4. **Tenant policy — configurable.** Default **OR** (either modality grants); optional
+4. **Tenant policy - configurable.** Default **OR** (either modality grants); optional
    **palm-as-fallback** ordering; optional **AND** step-up (require both in one session).
-5. **Encoder — CCNet family exported to ONNX/TFLite.** Server keeps `onnxruntime` (no
+5. **Encoder - CCNet family exported to ONNX/TFLite.** Server keeps `onnxruntime` (no
    PyTorch added); Android gets TFLite. ROI via MediaPipe Hands. Pretrained first, mobile
    fine-tune (MPD/NTU-CP) later.
-6. **Scope — parity everywhere face exists**, with ID-document detection a deliberate N/A
+6. **Scope - parity everywhere face exists**, with ID-document detection a deliberate N/A
    (palms aren't on ID cards).
 
 ## Architecture
@@ -65,7 +65,7 @@ palm/                              # thin shims for the palm profile
 naming. Extraction is mechanical; face shims preserve all imports; the existing
 `tests/` prove behavior is unchanged.
 
-### Front door — auto-router
+### Front door - auto-router
 
 On every entry point:
 
@@ -87,7 +87,7 @@ index, and the returned `user_id` is the person. Grant follows the tenant policy
 
 ## Flows
 
-### Enrollment — live (mirrors face's 3-capture flow)
+### Enrollment - live (mirrors face's 3-capture flow)
 
 1. User presents palm → auto-detected → **palm quality gate** (sharpness, ROI fully in
    frame, fingers adequately spread, lighting) → capture **3 good samples** → stored under
@@ -96,7 +96,7 @@ index, and the returned `user_id` is the person. Grant follows the tenant policy
    → optional second modality, **same `user_id`**.
 3. Done → next person. A face shown instead runs the identical existing face flow.
 
-### Enrollment — upload / API (non-live)
+### Enrollment - upload / API (non-live)
 
 Posted image is auto-detected and routed. A combined **face+palm image** posted with one
 `user_id` enrols both to that person. Identical behavior across web uploader, Python/JS SDK,
@@ -135,7 +135,7 @@ active-liveness token machinery. Per-profile, tenant-tunable.
 | `android/` (offline + hybrid, all APKs) | Palm `Embedder/Aligner/Detector/Engine/Liveness/Matcher` + repo/db/sync/ui, ML Kit/MediaPipe + TFLite |
 | `bulk_enroll.py`, `serve.py`, `app.py`, `Dockerfile` | Palm bulk path, blueprint wiring, palm model assets |
 | `docs/` (ARCHITECTURE, INTEGRATION, ANDROID, ERRORS, SECURITY, ROADMAP, postman) + `tests/` | Palm sections; mirror every test with palm + auto-router cases |
-| `face/id_document.py` | **Deliberate N/A** — palms aren't on ID documents |
+| `face/id_document.py` | **Deliberate N/A** - palms aren't on ID documents |
 
 ## Error handling
 
@@ -145,7 +145,7 @@ Existing envelope (`success` / `code` / `message`). New palm codes: `no_hand`,
 
 ## Testing
 
-- **Face regression suite stays green and untouched** — the proof face is uncompromised.
+- **Face regression suite stays green and untouched** - the proof face is uncompromised.
 - New palm unit / integration / e2e tests.
 - **Router tests:** face-only, palm-only, both, neither, mis-route resistance.
 

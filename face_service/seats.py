@@ -1,8 +1,8 @@
-"""Seat licensing — assign a fixed number of seats and reclaim idle ones.
+"""Seat licensing - assign a fixed number of seats and reclaim idle ones.
 
 Per-seat licensing caps how many distinct users a tenant may have active. Enforcing it
-means: assign a seat when a user first appears, refuse once the cap is reached, and —
-crucially — reclaim seats from users who have gone quiet so a bounded license isn't
+means: assign a seat when a user first appears, refuse once the cap is reached, and -
+crucially - reclaim seats from users who have gone quiet so a bounded license isn't
 permanently exhausted by churned accounts. This subsystem manages that seat pool.
 
   * ``set_capacity``  the number of seats the tenant is licensed for.

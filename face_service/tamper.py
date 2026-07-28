@@ -1,10 +1,10 @@
-"""Device tamper monitoring — trust readings only from sealed, untampered readers.
+"""Device tamper monitoring - trust readings only from sealed, untampered readers.
 
 An access reader is only trustworthy if nobody has opened its enclosure, swapped its
 camera, or spliced its wiring. Devices report a tamper switch and an enclosure-seal
 value on check-in; this subsystem tracks that state, raises a tamper event when the
 seal breaks or the switch trips, and lets a gate refuse to honour verifications from a
-reader currently in a tampered state — a physical-security control that biometric
+reader currently in a tampered state - a physical-security control that biometric
 matching alone can't provide.
 
   * ``commission``  register a device with its expected seal value.
@@ -17,7 +17,7 @@ matching alone can't provide.
                     device, regardless of the biometric result.
 
 A tamper, once tripped, stays latched until an operator clears it even if the switch
-returns to normal — so a brief intrusion can't silently self-heal and hide itself.
+returns to normal - so a brief intrusion can't silently self-heal and hide itself.
 
 Registry: ``tamper.json`` (env ``FACE_TAMPER_FILE``).
 """

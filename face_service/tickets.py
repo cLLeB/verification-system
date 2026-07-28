@@ -1,4 +1,4 @@
-"""Support / incident tickets — a lightweight case tracker.
+"""Support / incident tickets - a lightweight case tracker.
 
 Operational events (a failed reader, a disputed denial, an enrolment problem) become
 work items someone must own and resolve. This subsystem is a small ticketing engine:
@@ -11,7 +11,7 @@ work.
   * ``assign``      (re)assign ownership.
   * ``comment``     append a timestamped note.
   * ``transition``  move status along the allowed graph; rejects illegal jumps.
-  * ``get`` / ``queue`` — read one, or list open tickets filtered by assignee/priority.
+  * ``get`` / ``queue`` - read one, or list open tickets filtered by assignee/priority.
 
 Lifecycle: ``open → in_progress → resolved → closed``, with ``resolved → in_progress``
 allowed for a reopen and any non-closed state able to jump to ``closed``. A closed

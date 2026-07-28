@@ -1,10 +1,10 @@
-"""SLA timers — hold operational items to a deadline and surface breaches.
+"""SLA timers - hold operational items to a deadline and surface breaches.
 
 Operational work triggered by this platform has clocks on it: an access request
 awaiting approval, a flagged verify awaiting review, a device-down ticket awaiting
 a fix. This subsystem starts a timer when such an item opens, tied to a target
 duration; at any moment it can list what is due soon and what has breached, and it
-records the actual resolution time when the item closes — the raw material for an
+records the actual resolution time when the item closes - the raw material for an
 SLA report.
 
   * ``start``    open a timer for an item (class -> default target, overridable).

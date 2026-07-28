@@ -1,16 +1,16 @@
-"""Directed acyclic graphs — order dependent work and detect cycles.
+"""Directed acyclic graphs - order dependent work and detect cycles.
 
 Several parts of the platform have ordering constraints: schema [[migrations]] that depend
 on earlier ones, policy rules that reference others, an onboarding checklist of prerequisite
-steps. A DAG models "X must happen before Y" and yields a valid execution order — or flags an
+steps. A DAG models "X must happen before Y" and yields a valid execution order - or flags an
 impossible cycle. This subsystem is a small persisted dependency graph with topological
 sort, cycle detection, and ancestor/descendant queries.
 
   * ``add_edge``     declare that ``node`` depends on ``prerequisite`` (edge pre → node).
   * ``topo_order``   a valid ordering where prerequisites come first; errors on a cycle.
   * ``find_cycle``   return a cycle if one exists (for diagnostics), else ``None``.
-  * ``ancestors`` / ``descendants`` — transitive prerequisites / dependents of a node.
-  * ``roots`` / ``leaves`` — nodes with no prerequisites / no dependents.
+  * ``ancestors`` / ``descendants`` - transitive prerequisites / dependents of a node.
+  * ``roots`` / ``leaves`` - nodes with no prerequisites / no dependents.
 
 Topological sort uses Kahn's algorithm (deterministic: ties broken by node name), so the
 order is stable across runs. Adding an edge that would create a cycle is allowed at store

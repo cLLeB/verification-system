@@ -1,10 +1,10 @@
-"""Feature flags — turn capabilities on per tenant, with staged rollout.
+"""Feature flags - turn capabilities on per tenant, with staged rollout.
 
 A platform this modular needs to enable behaviour selectively: switch a new gate
 on for one tenant, roll a change out to 10% of identities before everyone, or kill
 a misbehaving feature instantly without a deploy. This subsystem is a small flag
 store. A flag can be globally on/off for a tenant, or rolled out to a stable
-percentage of subjects — the same subject always lands on the same side of the
+percentage of subjects - the same subject always lands on the same side of the
 line (deterministic hashing), so a user's experience doesn't flicker call to call.
 
   * ``set``       enable/disable a flag, optionally at a rollout percentage.

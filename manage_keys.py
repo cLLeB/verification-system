@@ -43,7 +43,7 @@ def main() -> None:
     if args.cmd == "create":
         info = keys.create_key(args.name, args.tenant, args.role, args.expires_in_days,
                                sandbox=args.sandbox)
-        print("API key created — store the key now, it is not recoverable:\n")
+        print("API key created - store the key now, it is not recoverable:\n")
         print(f"  api_key        : {info['api_key']}")
         print(f"  key_id         : {info['key_id']}")
         print(f"  tenant         : {info['tenant']}")

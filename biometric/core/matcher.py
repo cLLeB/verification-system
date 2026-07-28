@@ -1,4 +1,4 @@
-"""Cosine-similarity matching and accept/deny decisions — modality-agnostic.
+"""Cosine-similarity matching and accept/deny decisions - modality-agnostic.
 
 Operates purely on L2-normalised embeddings and explicit thresholds, so the same
 logic serves face and palm. Per-user score = the MAX similarity over that user's
@@ -44,7 +44,7 @@ def best_score(probe: np.ndarray, embeddings: Sequence[np.ndarray]) -> float:
 def merge_off_domain(hits: List[Tuple[str, float]], emb: np.ndarray, store,
                      top_k: int = 5) -> List[Tuple[str, float]]:
     """Correct 1:N index hits for individually reissued users: they live in their
-    own protection domain, so the store-domain index score for them is noise —
+    own protection domain, so the store-domain index score for them is noise -
     rescore each against a probe projected into THEIR domain. ``emb`` is the RAW
     probe. Cheap: individual reissues are rare. No-op when protection is off."""
     off = getattr(store, "off_domain_users", lambda: [])()
@@ -74,7 +74,7 @@ def duplicate_check(emb: np.ndarray, user_id: str, store, index, *,
     Deliberately NOT the same decision as a 1:1 verify, because the costs are not
     symmetric: a missed duplicate leaves one person holding two names (visible in
     the audit trail, fixable later), while a FALSE duplicate makes a real person
-    unenrollable — they are simply turned away. So this gate is strict about
+    unenrollable - they are simply turned away. So this gate is strict about
     saying "duplicate", in three ways:
 
     1. It scores against enrolment ANCHORS ONLY. Adaptive vectors are drift the
@@ -84,13 +84,13 @@ def duplicate_check(emb: np.ndarray, user_id: str, store, index, *,
        the busiest identity's adaptive vector sat closer to OTHER people than to
        its own anchors, and blocked a genuine first-time enrolment four times).
     2. It uses its own ``threshold``, set above the observed impostor ceiling
-       rather than at the 1:1 accept point — an accept and a "this is definitely
+       rather than at the 1:1 accept point - an accept and a "this is definitely
        somebody else's palm" are different levels of confidence.
     3. The cross-user score must also BEAT the claimant's own score. If the probe
        looks more like the person enrolling than like anyone else, it is theirs.
        This cannot be used to sneak a duplicate in: the very first capture for a
        new name has no self-template (``self_score`` -1), so it is judged on the
-       absolute threshold alone — and that is exactly the capture a real
+       absolute threshold alone - and that is exactly the capture a real
        duplicate must get past.
 
     Returns the strongest conflicting identity, or None.
@@ -98,7 +98,7 @@ def duplicate_check(emb: np.ndarray, user_id: str, store, index, *,
     probe = store.protect_probe(emb)
     candidates = {uid for uid, _ in index.search(probe, top_k=top_k)}
     # Individually reissued users score as noise in the store domain, so they may
-    # never surface in the shortlist — add them explicitly.
+    # never surface in the shortlist - add them explicitly.
     candidates.update(uid for uid, _ue in
                       getattr(store, "off_domain_users", lambda: [])())
     candidates.discard(user_id)
@@ -138,7 +138,7 @@ def identify(probe: np.ndarray,
              templates: Sequence[Tuple[str, Sequence[np.ndarray]]],
              match_threshold: float, identify_margin: float,
              label: str = "biometric") -> Decision:
-    """1:N — score every identity, grant the top one if it clears the threshold
+    """1:N - score every identity, grant the top one if it clears the threshold
     AND beats the runner-up identity by the margin (so look-alikes don't slip)."""
     scored = sorted(
         ((uid, best_score(probe, embs)) for uid, embs in templates),

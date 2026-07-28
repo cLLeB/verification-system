@@ -1,4 +1,4 @@
-"""Timesheet — turn in/out verifies into worked hours, no separate clock.
+"""Timesheet - turn in/out verifies into worked hours, no separate clock.
 
 Where people already badge in and out with their face, attendance is free: pair
 each ``in`` with the next ``out`` and you have a shift. This subsystem accumulates
@@ -11,7 +11,7 @@ reports fall out of the access log without a second device or app.
   * ``totals``  per-identity totals across a date range.
 
 A stray ``out`` with no open shift is ignored; a second ``in`` while already in
-is ignored (the first stands) — the same defensive stance as [[occupancy]].
+is ignored (the first stands) - the same defensive stance as [[occupancy]].
 
 Registry: ``timesheet.json`` (env ``FACE_TIMESHEET_FILE``).
 """

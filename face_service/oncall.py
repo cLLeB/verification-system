@@ -1,4 +1,4 @@
-"""On-call rotations — resolve who is responsible at any given moment.
+"""On-call rotations - resolve who is responsible at any given moment.
 
 Escalation policies name *roles* ("supervisor"); on-call rotations resolve a role
 to the *person* actually carrying the pager right now. A rotation cycles a roster
@@ -9,7 +9,7 @@ overrides let a swapped shift take precedence without editing the roster.
   * ``define``    a rotation: ordered members, shift length, anchor start.
   * ``whoisoncall`` resolve the responder for a timestamp (honouring overrides).
   * ``override``  pin a specific member for a time window (holiday cover, swaps).
-  * ``upcoming``  the next N shift hand-offs from a given time — for calendars.
+  * ``upcoming``  the next N shift hand-offs from a given time - for calendars.
 
 The rotation math is anchor + floor((t - anchor) / shift) indexed round-robin into
 the roster, so it needs no stored per-shift state and stays correct arbitrarily far

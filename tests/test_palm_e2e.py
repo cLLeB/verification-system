@@ -43,6 +43,6 @@ def test_palm_end_to_end_on_real_hand():
     assert same["success"] is True                                      # same palm -> grant
     # Encoder QUALITY claim that's robust to threshold calibration: the genuine palm
     # must score strictly higher than a different one. (Absolute grant/deny depends
-    # on a calibrated threshold, which needs real data — see eval_eer.)
+    # on a calibrated threshold, which needs real data - see eval_eer.)
     assert (same["score"] or 0) > (other["score"] or 0)
     assert palm_api.identify(left, cfg)["user_id"] == "alice"           # 1:N finds her

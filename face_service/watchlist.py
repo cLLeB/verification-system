@@ -1,14 +1,14 @@
-"""Watchlist — per-tenant deny/alert list keyed by user_id.
+"""Watchlist - per-tenant deny/alert list keyed by user_id.
 
 Some identities must be handled specially the instant they are recognised: a
 dismissed employee whose badge should no longer open doors, a banned patron, a
 person of interest security wants flagged silently. The biometric match is
-correct — the point is the *policy* attached to that identity. This subsystem
+correct - the point is the *policy* attached to that identity. This subsystem
 lets a tenant attach one of two dispositions to a user_id:
 
-  * ``deny``  — a successful verify is flipped to a failure (``watchlisted``);
+  * ``deny``  - a successful verify is flipped to a failure (``watchlisted``);
                 the door stays shut.
-  * ``alert`` — the verify still succeeds, but the result is tagged so the
+  * ``alert`` - the verify still succeeds, but the result is tagged so the
                 caller can silently notify security (mirrors [[duress]]).
 
 Each entry carries a free-text reason and who added it, for the audit trail.

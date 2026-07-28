@@ -1,4 +1,4 @@
-"""Visitor pre-registration — expect a guest, then check them in on arrival.
+"""Visitor pre-registration - expect a guest, then check them in on arrival.
 
 Front desks run smoother when visitors are expected: a host pre-registers a guest
 for a day with the person they are here to see, the guest gets a reference code,
@@ -8,7 +8,7 @@ expected list. Unexpected arrivals are flagged; no-shows are visible at end of d
   * ``register``  expect a visitor (name, host, date, ref auto-issued).
   * ``check_in``  mark an expected visitor arrived (by ref or name+date).
   * ``check_out`` mark them departed.
-  * ``expected`` / ``on_site`` / ``no_shows`` — the desk's live views.
+  * ``expected`` / ``on_site`` / ``no_shows`` - the desk's live views.
 
 This is scheduling metadata, distinct from the biometric [[invites]] flow (which
 enrols a template). A pre-registration can carry an invite token for self-enrol,

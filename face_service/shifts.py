@@ -1,4 +1,4 @@
-"""Shift roster — who is scheduled to work when, and off-shift access flags.
+"""Shift roster - who is scheduled to work when, and off-shift access flags.
 
 A person's work schedule is both an HR record and a security signal: someone badging in
 hours outside their roster is worth a second look. This subsystem holds a weekly

@@ -5,11 +5,11 @@
 # or, once the repo is cloned:
 #   ./deploy-oracle.sh [domain]
 #
-# Installs Docker, opens the firewall (BOTH layers — the host iptables rule is the
+# Installs Docker, opens the firewall (BOTH layers - the host iptables rule is the
 # step people miss, and the symptom is a port that times out with no error), then
 # brings up the app behind Caddy. Re-runnable.
 #
-# Shape: VM.Standard.A1.Flex (Ampere ARM) is the one worth taking — up to 2 cores
+# Shape: VM.Standard.A1.Flex (Ampere ARM) is the one worth taking - up to 2 cores
 # and 12 GB (halved from 4/24 on 15 June 2026), free forever, never sleeps. The app
 # needs ~650 MB resident, so even a 1-core/6 GB slice is comfortable.
 #
@@ -33,17 +33,17 @@ fi
 
 echo "==> 2/5 firewall (both layers)"
 # Oracle images ship with a REJECT rule early in the INPUT chain, so allowing the
-# ports in the VCN Security List alone is not enough — the host drops them too.
+# ports in the VCN Security List alone is not enough - the host drops them too.
 sudo iptables -C INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT 2>/dev/null || \
     sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT
 sudo netfilter-persistent save >/dev/null 2>&1 || \
-    echo "    (netfilter-persistent missing — rule applies now but won't survive reboot;"
+    echo "    (netfilter-persistent missing - rule applies now but won't survive reboot;"
 echo "     install iptables-persistent to make it stick)"
 echo "    Remember the OTHER layer: VCN -> Security List -> Ingress TCP 80,443 from 0.0.0.0/0"
 
 # On a small box (the 1 GB E2.1.Micro), two things bite:
 #   * the Docker build pre-loads ~450 MB of face models, which can OOM-kill the
-#     build outright — a swapfile absorbs that;
+#     build outright - a swapfile absorbs that;
 #   * the running app + active-liveness 3D model won't fit, so we default liveness
 #     off (palm liveness is separate and stays on).
 # Both are skipped on a box with real memory (the A1), so this stays a no-op there.
@@ -51,7 +51,7 @@ MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
 echo "==> memory: ${MEM_MB} MB"
 if [ "${MEM_MB:-9999}" -lt 2048 ]; then
     if ! swapon --show | grep -q swapfile; then
-        echo "    low memory — adding a 2 GB swapfile so the build doesn't OOM"
+        echo "    low memory - adding a 2 GB swapfile so the build doesn't OOM"
         sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile >/dev/null
@@ -75,11 +75,11 @@ if [ ! -f .env ]; then
     [ -n "$DOMAIN" ] && sed -i "s|^DOMAIN=.*|DOMAIN=${DOMAIN}|" .env
     cat <<'MSG'
 
-    Created .env — fill it in before continuing. The values you need are the same
+    Created .env - fill it in before continuing. The values you need are the same
     ones the other deployments use (see .face_db_key_NEWSPACE.json on your laptop):
 
         BIO_DB_KEY            derives the template encryption key.
-                              KEEP A COPY OFF THE SERVER — without it every
+                              KEEP A COPY OFF THE SERVER - without it every
                               enrolled template is permanently unreadable.
         FACE_LINK_TOKEN       the private-link secret: share /?k=<token>
         FACE_ADMIN_PASSWORD   operator login for /admin
@@ -93,11 +93,11 @@ MSG
     exit 0
 fi
 
-# On a low-memory box, force active liveness off so the app fits — unless the
+# On a low-memory box, force active liveness off so the app fits - unless the
 # operator has already chosen a value. Palm liveness is unaffected.
 if [ "${LOW_MEM:-0}" = "1" ] && ! grep -q '^FACE_ACTIVE_LIVENESS=' .env; then
     echo "FACE_ACTIVE_LIVENESS=0" >> .env
-    echo "    low memory — set FACE_ACTIVE_LIVENESS=0 (face head-turn off; palm unaffected)"
+    echo "    low memory - set FACE_ACTIVE_LIVENESS=0 (face head-turn off; palm unaffected)"
 fi
 
 echo "==> 5/5 build + run"

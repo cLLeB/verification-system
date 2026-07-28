@@ -1,4 +1,4 @@
-"""A/B experiments — deterministic variant assignment and outcome tracking.
+"""A/B experiments - deterministic variant assignment and outcome tracking.
 
 Tuning a biometric product means comparing choices: two liveness prompts, two
 threshold profiles, two enrolment flows. An experiment framework assigns each subject
@@ -7,7 +7,7 @@ traffic by configured weights, and accumulates outcomes per variant so the winne
 be read off. This is the classic bucket-testing engine, kept pure and deterministic.
 
   * ``create``    an experiment with weighted variants (weights need not sum to 100).
-  * ``assign``    the variant for a subject — stable via consistent hashing of
+  * ``assign``    the variant for a subject - stable via consistent hashing of
                   ``experiment:subject`` into the weighted ranges.
   * ``record``    log an outcome for a subject's assigned variant: a boolean
                   conversion and/or a numeric value (e.g. match score, latency).

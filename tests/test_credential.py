@@ -106,7 +106,7 @@ def test_expiry_unknown_issuer_and_version():
 
 
 def test_palm_credential_round_trip():
-    """Palm (128-d) credentials issue + verify + match like face — spec 6.4 palm
+    """Palm (128-d) credentials issue + verify + match like face - spec 6.4 palm
     fits the QR budget (128 int8 bytes << 700B). No model needed at the core."""
     sk, pk = signing.generate()
     cid = credential.new_cid()

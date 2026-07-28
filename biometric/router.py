@@ -1,4 +1,4 @@
-"""Auto-router — decide whether an image is a face, a palm, both, or neither.
+"""Auto-router - decide whether an image is a face, a palm, both, or neither.
 
 The front door of the whole system: callers never declare a modality. Each entry
 point hands a frame to ``route()``, which runs both modalities' fast presence
@@ -72,14 +72,14 @@ def route(image: np.ndarray, face_probe: Probe, palm_probe: Probe,
 
     ``short_circuit`` (used for verify/identify, where the subject presents exactly
     ONE modality) runs the ``primary`` probe first and, if it fires with confidence
-    ``>= confident``, returns immediately WITHOUT running the second probe — halving
+    ``>= confident``, returns immediately WITHOUT running the second probe - halving
     the routing cost for the common case. It never short-circuits enrolment, so a
     combined face+palm image can still enrol both. Only the cheap presence check is
     skipped; the matching encoder always runs at full fidelity on the routed
     modality.
 
     CHOOSE ``primary`` CAREFULLY. Short-circuiting on FACE means any detectable
-    face wins outright — including a bystander standing behind the subject — so a
+    face wins outright - including a bystander standing behind the subject - so a
     palm held up in a busy room routes to face and is then asked for a head-turn it
     will never perform. That happened on the 2026-07-27 pilot. Palm is the safer
     primary for verify: an open hand with spread fingers presented to the camera is

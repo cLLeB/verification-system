@@ -1,4 +1,4 @@
-"""Prepaid credit wallet — metered billing with an auditable ledger.
+"""Prepaid credit wallet - metered billing with an auditable ledger.
 
 Usage-based products need a balance to draw down: each verify/enrol costs credits, and
 when the wallet runs dry the service should refuse rather than run up unbilled usage.
@@ -13,7 +13,7 @@ flips on so the caller can prompt a top-up before service is interrupted.
   * ``ledger``   the transaction history (most recent first), for invoicing/audit.
 
 Every mutation is recorded with a running ``balance_after`` so the ledger reconstructs
-the balance independently — the number is never trusted without its paper trail. All
+the balance independently - the number is never trusted without its paper trail. All
 amounts are integer credits to avoid floating-point drift in money-like values.
 
 Registry: ``wallet.json`` (env ``FACE_WALLET_FILE``).

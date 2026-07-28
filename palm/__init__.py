@@ -3,7 +3,7 @@
 A second biometric alongside face, built on the shared ``biometric`` core. The
 pipeline mirrors face: detect → ROI normalise → embed → match, producing an
 L2-normalised embedding that flows through the same template store, search index,
-and matcher as face — but in its own per-tenant directory and vector space, never
+and matcher as face - but in its own per-tenant directory and vector space, never
 cross-matched with face.
 
 Stack: MediaPipe Hands for hand/ROI detection (``palm.roi``), a CCNet-family

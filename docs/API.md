@@ -1,7 +1,7 @@
 # Integration & API reference
 
 This service verifies identity and returns a **signed allow/deny** your app can trust. You
-never touch models, frames, or liveness internals — you send images (or vectors) and get an
+never touch models, frames, or liveness internals - you send images (or vectors) and get an
 outcome. Architecture and operations are in **[GUIDE.md](GUIDE.md)**; machine-readable schemas
 are in **`../openapi.yaml`** (and a live reference at **`/docs`** on a running service).
 
@@ -14,21 +14,21 @@ are in **`../openapi.yaml`** (and a live reference at **`/docs`** on a running s
 [Glance 1:N](#5f-glance--on-device-1n-identification) · [Self-enrolment invites](#5g-self-enrolment-invites-unsupervised-token-gated) ·
 [Notes](#6-notes) · [Errors & codes](#7-error--code-reference)
 
-## Face **and** palm — one API, auto-detected
+## Face **and** palm - one API, auto-detected
 
 The service recognises both **faces** and **contactless palm-prints**. You don't choose
-which: every image you send to `enroll` / `verify` / `identify` / `embed` is **auto-routed**
-— the server detects whether it's a face or a palm and handles it.
+which: every image you send to `enroll` / `verify` / `identify` / `embed` is **auto-routed** -
+the server detects whether it's a face or a palm and handles it.
 
 - A user can enrol a **face, a palm, or both** under the same `user_id`. Presenting **either**
-  verifies them — *a match is a match*. Responses include a `modality` (`"face"`/`"palm"`)
+  verifies them - *a match is a match*. Responses include a `modality` (`"face"`/`"palm"`)
   and, on a 1:N match, `matched_modality`.
 - Pass an optional `"modality": "face"|"palm"` to **pin** routing; omit it to auto-detect.
-- Each tenant has a **`match_policy`** for users enrolled in both: `or` (default — either
-  grants), `fallback` (face preferred, palm backup), or `and` (step-up — require both).
+- Each tenant has a **`match_policy`** for users enrolled in both: `or` (default - either
+  grants), `fallback` (face preferred, palm backup), or `and` (step-up - require both).
 - Face and palm templates are stored and searched **separately** (different vector spaces) and
   are never cross-matched. Palm can be turned off per tenant (`palm_enabled`).
-- **Palm needs no trained model to work** — it ships with a built-in classical (Gabor)
+- **Palm needs no trained model to work** - it ships with a built-in classical (Gabor)
   encoder; dropping in a trained CCNet→ONNX model (`palm/models/`) is an optional accuracy
   upgrade, not a requirement.
 
@@ -52,10 +52,10 @@ python manage_keys.py create "Your App" --role verify
 ```
 
 Send it on every request as a header: `X-API-Key: fk_xxx`. Everything is scoped to your
-**tenant** — your users never collide with another app's.
+**tenant** - your users never collide with another app's.
 
 **Roles:** an `admin` key can do everything; a `verify` key can only recognise (verify /
-identify / embed / compare) and can never enrol, delete, or list — give your front-end / kiosk
+identify / embed / compare) and can never enrol, delete, or list - give your front-end / kiosk
 a `verify` key and keep `admin` keys server-side.
 
 > Browse a live, self-contained API reference at **`/docs`** on the running service, and import
@@ -63,7 +63,7 @@ a `verify` key and keep `admin` keys server-side.
 
 **Build without faces (sandbox):** ask for a sandbox key (`manage_keys.py create "Dev" --sandbox`).
 Its key starts `fk_sandbox_` and returns deterministic canned responses (no camera/model needed).
-**No-code option:** drop the `<face-verify>` widget into any page — see `/docs` and `/widget`.
+**No-code option:** drop the `<face-verify>` widget into any page - see `/docs` and `/widget`.
 **Large tenants:** `GET /v1/users?limit=100&offset=0&prefix=a` is paginated. **Safe retries:**
 send an `Idempotency-Key` header on enrol; a retry with the same key replays the first result
 (header `Idempotent-Replay: true`). Every response includes `X-Request-ID` and `X-RateLimit-*`.
@@ -71,7 +71,7 @@ send an `Idempotency-Key` header on enrol; a retry with the same key replays the
 ### Developer portal (`/portal`)
 
 Your provider gives you a **tenant id** and a **portal password**. Sign in at **`/portal`** to
-mint, download, and revoke your **own** API keys — within the plan limits the provider set (max
+mint, download, and revoke your **own** API keys - within the plan limits the provider set (max
 keys, which roles). Keys are shown **once**; download them (per key or the batch as JSON/CSV) at
 creation. If your account is disabled, the API returns `402` until re-activated.
 
@@ -90,7 +90,7 @@ curl -sk https://HOST:5000/v1/verify -H "X-API-Key: fk_xxx" \
 # -> {"success":true,"user_id":"alice","score":0.97,"signature":{...}}
 ```
 
-`success:true` = access granted. Omit `user_id` to **identify** (1:N) — the response's
+`success:true` = access granted. Omit `user_id` to **identify** (1:N) - the response's
 `user_id` tells you who it is.
 
 ### ID documents during enrollment
@@ -98,15 +98,15 @@ curl -sk https://HOST:5000/v1/verify -H "X-API-Key: fk_xxx" \
 If an enrollment image is actually an **ID document** (national card, passport) rather than a
 live face, the service detects it automatically and handles it gracefully. Each per-image result
 carries a `source` field:
-- `source: "live"` — normal live-face capture (the usual case).
-- `source: "id_document"` — detected as an ID; the largest face on the card was extracted, the
+- `source: "live"` - normal live-face capture (the usual case).
+- `source: "id_document"` - detected as an ID; the largest face on the card was extracted, the
   live-only gates (single-face/pose/liveness) were skipped, and the stored template is tagged with
   provenance `id`. The result also includes `id_confidence` and a per-signal `signals` breakdown.
 
 Detection looks for *document* cues (a ghost/secondary portrait, a small face inside a larger
-card, card edges, printed text / MRZ) — not the face itself — so a tightly-cropped passport
+card, card edges, printed text / MRZ) - not the face itself - so a tightly-cropped passport
 headshot is treated as a normal face. Override with the `source` field: `"auto"` (default),
-`"live"` (force normal path), or `"id"` (force ID path). Detection is **enrollment-only** —
+`"live"` (force normal path), or `"id"` (force ID path). Detection is **enrollment-only** -
 `verify` and `identify` always require liveness, so holding up an ID card at verification is
 rejected as a spoof.
 
@@ -132,7 +132,7 @@ curl -sk https://HOST:5000/v1/compare -H "X-API-Key: fk_xxx" \
 # -> {"match":true,"best_index":0,"best_score":0.95,"signature":{...}}
 ```
 
-`probe` and each `references` entry may be `{"image": <b64>}` **or** `{"embedding": [...]}` — mix freely.
+`probe` and each `references` entry may be `{"image": <b64>}` **or** `{"embedding": [...]}` - mix freely.
 
 ## 3. Python SDK (zero dependencies)
 
@@ -200,7 +200,7 @@ of `person/photos`), far faster than the API. Add `--dedupe` to reject duplicate
 ## 5c. Offline provisioning bundle (air-gapped devices)
 
 Air-gapped devices never call the API. To bulk-load one, export an encrypted **template bundle**
-(embeddings only — never images), move it out-of-band (USB / MDM), and import it in the device app.
+(embeddings only - never images), move it out-of-band (USB / MDM), and import it in the device app.
 
 ```bash
 # Requires an admin key + the tenant's allow_export entitlement.
@@ -215,7 +215,7 @@ enter the passphrase. No network path to the device is opened.
 
 ## 5d. Protected (cancelable) templates & reissue
 
-Stored templates live in a **scrambled, revocable protection domain** (accuracy unchanged — see
+Stored templates live in a **scrambled, revocable protection domain** (accuracy unchanged - see
 [GUIDE.md §2.2](GUIDE.md#22-encryption-signing--protected-templates)). If you ever suspect a
 leak, reissue: old exported/stolen copies stop matching instantly and nobody re-enrols.
 
@@ -232,7 +232,7 @@ re-pull automatically; re-export bundles for air-gapped devices.
 
 ## 5e. Portable offline credentials (signed QR cards)
 
-Issue an enrolled person a **signed QR credential** — printed or saved to their phone, anyone you
+Issue an enrolled person a **signed QR credential** - printed or saved to their phone, anyone you
 authorise verifies them in seconds, **fully offline**, without touching your database. Stolen codes
 are unmatchable elsewhere, revocable, expiring.
 
@@ -261,9 +261,9 @@ SDK: `issue_credential` / `list_credentials` / `revoke_credential` / `verify_cre
 `/verify-credential`. Typed failure codes: `bad_signature`, `unknown_issuer`, `credential_expired`,
 `credential_revoked`, `capture_quality`, `liveness`, `biometric_mismatch`.
 
-## 5f. Glance — on-device 1:N identification
+## 5f. Glance - on-device 1:N identification
 
-Ship a phone one compact **glance index** (an int8 vector per enrolled person — ~50 MB per 100k
+Ship a phone one compact **glance index** (an int8 vector per enrolled person - ~50 MB per 100k
 identities, in the revocable protection domain) and it identifies people continuously, offline, in
 under a second (Android "Glance" mode):
 
@@ -286,8 +286,8 @@ in JS). After a **reissue**, refresh/re-export the index like any other protecte
 
 A pre-named person enrols themselves from a private link (no admin password). Links are
 **modality-scoped**: a link that adds a modality to someone who **already exists** is scoped to
-the missing modality and requires a **step-up** (the enrollee proves an existing modality first)
-— so a leaked "add-a-modality" link can't bind a stranger's biometric to a real account. Revoke
+the missing modality and requires a **step-up** (the enrollee proves an existing modality first) -
+so a leaked "add-a-modality" link can't bind a stranger's biometric to a real account. Revoke
 with `{"purge":true}` to also delete what the invite enrolled. Admin:
 `POST /admin/api/invites {user_id, tenant?, modalities?}`. Pass `"issue_credential": true` to hand
 the enrollee their offline QR card (§5e) automatically when they tap Finish.
@@ -299,8 +299,8 @@ strictly **after** the biometric decision (the matching pipeline is untouched; a
 narrow a granted match). Per tenant: `mode` `off` (default) | `advise` (responses gain an
 `access` block, decision unchanged) | `enforce` (a deny flips the response to
 `success:false, code:"access_denied"`); a `default` outcome; named `groups`; and ordered rules
-(subjects `*` / `user:<id>` / `group:<name>`, optional weekdays + `HH:MM` windows — overnight
-wraps supported — and validity epochs). **Deny beats allow.**
+(subjects `*` / `user:<id>` / `group:<name>`, optional weekdays + `HH:MM` windows - overnight
+wraps supported - and validity epochs). **Deny beats allow.**
 
 ```bash
 POST /v1/policies             {"mode":"enforce","default":"deny","tz_offset_minutes":0}
@@ -326,7 +326,7 @@ POST   /v1/guests/purge    {"grace_hours":24}    # ERASE expired guests (delete 
 
 ## 5j. Devices (kiosk fleet registry)
 
-Every kiosk gets its own identity and its **own verify key** — so one lost device is disabled
+Every kiosk gets its own identity and its **own verify key** - so one lost device is disabled
 without touching the rest. Pairing: admin mints a single-use, 15-minute code; the device redeems
 it once (the code is the auth) and stores the returned key. Disable revokes the device's key
 immediately.
@@ -338,7 +338,7 @@ POST /v1/devices/heartbeat  {"info":{"app":"2.1.0"}}        # with the DEVICE's 
 GET  /v1/devices                                            # fleet + last-seen
 POST /v1/devices/<device_id>/disable                        # cut it off (key revoked)
 GET  /v1/service-state      # offline mirror of ALL the gates (policies, guest
-                            # expiries, consent standing, guardian links) — hybrid
+                            # expiries, consent standing, guardian links) - hybrid
                             # devices pull it with sync and re-evaluate locally
 ```
 The Android hybrid build pairs itself in **Settings → This device** (enter the
@@ -362,7 +362,7 @@ GET  /v1/guardians?guardian=mama_akos        # everyone she may act for
 ## 5l. Consent & data-subject rights
 
 Every enrol path automatically records the person's consent against your tenant's **versioned**
-consent statement (the record pins the SHA-256 of the exact text agreed — later edits never
+consent statement (the record pins the SHA-256 of the exact text agreed - later edits never
 rewrite history). Withdrawal blocks verification immediately (`consent_withdrawn`); optional
 `require_consent` refuses users with no record (`consent_missing`). People can self-serve at
 **`/my-data`**: they verify THEMSELVES (full liveness), see everything held about them, download
@@ -406,7 +406,7 @@ the human `message` (and `hint` when present) to users.
 ## HTTP statuses
 | Status | When |
 |--------|------|
-| 200 | Processed (check `success` — a denied verify is still 200 with `success:false`). |
+| 200 | Processed (check `success` - a denied verify is still 200 with `success:false`). |
 | 400 | Bad request (missing/invalid fields). |
 | 401 | Missing/invalid API key, or admin login required. |
 | 402 | Tenant disabled / over entitlement (payment required). |
@@ -438,7 +438,7 @@ the human `message` (and `hint` when present) to users.
 | `inconsistent` | Capture doesn't match earlier ones | Use the same person for all captures. |
 | `not_enrolled` | User has no template | Enrol them first. |
 | `match` / `no_match` | Verify/identify outcome | `success` reflects grant/deny. |
-| `enrolled` | Enrolment succeeded | — |
+| `enrolled` | Enrolment succeeded | - |
 | `access_denied` | Matched, but an **enforced access policy** denies right now (§5h) | Check the `access` block (rule, reason); adjust rules/schedule. |
 | `identity_expired` | Matched, but the person's **guest pass** has expired (§5i) | Extend the pass (`POST /v1/guests`) or purge them. |
 | `not_guardian` | Proxy verify: the person matched isn't a guardian of `on_behalf_of` (§5k) | Link them first (`POST /v1/guardians`). |

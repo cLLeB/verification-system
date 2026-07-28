@@ -4,7 +4,7 @@
 
 Each suite writes a versioned JSON report to ``docs/trust/reports/`` and updates
 ``latest.json`` (the manifest the /trust page renders). Suites that need
-datasets or models this machine doesn't have SKIP with a stated reason — the
+datasets or models this machine doesn't have SKIP with a stated reason - the
 published numbers only ever come from something that actually ran.
 """
 
@@ -170,7 +170,7 @@ def main(argv=None) -> int:
             print(f"  {name}: OK" + (f"  gate={gate}" if gate else ""))
             failed = failed or gate == "FAIL"
         else:
-            print(f"  {name}: SKIPPED — {detail}")
+            print(f"  {name}: SKIPPED - {detail}")
     print(f"reports + manifest in {REPORT_DIR}")
     return 1 if failed else 0
 

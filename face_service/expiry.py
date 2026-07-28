@@ -1,15 +1,15 @@
-"""Identity expiry — access that ends on a date without anyone remembering to.
+"""Identity expiry - access that ends on a date without anyone remembering to.
 
 Contractors, temps, interns, seasonal staff: their access should stop the day
 their engagement ends, but in practice someone has to remember to revoke it, and
-they usually don't — dormant valid identities are a classic audit finding. This
+they usually don't - dormant valid identities are a classic audit finding. This
 subsystem attaches an expiry timestamp to an identity; once passed, verifies are
 refused with ``identity_expired`` until an operator extends it. An optional
 ``starts`` supports future-dated activation (a badge that only works from Monday).
 
-  * ``set_expiry`` / ``extend`` — set or push out the end date.
+  * ``set_expiry`` / ``extend`` - set or push out the end date.
   * ``gate``       post-match: block before ``starts`` or after ``expires``.
-  * ``expiring``   identities within N days of lapsing — the renewal worklist.
+  * ``expiring``   identities within N days of lapsing - the renewal worklist.
 
 Registry: ``expiry.json`` (env ``FACE_EXPIRY_FILE``).
 """

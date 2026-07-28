@@ -1,10 +1,10 @@
-"""Mustering — emergency roll-call built on the live occupancy roster.
+"""Mustering - emergency roll-call built on the live occupancy roster.
 
 When an alarm sounds, the one question that matters is *who is still inside?*
 Starting a muster snapshots everyone currently present (from [[occupancy]]) as
 the "expected" list. As people reach the assembly point and verify, they are
-marked **safe**. At any moment the warden sees three numbers — safe, still
-unaccounted, and total — plus the names, so they know exactly who to search for.
+marked **safe**. At any moment the warden sees three numbers - safe, still
+unaccounted, and total - plus the names, so they know exactly who to search for.
 
   * ``start``      snapshots the present roster into an open muster.
   * ``mark_safe``  (called from a verify at the muster reader) accounts a person.
@@ -86,7 +86,7 @@ def end(tenant: Optional[str]) -> dict:
 
 def gate(tenant: Optional[str], result: dict) -> dict:
     """When a muster is open, a successful verify at the muster reader marks the
-    person safe. Never blocks — it only accounts them."""
+    person safe. Never blocks - it only accounts them."""
     uid = result.get("user_id")
     if result.get("success") and uid and active(tenant):
         mark_safe(tenant, uid)

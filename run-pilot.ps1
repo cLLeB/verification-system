@@ -3,7 +3,7 @@
 #   .\run-pilot.ps1
 #
 # Starts waitress (serve.py) on localhost and a Cloudflare quick tunnel in front of
-# it, which supplies real TLS — browsers refuse camera access without it. Settings
+# it, which supplies real TLS - browsers refuse camera access without it. Settings
 # come from .face_db_key_NEWSPACE.json so the link token, admin password and
 # database key match whatever the hosted deployment uses; state syncs to the private
 # HF Dataset on a 60s loop, so nothing is lost when this stops and it can be picked

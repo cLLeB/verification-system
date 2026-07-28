@@ -35,7 +35,7 @@ class FaceConfig:
     # --- matching (cosine similarity on L2-normalised embeddings) ---
     match_threshold: float = 0.40            # accept if best similarity >= this
     identify_margin: float = 0.06            # 1:N: best must beat 2nd identity by this
-    # Enrolment duplicate gate — see palm/config.py for the reasoning; the failure
+    # Enrolment duplicate gate - see palm/config.py for the reasoning; the failure
     # mode (a real person who cannot enrol) is identical here. Face separates far
     # more cleanly than palm: on the live pilot store the highest cross-identity
     # score was 0.263 while the loosest genuine template still held together at
@@ -58,13 +58,13 @@ class FaceConfig:
     # Latency budget for the burst. Measured per model call on a 2-vCPU container
     # (ONNX Runtime, 2 intra-op threads): detector 198 ms, 3D-landmark 75 ms,
     # ArcFace r50 recognition 1799 ms. So a default burst costs
-    # 5x(198+75) + 2x1799 = ~5.0 s, and RECOGNITION IS 72% OF IT — trimming frames
+    # 5x(198+75) + 2x1799 = ~5.0 s, and RECOGNITION IS 72% OF IT - trimming frames
     # barely helps, halving the recognition count does.
     live_max_analyze: int = 5                # frames detected on (burst is subsampled to this)
     # The second recognition pass embeds the most-turned frame and checks it is the
     # same person as the frontal one, so an attacker cannot pair their own head-turn
     # with a victim's frontal photo. Worth 1.8 s on a 2-vCPU host. Turning it off is
-    # a REAL security trade-off — only reasonable for an attended kiosk where an
+    # a REAL security trade-off - only reasonable for an attended kiosk where an
     # operator can see who is standing there. FACE_LIVE_IDENTITY_CHECK=0.
     live_identity_check: bool = True          # embed the turned frame too (anti-splice)
 
@@ -74,7 +74,7 @@ class FaceConfig:
     adaptive_margin: float = 0.10            # 1:N: only adapt if top beats 2nd by this
     adaptive_max_samples: int = 8            # total stored embeddings cap (anchors + adaptive)
     adaptive_novelty: float = 0.92           # skip near-duplicate captures (>= this cosine)
-    # Anchor tether — OFF for face, deliberately, unlike palm (0.75). A face
+    # Anchor tether - OFF for face, deliberately, unlike palm (0.75). A face
     # legitimately drifts away from its enrolment anchors over months and years, and
     # tracking that is exactly what adaptation is for; tethering it to day-0 anchors
     # locks the real person out (tests/test_adaptive_drift.py proves this). Face can
@@ -143,7 +143,7 @@ def load_config() -> FaceConfig:
     # Model pack + detector input are the two biggest memory levers. On a small
     # host (a 512 MB free tier) FACE_MODEL_NAME=buffalo_s swaps the 166 MB
     # ResNet50 recogniser for a ~13 MB MobileFaceNet, and a smaller FACE_DET_SIZE
-    # shrinks the detector's buffers — together the difference between fitting and
+    # shrinks the detector's buffers - together the difference between fitting and
     # being OOM-killed. Embeddings from different packs are NOT interchangeable, so
     # changing the pack means re-enrolling faces (palm is a separate model).
     env_model = os.environ.get("FACE_MODEL_NAME")

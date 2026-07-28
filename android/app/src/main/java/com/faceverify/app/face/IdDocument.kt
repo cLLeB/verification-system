@@ -6,7 +6,7 @@ import com.faceverify.app.Config
 import kotlin.math.abs
 import kotlin.math.min
 
-/** On-device ID-document detection for enrolment — the Kotlin port of the server's
+/** On-device ID-document detection for enrolment - the Kotlin port of the server's
  *  face/id_document.py. Detects the *document, not the face*: a card's faint ghost
  *  portrait, a face that is small inside a larger frame, and dense print/text around
  *  the face. (The server's OpenCV-only card-outline contour signal is omitted here;
@@ -102,7 +102,7 @@ object IdDocument {
     }
 
     /** Combine the signals into an is-this-an-ID decision. A clear ghost portrait
-     *  alone is decisive (overrides the weighted threshold) — it is essentially only
+     *  alone is decisive (overrides the weighted threshold) - it is essentially only
      *  seen on ID documents, never in a normal one-person live capture. */
     fun assess(
         bitmapW: Int,

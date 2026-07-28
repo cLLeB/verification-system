@@ -1,8 +1,8 @@
-"""Surveys — capture and aggregate satisfaction feedback.
+"""Surveys - capture and aggregate satisfaction feedback.
 
 Product and operations teams want to know how the experience felt: was enrolment smooth,
 was the kiosk fast, would the visitor recommend the site. This subsystem is a small survey
-tool — define a rated question, collect responses (one per subject), and read back the
+tool - define a rated question, collect responses (one per subject), and read back the
 aggregates (response count, average, distribution, and an NPS-style score for 0–10
 scales). It is deliberately minimal and self-contained, not a full survey platform.
 

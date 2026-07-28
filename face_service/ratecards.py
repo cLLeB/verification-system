@@ -1,9 +1,9 @@
-"""Rate cards — price metered usage per plan, with included allowances.
+"""Rate cards - price metered usage per plan, with included allowances.
 
 Between raw usage ([[metering]]) and an invoice ([[invoicing]]) sits pricing: how much a
 unit of each metric costs on a given plan, and how many units are included for free before
 charges start. This subsystem holds those rate cards and turns a usage quantity into a
-charge — the calculation an invoice run performs per metric.
+charge - the calculation an invoice run performs per metric.
 
   * ``set_rate``   define the price of a metric on a plan: ``unit_cents`` per unit and
                    ``included`` free units.

@@ -1,9 +1,9 @@
-"""Waitlist — a fair queue for access when an area is at capacity.
+"""Waitlist - a fair queue for access when an area is at capacity.
 
 When a capped area (see [[occupancy]]) is full, turning people away is blunt. A
 waitlist is fairer: a person who is refused joins a FIFO queue; when a slot frees,
-the next in line is called. This subsystem manages that queue per area — join,
-position, call-next, and leave — so a kiosk can tell someone "you are 3rd, we'll
+the next in line is called. This subsystem manages that queue per area - join,
+position, call-next, and leave - so a kiosk can tell someone "you are 3rd, we'll
 call you" instead of a flat no.
 
   * ``join``      add a person (idempotent; returns their position).

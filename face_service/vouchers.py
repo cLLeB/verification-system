@@ -1,10 +1,10 @@
-"""Offline vouchers — single-use access codes an airgapped reader can verify.
+"""Offline vouchers - single-use access codes an airgapped reader can verify.
 
 Not every door has connectivity, and not every visitor should be enrolled. A
 voucher bridges that: a connected system mints a short code derived from the
 tenant's secret and a sequence number; the code is handed to the visitor (SMS,
 print, QR). An *offline* reader that holds the same tenant secret can verify the
-code is authentic and has not been used, purely by recomputing the HMAC — no
+code is authentic and has not been used, purely by recomputing the HMAC - no
 network call. The reader records spent sequence numbers locally so a code works
 exactly once.
 
@@ -15,7 +15,7 @@ exactly once.
 This is the offline cousin of [[receipts]] (which proves a past verify); a voucher
 authorises a future one. Codes carry no identity or biometric data.
 
-Registry: ``vouchers.json`` (env ``FACE_VOUCHERS_FILE``) — tenant secret, next
+Registry: ``vouchers.json`` (env ``FACE_VOUCHERS_FILE``) - tenant secret, next
 sequence, and the set of spent sequences (the reader's local ledger).
 """
 

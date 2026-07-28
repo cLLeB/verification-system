@@ -1,10 +1,10 @@
-"""Case notes — append-only operator annotations on an identity.
+"""Case notes - append-only operator annotations on an identity.
 
 Operators accumulate context on people that belongs nowhere in the biometric
 record: "left the company, badge retained", "flagged by reception 12 Jul",
 "cleared after review". This subsystem is a simple append-only notebook per
 identity: notes are added with an author and timestamp and can be read back in
-order, but never edited or deleted individually — the history is the point (an
+order, but never edited or deleted individually - the history is the point (an
 operator should not be able to quietly rewrite what they wrote). A whole
 identity's notes can be purged only as part of erasing that identity.
 
