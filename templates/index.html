@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=26">
+    <link rel="stylesheet" href="/static/app.css?v=27">
 </head>
 <body>
     <main class="app">
@@ -136,8 +136,15 @@
                     <path d="m18 12 2 3 2-3"/><path d="M6 12 4 9 2 12"/><circle cx="12" cy="11" r="3"/>
                 </svg>
             </button>
+            <!-- Progress ring: a dashed TRACK with a solid arc drawn over it. The arc's
+                 length is driven from JS as detection locks in, so the ring visibly
+                 fills instead of sitting there static. -->
             <svg class="scan-outline" viewBox="0 0 280 360" fill="none" aria-hidden="true">
-                <ellipse cx="140" cy="180" rx="130" ry="170" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 6"/>
+                <ellipse class="ring-track" cx="140" cy="180" rx="130" ry="170"
+                         stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 6"/>
+                <ellipse class="ring-fill" id="ring-fill" cx="140" cy="180" rx="130" ry="170"
+                         stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                         pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 140 180)"/>
             </svg>
             <div class="scan-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </section>
@@ -151,14 +158,26 @@
         </div>
         <p class="hint" id="hint">Show your face - or your open hand - then tap Verify</p>
         <p class="hint-sub hidden" id="hint-sub"></p>
+        <!-- Live capture coaching. Each chip reports a signal the ENGINE measures,
+             and turns red only when that signal is actually out of range, so a red
+             chip always names something the person can act on. -->
+        <div class="q-chips" id="q-chips" role="status" aria-live="polite">
+            <span class="q-chip" id="q-light"><i></i>Lighting</span>
+            <span class="q-chip" id="q-dist"><i></i>Distance</span>
+            <span class="q-chip" id="q-angle"><i></i>Angle</span>
+        </div>
+
         <div class="actions" id="actions">
-            <button class="btn btn-primary" id="capture-btn">Verify</button>
+            <button class="shutter" id="capture-btn" aria-label="Capture">
+                <span class="shutter-ring"></span>
+                <span class="shutter-core"></span>
+            </button>
         </div>
         <div class="progress hidden" id="progress-wrap"><span class="progress-bar" id="bar"></span></div>
     </main>
 
     <canvas id="canvas" hidden></canvas>
     <script src="/static/device.js?v=2"></script>
-    <script src="/static/app.js?v=24"></script>
+    <script src="/static/app.js?v=25"></script>
 </body>
 </html>

@@ -45,6 +45,7 @@ from face_service import modality as _modality
 from face_service.v1 import bp as v1_bp
 from face_service.portal import portal_bp
 from biometric.core import index as _bio_index
+from palm import roi as _palm_roi
 
 _FP_TENANT = "first_party"               # audit bucket for the built-in app
 
@@ -1299,13 +1300,48 @@ def api_challenge():
 @app.route("/api/detect", methods=["POST"])
 def api_detect():
     """Lightweight pre-check for the web client: is this frame a face, a palm, or
-    nothing? Lets the UI skip the head-turn challenge for a palm."""
+    nothing? Lets the UI skip the head-turn challenge for a palm.
+
+    With ``coach=1`` it also returns the framing signals the live capture guidance
+    needs, so the on-screen distance/angle chips report what the ENGINE actually
+    measures rather than a guess made in the browser. Sizes are returned as a
+    FRACTION of the frame's short side, not pixels, so the client can send a small
+    cheap frame for coaching and still compare against the same thresholds.
+    Fail-soft throughout: any problem just omits ``quality`` and the chips go
+    neutral - coaching must never be able to block a capture."""
     data = request.get_json(silent=True) or {}
     img = decode_image(data.get("image", ""))
     if img is None:
         return jsonify({"modality": "none"})
     rr = _modality.route(img, CONFIG, palm_enabled=True, short_circuit=True)
-    return jsonify({"modality": rr.modality})
+    out = {"modality": rr.modality}
+    if not data.get("coach"):
+        return jsonify(out)
+    short = float(min(img.shape[0], img.shape[1])) or 1.0
+    try:
+        if rr.modality == "palm":
+            pcfg = _modality._palm_cfg_for(CONFIG)
+            det = _palm_roi.detect(img, pcfg)
+            out["quality"] = {
+                "size_frac": round(det.roi_px / short, 4),
+                "size_ok": (det.roi_px / short) >= pcfg.enroll_min_roi_frac,
+                "aligned": bool(det.palm_facing) and det.finger_spread >= pcfg.min_finger_spread,
+                "confidence": round(float(det.hand_score), 3),
+            }
+        elif rr.modality in ("face", "both"):
+            pf = _face_engine.detect_pose(img, CONFIG)
+            out["quality"] = {
+                "size_frac": round(pf.face_px / short, 4),
+                # A face under ~18% of the short side is too far for a reliable
+                # embedding. min_face_px cannot be used: the coaching frame is
+                # deliberately downscaled, so absolute pixels are not comparable.
+                "size_ok": (pf.face_px / short) >= 0.18,
+                "aligned": abs(pf.yaw) <= CONFIG.max_yaw_deg and abs(pf.pitch) <= CONFIG.max_pitch_deg,
+                "confidence": round(float(pf.det_score), 3),
+            }
+    except Exception:
+        pass                                   # no quality block -> neutral chips
+    return jsonify(out)
 
 
 # --- unsupervised self-enrolment via a pre-assigned invite token -----------

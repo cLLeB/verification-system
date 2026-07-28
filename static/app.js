@@ -30,7 +30,8 @@ applyTheme((() => { try { return localStorage.getItem('theme'); } catch (e) { re
 
 const ICON_OK = '<path d="M20 6 9 17l-5-5"/>';
 const ICON_BAD = '<path d="M18 6 6 18M6 6l12 12"/>';
-const ICON_CAM = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+// ICON_CAM retired with the text capture button (the shutter draws itself).
+// const ICON_CAM = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
 const ICON_RETRY = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
 
 const ENROLL_TARGET = 3;
@@ -38,15 +39,131 @@ const statusPill = $('status-pill');
 let sampleCount = 0;                       // enrolled samples this session (drives labels)
 const shots = [];                          // captured sample images -> progress thumbnails
 
-function setCaptureLabel(t) { captureBtn.innerHTML = ICON_CAM + '<span>' + t + '</span>'; }
+// The capture control is a shutter, not a text button, so the wording lives in
+// aria-label/title (screen readers and long-press still get it) and never as
+// innerHTML - writing innerHTML here would blow away the shutter's own elements.
+// The "n of 3" count already has two better homes: the dots row and hint-sub.
+function setCaptureLabel(t) {
+    captureBtn.setAttribute('aria-label', t);
+    captureBtn.title = t;
+}
 function refreshCaptureLabel() {
     setCaptureLabel(mode === 'enroll'
-        ? `Capture sample ${Math.min(sampleCount, ENROLL_TARGET - 1) + 1}`
-        : 'Capture & verify');
+        ? `Capture sample ${Math.min(sampleCount, ENROLL_TARGET - 1) + 1} of ${ENROLL_TARGET}`
+        : 'Capture and verify');
 }
 // white flash over the oval at the moment of capture
 function flashOval() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 const OUT_W = 720;
+
+// --- Live capture coaching -------------------------------------------------
+// Tell the person WHAT is wrong while they are still framing, instead of failing
+// the shot and leaving them to guess. Three signals, each measured rather than
+// invented:
+//   Lighting - mean luma of the oval region, computed here from the video. Free
+//              and instant, so it needs no network at all.
+//   Distance - how much of the frame the detected face/palm fills.
+//   Angle    - palm facing the camera with fingers spread, or head yaw/pitch
+//              inside the accept range.
+// Distance and Angle can only come from the detector, so a small frame goes to
+// /api/detect?coach at a slow cadence. The thresholds stay on the SERVER, next to
+// the ones enrolment actually enforces, so the chips can never drift out of sync
+// with the gate they are predicting.
+// Everything here is best-effort: it never blocks a capture, never throws into
+// the capture path, and stops while busy or backgrounded so it cannot compete
+// with a real request for the 2-vCPU container.
+const COACH_MS = 900;                       // one probe per ~0.9s while idle
+const COACH_W = 320;                        // downscaled probe frame
+const LUMA_LOW = 55, LUMA_HIGH = 240;       // usable exposure band
+let coachTimer = null, coachBusy = false, coachOn = false;
+const coachCanvas = document.createElement('canvas');
+const coachCtx = coachCanvas.getContext('2d', { willReadFrequently: true });
+
+function setChip(id, state) {               // state: 'ok' | 'bad' | null (unknown)
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('ok', state === 'ok');
+    el.classList.toggle('bad', state === 'bad');
+}
+
+function setRing(fraction, locked) {
+    const r = $('ring-fill');
+    if (!r) return;
+    const pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+    r.setAttribute('stroke-dasharray', `${pct} ${100 - pct}`);
+    r.classList.toggle('locked', !!locked);
+}
+
+// Mean luma over the centre of the frame, where the subject actually is.
+function frameLuma() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = 48, h = 60;
+    coachCanvas.width = w; coachCanvas.height = h;
+    const cw = vw * 0.6, ch = vh * 0.6;      // centre 60%, roughly the oval
+    coachCtx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, w, h);
+    const d = coachCtx.getImageData(0, 0, w, h).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    return sum / (d.length / 4);
+}
+
+function coachFrame() {                      // small JPEG for the detector
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = Math.min(COACH_W, vw), h = Math.round(w * vh / vw);
+    coachCanvas.width = w; coachCanvas.height = h;
+    coachCtx.drawImage(video, 0, 0, w, h);
+    return coachCanvas.toDataURL('image/jpeg', 0.6);
+}
+
+async function coachTick() {
+    if (!coachOn || coachBusy || busy || document.hidden) return;
+    if (!video.srcObject || video.readyState < 2) return;
+    coachBusy = true;
+    try {
+        const luma = frameLuma();
+        const lightOk = luma !== null && luma >= LUMA_LOW && luma <= LUMA_HIGH;
+        setChip('q-light', luma === null ? null : (lightOk ? 'ok' : 'bad'));
+
+        const img = coachFrame();
+        let sizeOk = null, angleOk = null;
+        if (img) {
+            const r = await fetch('/api/detect', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: img, coach: 1 }),
+            }).then((x) => x.json());
+            const q = r && r.quality;
+            if (q) { sizeOk = !!q.size_ok; angleOk = !!q.aligned; }
+            else if (r && r.modality === 'none') { sizeOk = false; angleOk = null; }
+        }
+        setChip('q-dist', sizeOk === null ? null : (sizeOk ? 'ok' : 'bad'));
+        setChip('q-angle', angleOk === null ? null : (angleOk ? 'ok' : 'bad'));
+
+        const good = [lightOk, sizeOk === true, angleOk === true].filter(Boolean).length;
+        const locked = good === 3;
+        setRing(good / 3, locked);
+        captureBtn.classList.toggle('ready', locked);
+    } catch (e) {
+        /* coaching is advisory: a failed probe leaves the chips as they were */
+    } finally {
+        coachBusy = false;
+    }
+}
+
+function startCoach() {
+    if (coachTimer) return;
+    coachOn = true;
+    coachTimer = setInterval(coachTick, COACH_MS);
+}
+function stopCoach() {
+    coachOn = false;
+    if (coachTimer) { clearInterval(coachTimer); coachTimer = null; }
+    ['q-light', 'q-dist', 'q-angle'].forEach((id) => setChip(id, null));
+    setRing(0, false);
+    captureBtn.classList.remove('ready');
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) setRing(0, false); });
 // Guided head-turn. The old loop grabbed 7 frames 280 ms apart - under 2 SECONDS
 // for "turn left, turn right, look at camera" - and set the instruction AFTER
 // grabbing each frame, so the first frames were recorded before the user had been
@@ -120,12 +237,14 @@ async function startCamera() {
         $('cam-denied').classList.add('hidden');
         captureBtn.disabled = false;
         showDeviceTip();                                        // palm camera guidance
+        startCoach();                                           // live framing guidance
     } catch (err) {
         statusText.textContent = 'Blocked';
         statusPill.classList.add('bad');
         $('cam-denied').classList.remove('hidden');
         setHint('Camera access denied. Enable it in your browser to continue.', 'warn');
         captureBtn.disabled = true;
+        stopCoach();
     }
 }
 async function swapCamera() {
@@ -188,6 +307,7 @@ function grabFrame() {
 
 function startBusy(status) {
     busy = true; captureBtn.disabled = true; scanner.classList.add('busy');
+    captureBtn.classList.add('busy'); captureBtn.classList.remove('ready');
     statusPill.classList.remove('ok');
     // Clear the PREVIOUS outcome before a new attempt. The result card used to be
     // hidden only by the "Start over" button, so after enrolling one hand its green
@@ -457,6 +577,7 @@ async function handle(data) {
 
 function show(kind, icon, title, sub) {
     busy = false; captureBtn.disabled = false;
+    captureBtn.classList.remove('busy');
     refreshCaptureLabel();
     if (kind === 'ok') { statusText.textContent = 'Complete'; statusPill.classList.add('ok'); }
     // done-state action: "Verify again" / "Start over" with a restart icon (per design)
@@ -468,6 +589,7 @@ function show(kind, icon, title, sub) {
 }
 function reset(msg, kind = '') {
     busy = false; captureBtn.disabled = false; scanner.classList.remove('busy');
+    captureBtn.classList.remove('busy');
     statusPill.classList.remove('ok');
     refreshCaptureLabel();
     progressWrap.classList.add('hidden'); bar.style.width = '0%';
