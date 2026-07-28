@@ -16,6 +16,8 @@ palm modality is simply offline (the router treats palm as absent).
 
 from __future__ import annotations
 
+import collections
+import hashlib
 import math
 import os
 import shutil
@@ -196,9 +198,55 @@ def _sharpness(roi: np.ndarray) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
+# --- per-frame detection cache ----------------------------------------------
+# One palm request runs the hand landmarker over the SAME frames several times:
+# the router probes for a hand, best_palm_frame/best_enroll_frame scores every
+# frame of the burst to pick the sharpest, the modality layer routes again on the
+# chosen frame, and finally the engine embeds it — six to seven detections for a
+# three-frame burst, all recomputing identical results. Detection is ~58 ms on a
+# fast box and several times that on the 2-vCPU container, so this was most of
+# what made palm feel slower than face.
+#
+# Keyed on the frame's CONTENT (hashing ~2 MB costs well under a millisecond
+# against a ~58 ms detection) plus the config fields that change the result, so
+# it can never return another frame's landmarks. Small and bounded — it exists to
+# collapse the duplicate calls within a single request, not to persist anything.
+_CACHE_MAX = 8
+_cache: "collections.OrderedDict[tuple, List[PalmDetection]]" = collections.OrderedDict()
+_cache_lock = threading.Lock()
+
+
+def _cache_key(image: np.ndarray, cfg: PalmConfig) -> tuple:
+    # Hash the buffer in place — cv2.imread/imdecode already returns a C-contiguous
+    # array, so this avoids copying ~2 MB per lookup just to hash it. sha256 is
+    # hardware-accelerated here (4 ms for a 720p frame vs 15 ms for blake2b) and
+    # covers EVERY byte: a cheaper strided sample would risk two different frames
+    # colliding, and on this path a collision means returning another person's
+    # landmarks. 4 ms against a 58-214 ms detection is a rounding error.
+    buf = image if image.flags["C_CONTIGUOUS"] else np.ascontiguousarray(image)
+    digest = hashlib.sha256(memoryview(buf).cast("B")).digest()
+    return (digest, image.shape, cfg.roi_size, cfg.max_hands, cfg.min_hand_score)
+
+
 def _detect_raw(image: np.ndarray, cfg: PalmConfig) -> List[PalmDetection]:
     if image is None or getattr(image, "size", 0) == 0:
         raise PalmError("No image received.", code="no_hand")
+    key = _cache_key(image, cfg)
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit is not None:
+            _cache.move_to_end(key)
+            return hit
+    out = _detect_raw_uncached(image, cfg)
+    with _cache_lock:
+        _cache[key] = out
+        _cache.move_to_end(key)
+        while len(_cache) > _CACHE_MAX:
+            _cache.popitem(last=False)
+    return out
+
+
+def _detect_raw_uncached(image: np.ndarray, cfg: PalmConfig) -> List[PalmDetection]:
     import mediapipe as mp
     landmarker = _ensure(cfg)
     rgb = np.ascontiguousarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
