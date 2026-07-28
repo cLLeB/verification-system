@@ -65,10 +65,10 @@
             </div>
 
             <div class="card" id="portal-security">
-                <h2>Security &mdash; your signing key</h2>
+                <h2>Security - your signing key</h2>
                 <p class="muted">This key signs everything issued for your organisation
                     (credentials, export bundles) so anyone can check it's genuine. Rotate it if
-                    you believe it may have been exposed &mdash; anything already issued stays
+                    you believe it may have been exposed - anything already issued stays
                     valid; only new items use the new key.</p>
                 <div id="psec-keys" class="list"></div>
                 <button id="psec-rotate" class="btn danger">Rotate signing key&hellip;</button>
@@ -77,14 +77,14 @@
             <div class="card" id="portal-protection">
                 <h2>Template protection <span class="muted">(revocable biometrics)</span></h2>
                 <p class="muted">Your people's stored face/print templates are kept in a
-                    <b>scrambled, revocable form</b> &mdash; a stolen copy can't be matched anywhere
+                    <b>scrambled, revocable form</b> - a stolen copy can't be matched anywhere
                     else, and can be cancelled like a password. If you ever suspect a leak,
                     <b>reissue</b>: old copies stop working instantly and nobody has to
                     re-enrol.</p>
                 <div id="pprot-status" class="list"></div>
                 <div class="row">
                     <input id="pprot-user" class="field" type="text"
-                           placeholder="User id (optional &mdash; reissue one person)">
+                           placeholder="User id (optional - reissue one person)">
                     <button id="pprot-reissue" class="btn danger">Reissue&hellip;</button>
                 </div>
                 <p id="pprot-msg" class="muted"></p>

@@ -77,5 +77,9 @@ def test_service_worker_wont_strand_the_fix_behind_stale_cache():
 def test_enroll_and_admin_scripts_are_version_bumped():
     # /enroll and /admin are under the SW scope too; their JS is runtime-cached,
     # so the fix only reaches returning users if the query version changed.
-    assert _script_version(_read("templates/enroll.html"), "enroll.js") >= "5"
-    assert _script_version(_read("templates/admin.html"), "admin.js") >= "7"
+    # Compare as INTEGERS: these were string comparisons, which silently held
+    # only while every version was a single digit - "10" >= "5" is False
+    # lexicographically, so the check started failing the moment enroll.js
+    # reached v10, despite the version having gone UP.
+    assert int(_script_version(_read("templates/enroll.html"), "enroll.js")) >= 5
+    assert int(_script_version(_read("templates/admin.html"), "admin.js")) >= 7

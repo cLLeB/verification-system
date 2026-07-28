@@ -367,3 +367,51 @@ html[data-theme="light"] .result.ok { background: color-mix(in oklab, var(--ok) 
 .protect-note[open] summary { margin-bottom: 6px; }
 .protect-note p { margin: 6px 0; line-height: 1.5; }
 .protect-note b { color: var(--txt); }
+
+/* ─── Fit the page to the viewport ─────────────────────────────────────────
+   Two separate problems, both about space rather than colour.
+
+   1. SIDEWAYS SCROLL. overflow-x:hidden was set on <body> only. When the
+      overflow comes from a descendant, the viewport still pans on iOS Safari,
+      and here it does: .scan-halo is 118% of the scanner and carries
+      filter:blur(34px), whose ink spills roughly 34px past its box and past the
+      page padding. `clip` kills the pan WITHOUT creating a scroll container the
+      way `hidden` does (hidden is kept as the fallback for older engines).
+
+   2. TOO TALL TO USE. In enrol mode the column is topbar + mode switch + name
+      field + upload card + collapsed explainer + camera + dots + hint + buttons.
+      At the fixed 300px oval and 22px gaps that overflows a short phone, so the
+      page had to be scrolled just to reach Capture. These queries key off
+      VIEWPORT HEIGHT (the actual constraint) and reclaim space in the order it
+      hurts least: gaps first, then chrome padding, then the oval. The oval stays
+      width-driven so its aspect ratio is never distorted, and it is never
+      shrunk below a size that can still frame a hand. Expanding the collapsed
+      explainer is still free to push the page into scrolling - that is the
+      user's choice, which is exactly the behaviour asked for. */
+html, body { overflow-x: hidden; }
+@supports (overflow: clip) { html, body { overflow-x: clip; } }
+
+@media (max-height: 860px) {
+    .app { gap: 14px; }
+    .upload-card { padding: 10px; }
+    .upload-ico { width: 30px; height: 30px; }
+    .actions .btn { min-height: 50px; }
+    /* Everything above the camera in enrol mode costs ~487px at these paddings.
+       Give the oval exactly what is left, so it scales continuously with the
+       viewport instead of stepping between fixed sizes and overflowing between
+       the steps. Floor keeps it big enough to frame a hand; below that the page
+       simply scrolls again, which is honest rather than unusable. */
+    .scanner-stage { width: clamp(190px, calc((100dvh - 487px) * 0.778), 300px); margin: 2px auto 0; }
+}
+@media (max-height: 730px) {
+    .app { gap: 10px; padding-top: max(10px, env(safe-area-inset-top));
+           padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .enroll-row { gap: 8px; }
+    .micro-label { display: none; }        /* the input's placeholder already says it */
+    .upload-card { padding: 8px; }
+    .upload-sub { display: none; }         /* "Optional - enroll from an image" */
+    .actions .btn { min-height: 46px; }
+    .protect-note { padding: 8px 12px; }
+    /* Trimming the label, sub-text and paddings drops the fixed cost to ~412px. */
+    .scanner-stage { width: clamp(165px, calc((100dvh - 412px) * 0.778), 300px); }
+}
