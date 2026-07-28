@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="/static/app.css?v=31">
+    <link rel="stylesheet" href="/static/app.css?v=32">
 </head>
 <body>
     <main class="app">
@@ -67,39 +67,22 @@
 
         <div class="enroll-row hidden" id="enroll-row">
             <div class="field-group">
-                <label class="micro-label" for="user-id">New identity</label>
+                <label class="sr-only" for="user-id">New identity</label>
                 <input id="user-id" class="field" type="text" inputmode="text" autocomplete="off"
                        autocapitalize="words" placeholder="Name or ID to enroll">
             </div>
-            <label class="upload-card">
+            <label class="upload-card" title="Enrol from a photo">
+                <span class="sr-only">Enrol from a photo</span>
                 <span class="upload-ico">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
                     </svg>
                 </span>
-                <span class="upload-text">
-                    <span class="upload-title">Reference photo</span>
-                    <span class="upload-sub">Optional - enroll from an image</span>
-                </span>
                 <input id="enroll-files" type="file" accept="image/*" multiple class="sr-only"
                        aria-label="Choose photos to enroll from">
             </label>
             <button class="btn btn-ghost" id="upload-enroll" hidden>Enroll from photo</button>
-            <details class="protect-note">
-                <summary>How your biometrics are protected</summary>
-                <p>Your face or hand photo is never stored. It is turned into a short list of
-                    numbers (a template), <b>scrambled with a secret code</b>, and encrypted. The
-                    scrambled version can't be turned back into your face, and it only works
-                    here - a stolen copy is useless anywhere else.</p>
-                <p>If a leak is ever suspected, the organisation presses one button to
-                    <b>re-scramble everything</b>: old copies stop working instantly, like a
-                    password reset, and you don't have to enrol again.</p>
-                <p><a href="/trust" target="_blank">See the Trust Center</a> for the full
-                    security story and this system's measured accuracy numbers.</p>
-                <p>Enrolled here? <a href="/my-data">View everything held about you</a> -
-                    verify it's you, download your report, or withdraw your consent.</p>
-            </details>
         </div>
 
         <section class="scanner-stage" aria-label="Face scanner">
@@ -165,6 +148,23 @@
                 <span class="shutter-core"></span>
             </button>
         </div>
+
+        <!-- Moved below the shutter: it is reference reading, not part of the
+             capture flow, so it must not push the camera and the button down. -->
+        <details class="protect-note" id="protect-note">
+            <summary>How your biometrics are protected</summary>
+            <p>Your face or hand photo is never stored. It is turned into a short list of
+                numbers (a template), <b>scrambled with a secret code</b>, and encrypted. The
+                scrambled version can't be turned back into your face, and it only works
+                here - a stolen copy is useless anywhere else.</p>
+            <p>If a leak is ever suspected, the organisation presses one button to
+                <b>re-scramble everything</b>: old copies stop working instantly, like a
+                password reset, and you don't have to enrol again.</p>
+            <p><a href="/trust" target="_blank">See the Trust Center</a> for the full
+                security story and this system's measured accuracy numbers.</p>
+            <p>Enrolled here? <a href="/my-data">View everything held about you</a> -
+                verify it's you, download your report, or withdraw your consent.</p>
+        </details>
     </main>
 
     <canvas id="canvas" hidden></canvas>
