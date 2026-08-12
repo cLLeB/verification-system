@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Online flavor: recognition happens on the SERVER, so this build needs the network
+     to do anything at all. It bundles no recognition model, which is what makes the
+     APK a fraction of the size of the on-device builds.
+
+     Unlike 'hybrid' (which syncs templates but still matches on-device), this build
+     sends the captured frames themselves. cleartextTrafficPermitted stays off - the
+     server is HTTPS and a plain-HTTP fallback would put biometric frames on the wire
+     in clear. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

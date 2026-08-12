@@ -97,23 +97,24 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Face Verify", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
-
-        // Mode toggle
+        // Mode toggle. "Check card" and "Glance" both match on-device, against a
+        // credential's own template or a downloaded index - neither is possible on the
+        // online build, which bundles no recognition model, so they are not offered.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(vm.mode == Mode.VERIFY, { vm.selectMode(Mode.VERIFY) }, { Text("Verify") })
             FilterChip(vm.mode == Mode.ENROLL, { vm.selectMode(Mode.ENROLL) }, { Text("Enrol") })
-            FilterChip(vm.mode == Mode.CREDENTIAL, {
-                vm.selectMode(Mode.CREDENTIAL)
-                // cards are scanned with the BACK camera; flip automatically
-                lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
-            }, { Text("Check card") })
-            FilterChip(vm.mode == Mode.GLANCE, {
-                vm.selectMode(Mode.GLANCE)
-                // glance points at OTHER people - back camera
-                lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
-            }, { Text("Glance") })
+            if (!vm.isOnline) {
+                FilterChip(vm.mode == Mode.CREDENTIAL, {
+                    vm.selectMode(Mode.CREDENTIAL)
+                    // cards are scanned with the BACK camera; flip automatically
+                    lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                }, { Text("Check card") })
+                FilterChip(vm.mode == Mode.GLANCE, {
+                    vm.selectMode(Mode.GLANCE)
+                    // glance points at OTHER people - back camera
+                    lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                }, { Text("Glance") })
+            }
         }
         Spacer(Modifier.height(12.dp))
         if (vm.mode == Mode.CREDENTIAL && vm.credPayload != null && vm.result == null) {
@@ -124,11 +125,27 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         }
 
         if (vm.mode == Mode.ENROLL) {
-            OutlinedTextField(
-                value = vm.enrollName, onValueChange = { vm.enrollName = it },
-                label = { Text("Name or ID") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // Name and photo-upload on ONE line: the upload is optional, and the camera
+            // is what people came to use, so it should not be pushed down the screen.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = vm.enrollName, onValueChange = { vm.enrollName = it },
+                    placeholder = { Text("Name or ID to enrol") }, singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = {
+                        if (adminUnlocked)
+                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        else showPin = true
+                    },
+                    enabled = vm.enrollName.isNotBlank(),
+                ) { Icon(Icons.Filled.Image, "Enrol from a photo") }
+            }
             Spacer(Modifier.height(8.dp))
             Dots(captured = vm.captured, total = vm.enrollTarget)
             Spacer(Modifier.height(8.dp))
@@ -191,39 +208,36 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
 
         Spacer(Modifier.height(14.dp))
         if (vm.result == null) {
+            // One line of guidance. During a pending auto-retry it carries the
+            // countdown, so the retry is never a surprise.
             Text(
-                vm.status, textAlign = TextAlign.Center,
+                if (vm.retryIn > 0) "${vm.status} - retrying in ${vm.retryIn}…" else vm.status,
+                textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (vm.mode == Mode.VERIFY || vm.mode == Mode.CREDENTIAL) {
+
+            if (vm.mode == Mode.VERIFY || vm.mode == Mode.ENROLL) {
+                Spacer(Modifier.height(12.dp))
+                QualityChips(vm.quality)
+                Spacer(Modifier.height(12.dp))
+                Shutter(
+                    ready = vm.quality.allGood,
+                    busy = vm.capturing,
+                    progress = vm.captureProgress,
+                    enabled = vm.mode != Mode.ENROLL || vm.enrollName.isNotBlank(),
+                    onClick = {
+                        // Enrolling is the operator's action and stays PIN-gated;
+                        // verifying is open, exactly as on the web.
+                        if (vm.mode == Mode.ENROLL && !adminUnlocked) showPin = true
+                        else vm.requestCapture()
+                    },
+                )
+            } else if (vm.mode == Mode.CREDENTIAL) {
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { vm.livenessProgress },
                     modifier = Modifier.fillMaxWidth(0.6f),
                 )
-            } else if (vm.mode == Mode.ENROLL) {
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        if (adminUnlocked) vm.requestEnrollCapture() else showPin = true
-                    },
-                    enabled = vm.enrollName.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(0.6f),
-                ) {
-                    Icon(Icons.Filled.Lock, null); Spacer(Modifier.size(8.dp)); Text("Capture")
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        if (adminUnlocked)
-                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        else showPin = true
-                    },
-                    enabled = vm.enrollName.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(0.6f),
-                ) {
-                    Icon(Icons.Filled.Image, null); Spacer(Modifier.size(8.dp)); Text("Enrol from photo")
-                }
             }
         }
     }
@@ -232,9 +246,15 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         creating = !adminGate.isSet(),
         onDismiss = { showPin = false },
         onConfirm = { pin ->
-            if (!adminGate.isSet()) { adminGate.setPin(pin); adminUnlocked = true; showPin = false; true }
-            else if (adminGate.check(pin)) { adminUnlocked = true; showPin = false; true }
-            else false
+            val ok = if (!adminGate.isSet()) { adminGate.setPin(pin); true } else adminGate.check(pin)
+            if (ok) {
+                adminUnlocked = true
+                showPin = false
+                // They tapped the shutter and were interrupted by the PIN - finish the
+                // action they asked for rather than making them tap a second time.
+                if (vm.mode == Mode.ENROLL) vm.requestCapture()
+            }
+            ok
         },
     )
 }
@@ -313,7 +333,10 @@ private fun PeopleScreen(vm: ScannerViewModel) {
         Text("Enrolled people (${vm.people.size})", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
         if (vm.people.isEmpty()) {
-            CenterMessage("No one enrolled yet", "Use the Scan tab → Enrol to add people.")
+            CenterMessage(
+                if (vm.peopleMsg.isEmpty()) "No one enrolled yet" else "Can't show the roster",
+                vm.peopleMsg.ifEmpty { "Use the Scan tab → Enrol to add people." },
+            )
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(vm.people) { name ->
@@ -341,10 +364,33 @@ private fun SettingsScreen(vm: ScannerViewModel) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
         InfoRow("People enrolled", vm.people.size.toString())
-        InfoRow("Match threshold", com.faceverify.app.Config.MATCH_THRESHOLD.toString())
-        InfoRow("Storage", "Encrypted, on-device only")
-        InfoRow("Network", if (vm.isHybrid) "Hybrid - optional server sync" else "None - fully offline")
+        if (!vm.isOnline) {
+            InfoRow("Match threshold", com.faceverify.app.Config.MATCH_THRESHOLD.toString())
+        }
+        InfoRow(
+            "Recognition",
+            if (vm.isOnline) "On the server" else "On this device",
+        )
+        InfoRow(
+            "Storage",
+            if (vm.isOnline) "None on this device" else "Encrypted, on-device only",
+        )
+        InfoRow(
+            "Network", when {
+                vm.isOnline -> "Required - frames are sent to the server"
+                vm.isHybrid -> "Hybrid - optional server sync"
+                else -> "None - fully offline"
+            }
+        )
         Spacer(Modifier.height(20.dp))
+
+        // The online build has no local templates, so none of the on-device data
+        // sections (bulk import, trust list, glance index) apply to it.
+        if (vm.isOnline) {
+            OnlineSection(vm)
+            return@Column
+        }
+
         if (vm.isHybrid) {
             SyncSection(vm, ctx)
         } else {
@@ -609,6 +655,56 @@ private fun SyncSection(vm: ScannerViewModel, ctx: android.content.Context) {
             else false
         },
     )
+}
+
+/** The online build's only setting that matters: which deployment to verify against.
+ *
+ *  The admin password is optional and separate. Verifying never needs it. Enrolling
+ *  needs it only once the deployment closes open enrolment, and the People tab always
+ *  does - so an operator can leave it unset on a walk-up verifier and nothing breaks. */
+@Composable
+private fun OnlineSection(vm: ScannerViewModel) {
+    var url by remember { mutableStateOf(vm.onlineServerUrl()) }
+    var password by remember { mutableStateOf("") }
+
+    Text("Server", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "This build recognises people on the server, so nothing is stored on this phone " +
+            "and the captured frames are sent for the decision. It needs a connection to work.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(12.dp))
+    OutlinedTextField(
+        value = url, onValueChange = { url = it },
+        label = { Text("Server address (https://…)") }, singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    OutlinedTextField(
+        value = password, onValueChange = { password = it },
+        label = {
+            Text(
+                if (vm.onlineAdminPasswordSet()) "Admin password (set - blank keeps it)"
+                else "Admin password (optional)"
+            )
+        },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { vm.saveOnlineConfig(url, password); password = "" }) { Text("Save") }
+        OutlinedButton(onClick = { vm.testOnline() }, enabled = !vm.onlineBusy) { Text("Test") }
+        if (vm.onlineAdminPasswordSet()) {
+            TextButton(onClick = { vm.clearOnlineAdminPassword() }) { Text("Forget password") }
+        }
+    }
+    if (vm.onlineBusy) { Spacer(Modifier.height(6.dp)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+    if (vm.onlineMsg.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text(vm.onlineMsg, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable

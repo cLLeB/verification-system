@@ -12,14 +12,25 @@ import androidx.lifecycle.viewModelScope
 import com.faceverify.app.BuildConfig
 import com.faceverify.app.Config
 import com.faceverify.app.PalmConfig
+import com.faceverify.app.capture.CaptureCoach
+import com.faceverify.app.capture.CaptureQuality
+import com.faceverify.app.capture.HeadTurnScript
+import com.faceverify.app.capture.RetryPolicy
 import com.faceverify.app.credential.CredentialVerifier
 import com.faceverify.app.credential.TrustData
 import com.faceverify.app.credential.TrustStoreManager
+import com.faceverify.app.face.FaceDetectorMlKit
 import com.faceverify.app.face.FaceEngine
 import com.faceverify.app.face.LivenessTracker
+import com.faceverify.app.online.ApiClient
+import com.faceverify.app.online.OnlinePrefs
+import com.faceverify.app.online.RemoteBackend
 import com.faceverify.app.palm.PalmEngine
+import com.faceverify.app.palm.PalmRoi
 import com.faceverify.app.sync.SyncManager
 import com.faceverify.app.sync.SyncPrefs
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -69,6 +80,42 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private val liveness = LivenessTracker()
     val enrollTarget = Config.SAMPLES_PER_USER
 
+    // --- live capture guidance (all flavors) ---------------------------------
+    // The chips run off the DETECTORS only, so they work on every build - including
+    // the online one, which bundles no recognition model. Advisory throughout: a
+    // failed coaching pass leaves the chips as they were and never blocks a capture.
+    /** Lighting / Distance / Angle for the current frame. */
+    var quality by mutableStateOf(CaptureQuality()); private set
+    private var coach: CaptureCoach? = null
+    private var lastCoachAt = 0L
+
+    /** True from the moment the shutter is tapped until a verdict is shown. */
+    var capturing by mutableStateOf(false); private set
+
+    /** 0..1 across the head-turn challenge, for the ring around the shutter. */
+    var captureProgress by mutableStateOf(0f); private set
+
+    private val script = HeadTurnScript()
+
+    // Automatic retry after a COACHABLE failure - the person already tapped, so
+    // finishing the attempt they started is not a new consent decision.
+    private var retriesLeft = RetryPolicy.MAX_ATTEMPTS
+    private var retryJob: Job? = null
+    /** Seconds until the automatic retry, or 0 when none is pending. */
+    var retryIn by mutableStateOf(0); private set
+
+    // --- online build --------------------------------------------------------
+    /** This build sends frames to a server and stores nothing locally. */
+    val isOnline = BuildConfig.ONLINE
+    private val onlinePrefs by lazy { OnlinePrefs(getApplication()) }
+    private var remote: RemoteBackend? = null
+    /** Frames collected for the current online burst, already JPEG+base64 encoded so
+     *  no bitmap is held past the frame callback that produced it. */
+    private val burst = mutableListOf<String>()
+    private var burstToken: String? = null
+    private var burstIsPalm = false
+    private var lastBurstAt = 0L
+
     // Offline mirror of the service gates (policies / guests / consent /
     // guardians). Null until first synced - all gates pass, exactly as before.
     private var serviceState: com.faceverify.app.data.ServiceState? = null
@@ -76,29 +123,54 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             try {
-                engine = FaceEngine.create(getApplication())
-                // Palm is optional: load it if its assets are bundled, else run face-only.
-                palm = try {
-                    if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
-                } catch (_: Exception) { null }
-                trustData = TrustStoreManager.load(getApplication())
-                serviceState = com.faceverify.app.data.ServiceState.load(getApplication())
-                glanceFace = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "face")
-                glancePalm = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "palm")
-                refreshPeople()
+                if (isOnline) startOnline() else startOnDevice()
                 ready = true
-                status = if (mode == Mode.VERIFY) "Show your face (turn your head) - or your hand" else "Enter a name, then show face or hand"
+                status = idleStatus()
             } catch (e: Exception) {
                 engineError = e.message ?: "Failed to start the engine. Is the model in assets?"
             }
         }
     }
 
+    /** Offline / hybrid: the whole pipeline runs here, so load every model. */
+    private suspend fun startOnDevice() {
+        engine = FaceEngine.create(getApplication())
+        // Palm is optional: load it if its assets are bundled, else run face-only.
+        palm = try {
+            if (PalmEngine.available(getApplication())) PalmEngine.create(getApplication()) else null
+        } catch (_: Exception) { null }
+        coach = CaptureCoach(engine.detector, palm?.roi)
+        trustData = TrustStoreManager.load(getApplication())
+        serviceState = com.faceverify.app.data.ServiceState.load(getApplication())
+        glanceFace = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "face")
+        glancePalm = com.faceverify.app.glance.GlanceIndexStore.load(getApplication(), "palm")
+        refreshPeople()
+    }
+
+    /** Online: the server recognises, so no recognition model is loaded (none is even
+     *  bundled). The DETECTORS still load - they are small, they ship in every flavor,
+     *  and they are what makes the framing chips instant without a network round-trip.
+     *  Nothing is stored on this device, so there is no local roster to read. */
+    private fun startOnline() {
+        remote = RemoteBackend(onlinePrefs)
+        val palmRoi = try {
+            if (PalmRoi.available(getApplication())) PalmRoi.load(getApplication()) else null
+        } catch (_: Exception) { null }
+        coach = CaptureCoach(FaceDetectorMlKit(), palmRoi)
+    }
+
+    private fun idleStatus(): String =
+        if (mode == Mode.ENROLL) "Enter a name, then tap the shutter"
+        else "Show your face - or your open hand - then tap to verify"
+
     fun selectMode(m: Mode) {
         mode = m; result = null; status = ""; captured = 0; livenessProgress = 0f
         liveness.reset(); captureRequested.set(false)
+        endCapture()                       // a mode switch cancels any pending retry
+        quality = CaptureQuality()
         credPayload = null
         glanceHit = null
+        if (m == Mode.VERIFY || m == Mode.ENROLL) status = idleStatus()
         if (m == Mode.CREDENTIAL) {
             status = if (trustData == null)
                 "No trust list on this device yet - add one in Settings"
@@ -111,18 +183,123 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun requestEnrollCapture() { captureRequested.set(true) }
+    /** The shutter. One deliberate tap starts one attempt, in either mode - so a person
+     *  always knows when they are being judged, instead of the camera deciding for them.
+     *  A manual tap always takes over: it cancels a pending automatic retry and restores
+     *  the full retry budget. */
+    fun requestCapture() {
+        if (!ready || capturing) return
+        if (mode == Mode.ENROLL && enrollName.isBlank()) {
+            status = "Enter a name first"
+            return
+        }
+        cancelRetry()
+        retriesLeft = RetryPolicy.MAX_ATTEMPTS
+        beginCapture()
+    }
 
-    fun scanAgain() {
-        result = null; liveness.reset(); livenessProgress = 0f
-        if (mode == Mode.ENROLL) captureRequested.set(false)
-        if (mode == Mode.CREDENTIAL) {
-            credPayload = null
-            status = "Point the BACK camera at the QR on the card"
+    /** Start one attempt without touching the retry budget (used by the auto-retry). */
+    private fun beginCapture() {
+        result = null
+        liveness.reset()
+        livenessProgress = 0f
+        captureProgress = 0f
+        burst.clear()
+        burstToken = null
+        burstIsPalm = quality.modality == "palm"
+        capturing = true
+        captureRequested.set(true)
+        // A palm needs no head-turn - that is a face challenge. The script only runs
+        // for a face, and only when the decision maker actually asks for liveness.
+        if (!burstIsPalm) script.start(System.currentTimeMillis()) else script.reset()
+        status = if (burstIsPalm) "Hold your open hand steady…" else script.instruction
+
+        if (isOnline) {
+            viewModelScope.launch(Dispatchers.IO) {
+                burstToken = if (burstIsPalm) null else try { remote?.challenge() } catch (_: Exception) { null }
+            }
         }
     }
 
+    /** Clear all capture state: no run in progress, no retry pending. */
+    private fun endCapture() {
+        capturing = false
+        captureRequested.set(false)
+        captureProgress = 0f
+        script.reset()
+        scriptDoneAt = 0L
+        burst.clear()
+        burstToken = null
+        cancelRetry()
+    }
+
+    private fun cancelRetry() {
+        retryJob?.cancel()
+        retryJob = null
+        retryIn = 0
+    }
+
+    /** Schedule another attempt after a failure the person can fix by moving. The
+     *  countdown is shown so the advice is readable and the retry is never a surprise. */
+    private fun scheduleRetry(advice: String) {
+        if (retriesLeft <= 0) {                       // budget spent: hand control back
+            status = "$advice - tap to try again"
+            return
+        }
+        retriesLeft--
+        cancelRetry()
+        retryJob = viewModelScope.launch {
+            var left = (RetryPolicy.DELAY_MS / 1000).toInt()
+            retryIn = left
+            status = advice
+            while (left > 0) {
+                delay(1000)
+                left--
+                retryIn = left
+            }
+            retryIn = 0
+            beginCapture()
+        }
+    }
+
+    /** A failed attempt: either coach-and-retry, or show the verdict and stop. */
+    private fun failAttempt(code: String, message: String, title: String) {
+        endCapture()
+        if (RetryPolicy.isCoachable(code)) scheduleRetry(message)
+        else result = ScanResult(false, title, message)
+    }
+
+    fun scanAgain() {
+        result = null; liveness.reset(); livenessProgress = 0f
+        endCapture()
+        retriesLeft = RetryPolicy.MAX_ATTEMPTS
+        if (mode == Mode.CREDENTIAL) {
+            credPayload = null
+            status = "Point the BACK camera at the QR on the card"
+        } else {
+            status = idleStatus()
+        }
+    }
+
+    /** Why the People list is empty, when the reason is not "nobody is enrolled".
+     *  The online build reads the roster from the server, which needs the admin
+     *  password - saying so beats showing a silently empty list. */
+    var peopleMsg by mutableStateOf(""); private set
+
     fun refreshPeople() = viewModelScope.launch {
+        if (isOnline) {
+            people = try {
+                peopleMsg = ""
+                remote?.listUsers() ?: emptyList()
+            } catch (e: ApiClient.AuthRequired) {
+                peopleMsg = "Add the admin password in Settings to see who is enrolled."
+                emptyList()
+            } catch (e: Exception) {
+                peopleMsg = "Could not reach the server."
+                emptyList()
+            }
+            return@launch
+        }
         // A person may be enrolled by face, palm, or both - show the union.
         val faces = engine.repo.listUsers()
         val palms = palm?.repo?.listUsers() ?: emptyList()
@@ -130,6 +307,15 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteUser(id: String) = viewModelScope.launch {
+        if (isOnline) {
+            try { remote?.delete(id) } catch (e: ApiClient.AuthRequired) {
+                peopleMsg = "Add the admin password in Settings to remove people."
+            } catch (e: Exception) {
+                peopleMsg = "Could not reach the server."
+            }
+            refreshPeople()
+            return@launch
+        }
         engine.repo.delete(id)
         palm?.repo?.delete(id)        // remove both modalities for this person
         refreshPeople()
@@ -141,35 +327,20 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         return processing.compareAndSet(false, true)
     }
 
-    /** Process one upright camera frame. Recycles the bitmap and unlocks when done. */
+    /** Process one upright camera frame. Recycles the bitmap and unlocks when done.
+     *
+     *  While idle the frame feeds the framing chips; once the shutter has been tapped
+     *  it feeds the actual attempt. Credential and Glance are continuous by design and
+     *  keep their own loops. */
     fun processFrame(bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                if (mode == Mode.CREDENTIAL) {
-                    handleCredentialFrame(bitmap)
-                    return@launch
-                }
-                if (mode == Mode.GLANCE) {
-                    handleGlanceFrame(bitmap)
-                    return@launch
-                }
-                val face = engine.detect(bitmap)
-                if (face != null && face.facepx >= Config.MIN_FACE_PX) {
-                    val yaw = face.yaw
-                    if (mode == Mode.VERIFY) handleVerify(bitmap, face, yaw)
-                    else handleEnroll(bitmap, face, yaw)
-                    return@launch
-                }
-                // No usable face - auto-route to palm (the user never has to choose).
-                val p = palm
-                if (p != null && p.hasPalm(bitmap).first) {
-                    if (mode == Mode.VERIFY) handlePalmVerify(p, bitmap) else handlePalmEnroll(p, bitmap)
-                    return@launch
-                }
-                status = when {
-                    face != null -> "Move a little closer"
-                    palm != null -> "Show your face or open hand"
-                    else -> "No face detected - move into the frame"
+                when {
+                    mode == Mode.CREDENTIAL -> handleCredentialFrame(bitmap)
+                    mode == Mode.GLANCE -> handleGlanceFrame(bitmap)
+                    capturing && isOnline -> onlineCaptureFrame(bitmap)
+                    capturing -> localCaptureFrame(bitmap)
+                    else -> maybeCoach(bitmap)
                 }
             } catch (_: Exception) {
                 status = "Hiccup - keep your face or hand in view"
@@ -180,16 +351,151 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Idle framing guidance, at a slow cadence so it never competes with a capture. */
+    private suspend fun maybeCoach(bitmap: Bitmap) {
+        val now = System.currentTimeMillis()
+        if (now - lastCoachAt < Config.COACH_INTERVAL_MS) return
+        lastCoachAt = now
+        val c = coach ?: return
+        // Probe the palm first, exactly as the server does: presenting an open, spread
+        // hand is deliberate, while a face in shot is often a bystander. Face-first
+        // meant a palm presented in a busy room routed to face and was then asked for
+        // a head-turn. Mirrors face_service/modality.py route(primary="palm").
+        val q = c.assess(bitmap, palmFirst = true)
+        quality = q
+        if (retryIn == 0) q.hint()?.let { status = it } ?: run { status = idleStatus() }
+    }
+
+    /** On-device capture: the existing pipeline, now started by the shutter and guided
+     *  by the head-turn script instead of firing whenever liveness happened to pass. */
+    private suspend fun localCaptureFrame(bitmap: Bitmap) {
+        // Palm first (see maybeCoach) - a deliberate open hand outranks a bystander.
+        val p = palm
+        if (p != null && p.hasPalm(bitmap).first) {
+            if (mode == Mode.VERIFY) handlePalmVerify(p, bitmap) else handlePalmEnroll(p, bitmap)
+            return
+        }
+        val face = engine.detect(bitmap)
+        if (face != null && face.facepx >= Config.MIN_FACE_PX) {
+            if (mode == Mode.VERIFY) handleVerify(bitmap, face, face.yaw)
+            else handleEnroll(bitmap, face, face.yaw)
+            return
+        }
+        status = when {
+            face != null -> "Move a little closer"
+            palm != null -> "Show your face or open hand"
+            else -> "No face detected - move into the frame"
+        }
+    }
+
+    /** Online capture: collect the burst this device is responsible for, then hand the
+     *  decision to the server. Frames are encoded immediately so no bitmap outlives the
+     *  callback that produced it. */
+    private suspend fun onlineCaptureFrame(bitmap: Bitmap) {
+        val now = System.currentTimeMillis()
+        val target: Int
+        if (burstIsPalm) {
+            target = RemoteBackend.PALM_BURST_FRAMES
+            if (burst.isNotEmpty() && now - lastBurstAt < RemoteBackend.PALM_BURST_GAP_MS) return
+        } else {
+            target = HeadTurnScript.TOTAL_FRAMES
+            if (!script.offer(now)) {
+                status = script.instruction
+                return
+            }
+            captureProgress = script.progress
+        }
+        lastBurstAt = now
+        burst.add(ApiClient.dataUrl(bitmap, RemoteBackend.FRAME_WIDTH, RemoteBackend.FRAME_QUALITY))
+        status = if (burstIsPalm) "Hold your open hand steady…" else script.instruction
+        if (burst.size < target) return
+
+        // Burst complete - stop taking frames and ask the server.
+        captureRequested.set(false)
+        captureProgress = 1f
+        status = "Checking…"
+        val frames = burst.toList()
+        burst.clear()
+        submitOnline(frames)
+    }
+
+    /** Send a completed burst and turn the server's answer into a verdict. */
+    private suspend fun submitOnline(frames: List<String>) {
+        val r = remote ?: return
+        val outcome = try {
+            // Verifying sends no user_id: this is walk-up 1:N identify, the same call
+            // the web verifier makes. A deployment with open identify disabled answers
+            // "identify_disabled", which is shown as-is rather than guessed at.
+            if (mode == Mode.ENROLL) r.enroll(enrollName, frames)
+            else r.verify("", frames, burstToken)
+        } catch (e: ApiClient.AuthRequired) {
+            endCapture()
+            result = ScanResult(false, "Admin password needed", e.message ?: "Add it in Settings.")
+            return
+        } catch (e: Exception) {
+            endCapture()
+            result = ScanResult(false, "Can't reach the server",
+                "Check the connection and the server address in Settings.")
+            return
+        }
+
+        if (!outcome.success) {
+            failAttempt(outcome.code, outcome.message.ifBlank { "Try again." },
+                if (mode == Mode.ENROLL) "Enrolment failed" else "Access denied")
+            return
+        }
+        endCapture()
+        if (mode == Mode.ENROLL) {
+            result = ScanResult(true, "Enrolled",
+                "${enrollName.trim()} is ready to verify")
+            refreshPeople()
+        } else {
+            result = grantedResult(true, outcome.userId, "Not recognised")
+        }
+    }
+
+    /** Grace after the guided turn finishes, before calling it a liveness failure. The
+     *  last phase is "look straight at the camera", so the frontal frames the embedding
+     *  needs arrive right at the end - failing the instant the script ends would throw
+     *  away the very frames the attempt was building toward. */
+    private val livenessGraceMs = 1200L
+    private var scriptDoneAt = 0L
+
     private suspend fun handleVerify(bitmap: Bitmap, face: com.faceverify.app.face.DetectedFace, yaw: Float) {
+        val now = System.currentTimeMillis()
+        // The coach may have predicted a palm (so the script was not started) and the
+        // person then presented a face. Without this the challenge would have no
+        // instructions and no end condition, and the attempt would never finish.
+        if (!script.active) script.start(now)
+
         liveness.record(yaw)
         livenessProgress = liveness.progress()
-        status = liveness.hint(yaw)
+
+        script.offer(now)                       // advance the instruction timeline
+        captureProgress = script.progress
+        if (script.done && scriptDoneAt == 0L) scriptDoneAt = now
+        status = if (script.done) "Hold still…" else script.instruction
+
         if (liveness.passed && abs(yaw) <= Config.LIVE_FRONTAL_YAW) {
-            val emb = engine.embed(bitmap, face) ?: return
+            val emb = engine.embed(bitmap, face)
+            if (emb == null) {
+                scriptDoneAt = 0L
+                failAttempt("low_quality", "Could not read your face - hold still and try again.",
+                    "Verification failed")
+                return
+            }
             val dec = engine.repo.identify(emb)
             engine.repo.maybeAdapt(dec, emb, null)
-            result = grantedResult(dec.granted, dec.userId, "Face not recognised")
+            scriptDoneAt = 0L
+            endCapture()
             liveness.reset(); livenessProgress = 0f
+            result = grantedResult(dec.granted, dec.userId, "Face not recognised")
+            return
+        }
+        if (script.done && now - scriptDoneAt > livenessGraceMs) {
+            scriptDoneAt = 0L
+            failAttempt("liveness", "Turn your head a bit more, side to side.",
+                "Verification failed")
         }
     }
 
@@ -215,7 +521,6 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun handleEnroll(bitmap: Bitmap, face: com.faceverify.app.face.DetectedFace, yaw: Float) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
-        status = if (abs(yaw) <= Config.LIVE_FRONTAL_YAW) "Hold still - tap Capture" else "Look straight at the camera"
         if (!captureRequested.compareAndSet(true, false)) return
 
         // Detect-the-document: if this capture is an ID card/passport, branch - extract
@@ -225,7 +530,9 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             if (a != null && a.assessment.isId) {
                 val emb = a.primaryEmbedding
                 if (emb == null) {
-                    status = "Detected an ID, but the photo on it is too unclear - try a clearer image or a live face"
+                    failAttempt("low_quality",
+                        "Detected an ID, but the photo on it is too unclear - try a clearer image or a live face.",
+                        "Enrolment failed")
                     return
                 }
                 finishEnroll(engine.repo.enroll(enrollName, emb, source = "id"), fromId = true)
@@ -234,9 +541,16 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         // Normal live path - needs a frontal pose.
-        if (abs(yaw) > Config.LIVE_FRONTAL_YAW) { status = "Look straight at the camera"; return }
+        if (abs(yaw) > Config.LIVE_FRONTAL_YAW) {
+            failAttempt("low_quality", "Look straight at the camera.", "Enrolment failed")
+            return
+        }
         val emb = engine.embed(bitmap, face)
-        if (emb == null) { status = "Couldn't read your face - try again"; return }
+        if (emb == null) {
+            failAttempt("low_quality", "Could not read your face - hold still and try again.",
+                "Enrolment failed")
+            return
+        }
         finishEnroll(engine.repo.enroll(enrollName, emb), fromId = false)
     }
 
@@ -244,24 +558,30 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
      *  capture matches against the palm store. Mirrors the server's palm path. */
     private suspend fun handlePalmVerify(p: PalmEngine, bitmap: Bitmap) {
         val s = p.embed(bitmap)
-        if (s.embedding == null) { status = s.message; return }
+        if (s.embedding == null) {
+            failAttempt(s.code, s.message, "Verification failed")
+            return
+        }
         val dec = p.repo.identify(s.embedding)
         p.repo.maybeAdapt(dec, s.embedding, null)
+        endCapture()
+        livenessProgress = 0f
         result = grantedResult(dec.granted, dec.userId, "Print not recognised").let {
             if (it.ok) it.copy(sub = it.sub.replaceFirst("Welcome, ${dec.userId}",
                 "Welcome, ${dec.userId} (via print)")) else it
         }
-        livenessProgress = 0f
     }
 
-    /** Palm enrol - tap Capture with an open palm shown (same 3-capture rhythm).
+    /** Palm enrol - tap the shutter with an open palm shown (same 3-capture rhythm).
      *  Uses the STRICT anchor-quality gate: weak anchors degrade matching forever. */
     private suspend fun handlePalmEnroll(p: PalmEngine, bitmap: Bitmap) {
         if (enrollName.isBlank()) { status = "Enter a name first"; return }
-        status = "Show your open hand - tap Capture"
         if (!captureRequested.compareAndSet(true, false)) return
         val s = p.embed(bitmap, forEnroll = true)
-        if (s.embedding == null) { status = s.message; return }
+        if (s.embedding == null) {
+            failAttempt(s.code, s.message, "Enrolment failed")
+            return
+        }
         finishPalmEnroll(p.repo.enroll(enrollName, s.embedding, handedness = s.handedness), s.embedding, s.handedness)
     }
 
@@ -269,9 +589,14 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
      *  same-side or third hand is refused; otherwise the shared success/progress path runs. */
     private fun finishPalmEnroll(r: com.faceverify.app.data.EnrollResult, emb: FloatArray, side: String) {
         when (r.code) {
-            "different_hand" -> { pendingHandEmb = emb; pendingHandSide = side; pendingOtherHand = r.message }
-            "hands_full" -> result = ScanResult(false, "Both hands enrolled", r.message)
-            "same_hand_side" -> result = ScanResult(false, "Same hand again", r.message)
+            // Not failures to retry - each needs a decision from the operator, so the
+            // attempt ends here and the dialog or verdict takes over.
+            "different_hand" -> {
+                endCapture()
+                pendingHandEmb = emb; pendingHandSide = side; pendingOtherHand = r.message
+            }
+            "hands_full" -> { endCapture(); result = ScanResult(false, "Both hands enrolled", r.message) }
+            "same_hand_side" -> { endCapture(); result = ScanResult(false, "Same hand again", r.message) }
             else -> finishEnroll(r, fromId = false)
         }
     }
@@ -295,7 +620,13 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun finishEnroll(r: com.faceverify.app.data.EnrollResult, fromId: Boolean) {
-        if (!r.success) { result = ScanResult(false, "Enrolment failed", r.message); return }
+        if (!r.success) {
+            // A refused enrolment (duplicate, wrong hand) is a decision, not a framing
+            // problem - failAttempt keeps the retry rule in one place and shows it.
+            failAttempt(r.code, r.message, "Enrolment failed")
+            return
+        }
+        endCapture()
         captured = r.samples
         val idNote = if (fromId) " (from ID - add a live capture for best accuracy)" else ""
         val handNote = if (r.hand >= 2) " (other hand)" else ""
@@ -305,7 +636,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 "${enrollName.trim()} is ready to verify$idNote$more")
             refreshPeople()
         } else {
-            status = "Captured $captured of $enrollTarget$handNote$idNote - tap Capture again"
+            status = "Captured $captured of $enrollTarget$handNote$idNote - tap the shutter again"
         }
     }
 
@@ -322,6 +653,19 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 bmp = decodeUri(uri)
                 if (bmp == null) { result = ScanResult(false, "Couldn't open photo", "Try another image"); return@launch }
+                if (isOnline) {
+                    // The server does the same auto-routing (ID card, face, or palm) on
+                    // an uploaded frame that it does for the web upload path.
+                    val frame = ApiClient.dataUrl(bmp, RemoteBackend.FRAME_WIDTH, RemoteBackend.FRAME_QUALITY)
+                    val outcome = remote?.enroll(enrollName, listOf(frame))
+                    result = if (outcome?.success == true)
+                        ScanResult(true, "Enrolled", "${enrollName.trim()} is ready to verify")
+                    else ScanResult(false, "Enrolment failed",
+                        outcome?.message?.ifBlank { "The server refused that photo." }
+                            ?: "The server refused that photo.")
+                    if (outcome?.success == true) refreshPeople()
+                    return@launch
+                }
                 val a = engine.assessIdForEnroll(bmp)
                 if (a.faces.isEmpty() || a.primaryFace == null) {
                     // No face - a gallery photo of a palm should enrol as palm
@@ -660,6 +1004,56 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 bundleBusy = false
             }
+        }
+    }
+
+    // --- online settings (only meaningful when BuildConfig.ONLINE) ------------
+    // Which deployment this device verifies against, and the admin password for the
+    // endpoints that need one. Verifying never needs the password; enrolling needs it
+    // only once the deployment closes open enrolment, and the People tab always does.
+    var onlineMsg by mutableStateOf(""); private set
+    var onlineBusy by mutableStateOf(false); private set
+
+    fun onlineServerUrl(): String = onlinePrefs.serverUrl
+    fun onlineAdminPasswordSet(): Boolean = onlinePrefs.hasAdminPassword
+
+    fun saveOnlineConfig(url: String, password: String) {
+        if (url.isNotBlank()) onlinePrefs.serverUrl = url
+        if (password.isNotBlank()) onlinePrefs.adminPassword = password
+        remote?.forgetSession()          // credentials changed - drop any stale session
+        onlineMsg = "Saved. Use Test to check the connection."
+    }
+
+    fun clearOnlineAdminPassword() {
+        onlinePrefs.clearAdminPassword()
+        remote?.forgetSession()
+        onlineMsg = "Admin password removed from this device."
+    }
+
+    /** Check the server is reachable, and report what it is configured for. */
+    fun testOnline() {
+        if (onlineBusy) return
+        onlineBusy = true; onlineMsg = "Checking…"
+        viewModelScope.launch(Dispatchers.IO) {
+            onlineMsg = try {
+                val h = remote?.health()
+                if (h == null) "No client - restart the app."
+                else if (!h.optBoolean("model_ready", false))
+                    "Reached the server, but its recognition model is not loaded yet."
+                else {
+                    val enrol = when {
+                        h.optBoolean("open_enroll", false) -> "enrolment is open"
+                        onlinePrefs.hasAdminPassword -> "enrolment needs the admin password (stored)"
+                        else -> "enrolment needs the admin password (NOT set)"
+                    }
+                    val turn = if (h.optBoolean("active_liveness", false))
+                        "head-turn required" else "no head-turn"
+                    "Connected - $enrol, $turn."
+                }
+            } catch (e: Exception) {
+                "Could not reach ${onlinePrefs.serverUrl} - check the address and the connection."
+            }
+            onlineBusy = false
         }
     }
 

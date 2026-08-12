@@ -22,7 +22,9 @@ data class PalmSample(
  *  palm/api.py. Created once and reused; palm data is isolated from face. */
 class PalmEngine private constructor(
     val repo: PalmRepository,
-    private val roi: PalmRoi,
+    /** Exposed so the live capture coach can share this landmarker rather than
+     *  loading a second copy of the same bundled model. */
+    val roi: PalmRoi,
     private val embedder: PalmEmbedder?,   // null => use the built-in Gabor encoder
 ) {
     private fun encode(roi: Bitmap): FloatArray =

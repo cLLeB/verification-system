@@ -65,7 +65,14 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
     ) {
         Text("Camera needed", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Face Verify uses the camera to recognise faces. Nothing leaves this device.",
+            // Truthful per build: the on-device flavors really do keep everything here,
+            // and the online one really does send the frames. Saying "nothing leaves
+            // this device" on a build that uploads would be a lie in a consent prompt.
+            if (BuildConfig.ONLINE)
+                "Verify uses the camera to recognise you. This build sends the captured " +
+                    "frames to your organisation's server, which makes the decision."
+            else
+                "Verify uses the camera to recognise faces and palms. Nothing leaves this device.",
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 12.dp),

@@ -15,9 +15,27 @@ android {
         applicationId = "com.faceverify.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
         vectorDrawables { useSupportLibrary = true }
+
+        // Ship only the ABIs real phones use. x86/x86_64 exist for emulators and were
+        // costing ~85 MB of native libraries in every APK - ONNX Runtime, MediaPipe and
+        // ML Kit each carry a full copy per ABI. armeabi-v7a stays: minSdk is 26, and
+        // budget 32-bit handsets on Android 8-10 are exactly the devices this has to
+        // run on. Build an emulator APK with -PallAbis if you need one.
+        if (project.findProperty("allAbis") == null) {
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        }
+
+        // The server the online build points at before anyone opens Settings (the
+        // hybrid build uses it as the prefilled sync URL). Overridable per-build with
+        // -PserverUrl=https://... so a rehosted deployment needs no code change.
+        buildConfigField(
+            "String", "DEFAULT_SERVER_URL",
+            "\"${project.findProperty("serverUrl")
+                ?: "https://verify.livelycliff-ba1a81a4.switzerlandnorth.azurecontainerapps.io"}\"",
+        )
     }
 
     // Each flavor bundles a different ArcFace model (same asset filename, different
@@ -26,33 +44,49 @@ android {
     // (int8 is intentionally NOT a flavor yet - add one here once validated; see
     //  app/src/int8-experimental/README.)
     // Two dimensions:
-    //  * connectivity: "offline" (no INTERNET permission - provably airgapped) vs
-    //    "hybrid" (adds INTERNET + opt-in server sync; BuildConfig.HYBRID gates the code).
-    //  * model: fp32 (full) vs fp16 (~lossless, half size).
-    // => 4 side-by-side-installable variants: offline/hybrid × fp32/fp16.
+    //  * connectivity: how (and whether) the device talks to a server.
+    //      offline - no INTERNET permission at all, provably airgapped, matches on-device.
+    //      hybrid  - adds INTERNET + opt-in server sync, but still matches ON-DEVICE.
+    //      online  - matches ON THE SERVER. Bundles no recognition model, so the APK is
+    //                a fraction of the size; needs a reachable server to do anything.
+    //  * model: which recognition model is bundled - fp32 (full), fp16 (~lossless, half
+    //    size), or nomodel (none at all; the ONLY valid pairing for "online").
+    // => 5 side-by-side-installable variants: offline/hybrid × fp32/fp16, plus online.
     flavorDimensions += listOf("connectivity", "model")
     productFlavors {
         create("offline") {
             dimension = "connectivity"
             buildConfigField("boolean", "HYBRID", "false")
+            buildConfigField("boolean", "ONLINE", "false")
         }
         create("hybrid") {
             dimension = "connectivity"
             applicationIdSuffix = ".hybrid"
             versionNameSuffix = "-hybrid"
             buildConfigField("boolean", "HYBRID", "true")
+            buildConfigField("boolean", "ONLINE", "false")
+        }
+        create("online") {
+            dimension = "connectivity"
+            applicationIdSuffix = ".online"
+            versionNameSuffix = "-online"
+            buildConfigField("boolean", "HYBRID", "false")
+            buildConfigField("boolean", "ONLINE", "true")
         }
         create("fp32") {
             dimension = "model"
             applicationIdSuffix = ".fp32"
             versionNameSuffix = "-fp32"
-            resValue("string", "app_name", "Face Verify f32")
         }
         create("fp16") {
             dimension = "model"
             applicationIdSuffix = ".fp16"
             versionNameSuffix = "-fp16"
-            resValue("string", "app_name", "Face Verify f16")
+        }
+        // No bundled model. Exists purely so "online" has a model flavor to pair with
+        // that contributes no assets source set - that is what keeps the APK small.
+        create("nomodel") {
+            dimension = "model"
         }
     }
 
@@ -89,6 +123,43 @@ android {
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
+/** Which flavor combinations are real, and what each one is called on the home screen.
+ *
+ *  The two dimensions are not independent: "online" matches on the server so it must
+ *  bundle NO model, and offline/hybrid match on-device so they must bundle one. The
+ *  filter below keeps the 5 combinations that mean something and drops the 4 that do
+ *  not (online+fp32, online+fp16, offline+nomodel, hybrid+nomodel).
+ *
+ *  app_name is set per-variant rather than per-flavor because it depends on BOTH
+ *  dimensions. All five install side by side, so each needs a label a person can tell
+ *  apart on the home screen - "Verify f32" and "Verify Hybrid f32" are different apps. */
+androidComponents {
+    fun flavorOf(pairs: List<Pair<String, String>>, dimension: String): String =
+        pairs.first { it.first == dimension }.second
+
+    beforeVariants { variant ->
+        val connectivity = flavorOf(variant.productFlavors, "connectivity")
+        val model = flavorOf(variant.productFlavors, "model")
+        // "online" pairs with "nomodel" and nothing else; every other connectivity
+        // pairs with a real model and never with "nomodel".
+        variant.enable = (connectivity == "online") == (model == "nomodel")
+    }
+
+    onVariants { variant ->
+        val connectivity = flavorOf(variant.productFlavors, "connectivity")
+        val model = flavorOf(variant.productFlavors, "model")
+        val label = when (connectivity) {
+            "online" -> "Verify Online"
+            "hybrid" -> "Verify Hybrid ${model.removePrefix("fp")}"
+            else -> "Verify ${model.removePrefix("fp")}"
+        }
+        variant.resValues.put(
+            variant.makeResValueKey("string", "app_name"),
+            com.android.build.api.variant.ResValue(label, null),
+        )
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
     implementation(composeBom)
@@ -120,7 +191,16 @@ dependencies {
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
     // On-device ArcFace (face) + CCNet (palm) embedding inference.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
+    //
+    // Scoped per connectivity flavor rather than bundled everywhere: the ONLINE build
+    // matches on the server, never constructs Embedder or PalmEmbedder, and so never
+    // loads an ONNX class - but the runtime's native libraries are ~30 MB per APK
+    // across the shipped ABIs. compileOnly keeps the classes on the COMPILE path (the
+    // shared source set still references them) while leaving them out of that APK.
+    val onnx = "com.microsoft.onnxruntime:onnxruntime-android:1.19.2"
+    "offlineImplementation"(onnx)
+    "hybridImplementation"(onnx)
+    "onlineCompileOnly"(onnx)
 
     // Encrypted local storage.
     val room = "2.6.1"

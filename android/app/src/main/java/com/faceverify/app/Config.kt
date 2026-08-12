@@ -50,6 +50,24 @@ object Config {
     const val LIVE_TURN_YAW = 18f             // need a frame with |yaw| >= this (a real turn)
     const val LIVE_SWING_YAW = 22f            // need (max - min) yaw span >= this
 
+    // Live capture coaching - the Lighting / Distance / Angle chips.
+    //
+    // These predict the gate rather than enforcing it: they tell the person what is
+    // wrong while they are still framing, instead of failing the shot and leaving them
+    // to guess. Coaching is ADVISORY everywhere - it must never block a capture.
+    //
+    // Mirrors the web client (static/app.js) and the server's /api/detect?coach=1, so
+    // all three surfaces light the same chip for the same frame. Sizes are a FRACTION
+    // of the frame's short side, never pixels: the coaching frame is deliberately
+    // downscaled, so absolute pixels are not comparable between surfaces.
+    const val COACH_INTERVAL_MS = 900L        // one coaching pass per ~0.9s while idle
+    const val COACH_LUMA_LOW = 55f            // usable exposure band, mean luma of the
+    const val COACH_LUMA_HIGH = 240f          // ...centre 60% of the frame (Rec.709)
+    const val COACH_MIN_FACE_FRAC = 0.18f     // a face under ~18% of the short side is
+                                              // too far for a reliable embedding
+    const val COACH_MAX_YAW = 35f             // mirrors face/config.py max_yaw_deg
+    const val COACH_MAX_PITCH = 30f           // ...and max_pitch_deg
+
     // ID-document detection on enrolment (detect the document, not the face).
     // Mirrors face/id_document.py; OpenCV-only signals (card outline) are omitted
     // on-device, so detection leans on the ghost portrait + small face + text density.

@@ -1,14 +1,55 @@
-# Face Verify - Native Android (100% offline)
+# Verify - Native Android
 
-A self-contained Android app that enrols and verifies faces **entirely on the
-device** - camera, liveness, recognition, and storage all run locally. It has **no
-`INTERNET` permission**, so it physically cannot send data anywhere. Same recognition
-model and tuning as the server, so behaviour matches.
+Enrols and verifies **faces and contactless palm-prints** on Android. It ships in
+three connectivity flavours, all installable side by side:
+
+| Flavour | Where matching happens | Network | Size |
+|---|---|---|---|
+| **offline** | on the device | **no `INTERNET` permission at all** | large (model bundled) |
+| **hybrid**  | on the device | opt-in sync of templates | large (model bundled) |
+| **online**  | **on the server** | required | small (no model bundled) |
+
+`offline` and `hybrid` each come in `fp32` (full model) and `fp16` (half size,
+~lossless), so there are **five APKs** in total. Build them all with
+`.\build-apks.ps1`.
+
+The offline build has no `INTERNET` permission, so it physically cannot send data
+anywhere. The hybrid build can mirror a server dataset but still matches locally. The
+online build is the opposite trade: it stores nothing on the phone and sends the
+captured frames to the server for the decision, which is why its download is a
+fraction of the size.
+
+All three use the same detectors for live framing guidance, and the same recognition
+tuning as the server, so behaviour matches across surfaces.
+
+## Live capture guidance (all flavours)
+Before anything is judged, the app tells the person what to fix while they are still
+framing, instead of failing the shot and leaving them to guess:
+
+- **Three chips** - Lighting (mean luma of the frame centre), Distance (how much of
+  the frame the detected face/palm fills), Angle (head yaw/pitch in range, or an open
+  palm facing the camera). Each is a real measurement, mirroring the server's
+  `/api/detect?coach=1` and the web client, so the same frame lights the same chips
+  on every surface.
+- **The shutter** goes green only when all three are in range. One deliberate tap
+  starts one attempt, so a person always knows when they are being judged.
+- **Auto-retry** - a failure a person can fix by MOVING (too far, too dark, turn
+  more) retries itself after a visible 2.6 s countdown, capped at 3 attempts per tap.
+  A real decision - not recognised, access denied, duplicate, wrong hand - never
+  retries, because repeating it is pointless and buries the answer.
+
+The chips run on the **detectors** only (ML Kit face + MediaPipe hands, both small and
+bundled in every flavour), never on the recognition model. That is why coaching is
+instant and free even on the online build, which bundles no recognition model at all.
 
 ## How it works (pipeline)
 1. **Camera** - CameraX streams frames.
 2. **Detect** - ML Kit Face Detection (bundled, offline) → face box, 5 landmarks, head yaw.
 3. **Liveness** - a real head-turn is required (a flat photo/screen can't do it).
+   The three instructions are shown one at a time, each with a lead-in before its
+   frames are recorded - the whole challenge takes ~3.8 s. (An earlier version ran the
+   whole thing in under two seconds and showed each instruction *after* grabbing its
+   frames, which made it unperformable; see `capture/HeadTurnScript.kt`.)
 4. **Align** - 5-point similarity transform to the canonical ArcFace 112×112 (`FaceAligner`).
 5. **Embed** - ArcFace `w600k_r50.onnx` via ONNX Runtime Mobile → 512-d vector (`Embedder`).
 6. **Match** - cosine vs the on-device set; 1:N identify or 1:1 verify (`Matcher`).

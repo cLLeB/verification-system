@@ -21,7 +21,9 @@ data class IdEnrollAssessment(
  *  Created once (model load + index load are slow) and reused. */
 class FaceEngine private constructor(
     val repo: FaceRepository,
-    private val detector: FaceDetectorMlKit,
+    /** Exposed so the live capture coach can share this one detector instance rather
+     *  than loading a second copy of the same bundled model. */
+    val detector: FaceDetectorMlKit,
     private val embedder: Embedder,
 ) {
     /** Cheap per-frame detection (box + head yaw + landmarks) for liveness/guidance. */
