@@ -165,7 +165,14 @@ def readyz():
         pc = _lp()
         palm = {"roi_available": _pr.available(pc), "engine_available": _pe.available(pc),
                 "encoder": _pe.encoder_name(pc), "hand_model": os.path.exists(pc.hand_model_path),
-                "onnx": os.path.exists(pc.model_path)}
+                "onnx": os.path.exists(pc.model_path),
+                # The two settings that decide what a palm score MEANS, read from the
+                # same load_config() the matcher uses. Without these there is no way to
+                # tell from outside whether an env override actually reached the running
+                # process - a container can carry PALM_INPUT_NORM while running an image
+                # too old to know the setting exists, and look perfectly healthy doing it.
+                "input_norm": pc.input_norm,
+                "match_threshold": pc.match_threshold}
         try:                              # actually build the detector to catch lib/runtime errors
             _pr._ensure(pc)
             palm["detector_loads"] = True
