@@ -221,7 +221,15 @@ def openapi_spec():
 
 @app.route("/docs")
 def api_docs():
-    return render_template("docs.html")
+    """The handbook - the whole platform, not just the API.
+
+    This replaced a short integration page. It is a superset: the old page's
+    authentication, endpoints, signing, widget and SDK sections are Part III here,
+    alongside administration, enrolment, operations, the service subsystems, offline
+    credentials and the privacy obligations. ``docs.html`` is kept for one release so
+    a stale bookmark or embed has something to fall back to.
+    """
+    return render_template("handbook.html")
 
 
 @app.route("/widget.js")
@@ -277,6 +285,11 @@ persistence.restore()
 app.config["FACE_CONFIG"] = CONFIG
 app.register_blueprint(v1_bp)
 app.register_blueprint(portal_bp)
+# Mount the service subsystems (/v1/services). ~166 registry-backed subsystems that
+# were written and tested but had no route; one generic, tenant-injecting dispatcher
+# reaches all of them rather than 851 hand-written handlers. See face_service/services.
+from face_service.services import bp as services_bp   # noqa: E402
+app.register_blueprint(services_bp)
 
 ENCRYPTED_AT_REST = FaceStore(CONFIG).encrypted
 SIGNING_SECRET = os.environ.get("FACE_SIGNING_SECRET", "")

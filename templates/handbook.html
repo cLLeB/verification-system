@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verification Backbone Handbook</title>
+<style>
+  :root {
+    --bg:#F6F7F9; --surface:#FFFFFF; --surface-2:#EFF2F6; --line:#DCE1E9; --line-soft:#E8ECF2;
+    --text:#161A22; --text-dim:#59616F; --text-faint:#828A98;
+    --accent:#0B6E77; --accent-2:#0E8A95; --accent-wash:#E3F0F1;
+    --grant:#1C6E45; --deny:#A32118; --warn:#8A5A00;
+    --code-bg:#12161E; --code-text:#DCE3ED; --code-dim:#7C8798;
+    --shadow:0 1px 2px rgba(20,26,38,.05), 0 8px 24px -12px rgba(20,26,38,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0D1017; --surface:#141922; --surface-2:#1B212C; --line:#262E3B; --line-soft:#1F2733;
+      --text:#E6EAF1; --text-dim:#A0A9B8; --text-faint:#77808F;
+      --accent:#46BCC6; --accent-2:#6FD3DB; --accent-wash:#132A2D;
+      --grant:#4FBF87; --deny:#E8695E; --warn:#D9A441;
+      --code-bg:#0A0D13; --code-text:#D3DBE6; --code-dim:#6B7585;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0D1017; --surface:#141922; --surface-2:#1B212C; --line:#262E3B; --line-soft:#1F2733;
+    --text:#E6EAF1; --text-dim:#A0A9B8; --text-faint:#77808F;
+    --accent:#46BCC6; --accent-2:#6FD3DB; --accent-wash:#132A2D;
+    --grant:#4FBF87; --deny:#E8695E; --warn:#D9A441;
+    --code-bg:#0A0D13; --code-text:#D3DBE6; --code-dim:#6B7585;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
+  body {
+    background:var(--bg); color:var(--text); margin:0;
+    font-family:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size:16.5px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- sticky top bar: navigation that works at EVERY width ---------- */
+  .topbar {
+    position:sticky; top:0; z-index:50; background:color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+  }
+  .topbar-in { max-width:1240px; margin:0 auto; padding:9px 20px;
+               display:flex; align-items:center; gap:14px; }
+  .brand { font-family:Georgia,"Iowan Old Style",ui-serif,serif; font-weight:600; font-size:15px;
+           letter-spacing:-.01em; text-decoration:none; color:var(--text); white-space:nowrap; }
+  .brand span { color:var(--accent); }
+  .topbar .spacer { flex:1; }
+  .navbtn {
+    font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
+    background:var(--surface); color:var(--text); border:1px solid var(--line);
+    border-radius:7px; padding:6px 13px; display:inline-flex; align-items:center; gap:7px;
+  }
+  .navbtn:hover { border-color:var(--accent); color:var(--accent); }
+  .navbtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .navbtn .chev { font-size:10px; }
+  @media (min-width:1080px) { .navbtn { display:none; } }
+
+  /* drawer for narrow screens */
+  .drawer { display:none; position:fixed; inset:0; z-index:60; }
+  .drawer[open] { display:block; }
+  .drawer::backdrop { background:rgba(0,0,0,.4); }
+  .drawer-panel {
+    position:absolute; top:0; right:0; bottom:0; width:min(340px,86vw);
+    background:var(--surface); border-left:1px solid var(--line);
+    padding:18px 20px 40px; overflow-y:auto; box-shadow:var(--shadow);
+  }
+  .drawer-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .drawer-head strong { font-family:Georgia,ui-serif,serif; font-size:16px; }
+  .closebtn { background:none; border:0; font-size:22px; line-height:1; cursor:pointer; color:var(--text-dim); padding:2px 6px; }
+  .closebtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  .wrap { max-width:1240px; margin:0 auto; padding:0 20px 110px;
+          display:grid; grid-template-columns:1fr; gap:0 52px; }
+  @media (min-width:1080px) { .wrap { grid-template-columns:236px minmax(0,1fr); } .rail { display:block; } }
+
+  /* ---------- side rail (desktop) ---------- */
+  .rail { display:none; }
+  .rail-in { position:sticky; top:64px; max-height:calc(100vh - 84px); overflow-y:auto;
+             font-size:13.1px; line-height:1.42; padding-right:6px; }
+  .rail-part { font-family:ui-monospace,Consolas,monospace; font-size:10px; letter-spacing:.15em;
+               text-transform:uppercase; color:var(--text-faint); margin:18px 0 6px; }
+  .rail-part:first-child { margin-top:0; }
+  .navlist a { display:block; color:var(--text-dim); text-decoration:none;
+               padding:4px 0 4px 11px; border-left:2px solid var(--line); }
+  .navlist a:hover { color:var(--accent); border-left-color:var(--accent); }
+  .navlist a.active { color:var(--accent); border-left-color:var(--accent); font-weight:600; }
+  .navlist a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  main { grid-column:1/-1; min-width:0; }
+  @media (min-width:1080px) { main { grid-column:2; } }
+
+  /* ---------- front matter ---------- */
+  .front { padding:56px 0 34px; border-bottom:1px solid var(--line); margin-bottom:38px; }
+  .eyebrow { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; letter-spacing:.15em;
+             text-transform:uppercase; color:var(--accent); margin:0 0 16px; }
+  h1 { font-family:Georgia,"Iowan Old Style",ui-serif,serif; font-weight:600;
+       font-size:clamp(2.1rem,5vw,3.2rem); line-height:1.08; letter-spacing:-.018em;
+       margin:0 0 18px; text-wrap:balance; }
+  .standfirst { font-size:1.12rem; color:var(--text-dim); max-width:64ch; margin:0 0 14px; }
+  .standfirst strong { color:var(--text); font-weight:600; }
+
+  /* ---------- contents page ---------- */
+  .contents { background:var(--surface); border:1px solid var(--line); border-radius:14px;
+              padding:26px 28px; margin:0 0 52px; box-shadow:var(--shadow); }
+  .contents h2 { font-family:Georgia,ui-serif,serif; font-size:1.3rem; margin:0 0 4px; font-weight:600; }
+  .contents .hint { color:var(--text-faint); font-size:13.5px; margin:0 0 20px; }
+  .toc-grid { display:grid; grid-template-columns:1fr; gap:22px 34px; }
+  @media (min-width:700px) { .toc-grid { grid-template-columns:1fr 1fr; } }
+  .toc-part-label { font-family:ui-monospace,Consolas,monospace; font-size:10.5px; letter-spacing:.14em;
+                    text-transform:uppercase; color:var(--accent); margin:0 0 7px;
+                    padding-bottom:6px; border-bottom:1px solid var(--line-soft); }
+  .toc-part ol { list-style:none; margin:0; padding:0; }
+  .toc-part li { margin:0 0 5px; display:flex; gap:9px; font-size:14.3px; }
+  .toc-num { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--text-faint);
+             padding-top:3px; min-width:17px; }
+  .toc-part a { color:var(--text); text-decoration:none; }
+  .toc-part a:hover { color:var(--accent); text-decoration:underline; }
+
+  /* ---------- parts & chapters ---------- */
+  .partdiv { margin:64px 0 30px; padding:22px 0 0; border-top:2px solid var(--accent); }
+  .partdiv .pn { font-family:ui-monospace,Consolas,monospace; font-size:11px; letter-spacing:.17em;
+                 text-transform:uppercase; color:var(--accent); display:block; margin-bottom:6px; }
+  .partdiv h2 { font-family:Georgia,ui-serif,serif; font-size:1.9rem; font-weight:600;
+                letter-spacing:-.014em; margin:0 0 6px; text-wrap:balance; }
+  .partdiv p { color:var(--text-dim); margin:0; max-width:60ch; }
+
+  .ch { margin:0 0 44px; scroll-margin-top:66px; }
+  .ch > h3 { font-family:Georgia,ui-serif,serif; font-size:1.42rem; font-weight:600;
+             margin:34px 0 6px; letter-spacing:-.012em; text-wrap:balance;
+             display:flex; align-items:baseline; gap:11px; }
+  .ch > h3 .chn { font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--accent);
+                  font-weight:700; letter-spacing:.04em; flex:none; }
+  h4 { font-size:1.02rem; font-weight:660; margin:26px 0 6px; letter-spacing:-.005em; }
+  .lede { color:var(--text-dim); margin:0 0 20px; max-width:66ch; }
+  p { max-width:66ch; margin:0 0 15px; }
+  ul,ol { max-width:66ch; padding-left:22px; margin:0 0 17px; }
+  li { margin-bottom:6px; }
+  a { color:var(--accent); }
+  .backtop { display:inline-block; font-size:12.5px; color:var(--text-faint);
+             text-decoration:none; margin-top:6px; }
+  .backtop:hover { color:var(--accent); }
+
+  ol.steps { counter-reset:s; list-style:none; padding-left:0; max-width:68ch; }
+  ol.steps > li { counter-increment:s; position:relative; padding-left:41px; margin-bottom:17px; }
+  ol.steps > li::before { content:counter(s); position:absolute; left:0; top:1px;
+    width:26px; height:26px; border-radius:50%; background:var(--accent-wash);
+    color:var(--accent); border:1px solid var(--accent);
+    font-family:ui-monospace,Consolas,monospace; font-size:12px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; }
+  ol.steps > li > strong:first-child { display:block; margin-bottom:2px; }
+
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; font-size:.875em;
+         background:var(--surface-2); border:1px solid var(--line-soft); border-radius:4px; padding:.1em .38em; }
+  pre { background:var(--code-bg); color:var(--code-text); border-radius:10px; padding:16px 18px;
+        overflow-x:auto; margin:0 0 19px; font-size:13.1px; line-height:1.6; box-shadow:var(--shadow); }
+  pre code { background:none; border:0; padding:0; font-size:inherit; color:inherit; }
+  .c { color:var(--code-dim); } .k { color:#7FD4DC; } .s { color:#C8D98A; }
+
+  .ep { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+        font-family:ui-monospace,Consolas,monospace; font-size:13.1px;
+        padding:9px 0; border-bottom:1px solid var(--line-soft); }
+  .ep:last-child { border-bottom:0; }
+  .m { font-size:10.5px; font-weight:700; letter-spacing:.07em; padding:3px 7px;
+       border-radius:4px; color:#fff; background:var(--accent); flex:none; }
+  .m.get { background:var(--text-dim); }
+  .ep .note { color:var(--text-faint); font-family:inherit; font-size:12.4px; }
+
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px;
+          padding:19px 21px; margin:0 0 18px; box-shadow:var(--shadow); }
+  .card h4 { margin-top:0; }
+  .card > :last-child { margin-bottom:0; }
+  .grid2 { display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:19px; }
+  @media (min-width:760px) { .grid2 { grid-template-columns:1fr 1fr; } }
+
+  .scroll { overflow-x:auto; margin-bottom:19px; }
+  table { width:100%; border-collapse:collapse; font-size:14.2px; margin:0; }
+  th,td { text-align:left; padding:9px 14px 9px 0; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+  th { font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint);
+       font-weight:600; white-space:nowrap; }
+  td code { white-space:nowrap; }
+
+  .pipe { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 19px; }
+  .gate { flex:1 1 146px; background:var(--surface); border:1px solid var(--line);
+          border-radius:10px; padding:12px 14px; }
+  .gate.first { border-color:var(--accent); background:var(--accent-wash); }
+  .gate .n { font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:var(--text-faint);
+             letter-spacing:.1em; display:block; margin-bottom:4px; }
+  .gate .t { font-weight:650; font-size:14.2px; display:block; margin-bottom:3px; }
+  .gate .d { font-size:12.6px; color:var(--text-dim); line-height:1.45; }
+
+  .callout { border-left:3px solid var(--accent); background:var(--accent-wash);
+             border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 19px; }
+  .callout p { margin:0; max-width:62ch; font-size:15px; }
+  .callout.warn { border-left-color:var(--warn); background:color-mix(in srgb, var(--warn) 9%, var(--surface)); }
+  .callout.stop { border-left-color:var(--deny); background:color-mix(in srgb, var(--deny) 8%, var(--surface)); }
+
+  .subsys { display:grid; grid-template-columns:1fr; gap:13px; margin-bottom:20px; }
+  @media (min-width:820px) { .subsys { grid-template-columns:1fr 1fr; } }
+  .subsys .box { background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:15px 17px; }
+  .subsys .box h4 { margin:0 0 7px; font-size:14.6px; }
+  .subsys .box p { font-size:13.4px; color:var(--text-dim); margin:0 0 8px; max-width:none; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { font-family:ui-monospace,Consolas,monospace; font-size:11px; padding:2px 7px;
+          border-radius:5px; background:var(--surface-2); border:1px solid var(--line-soft); color:var(--text-dim); }
+  .chip.g { border-color:var(--accent); color:var(--accent); }
+
+  footer { border-top:1px solid var(--line); padding-top:22px; margin-top:56px;
+           color:var(--text-faint); font-size:13.3px; }
+  footer p { max-width:none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#top">Verification Backbone <span>Handbook</span></a>
+    <span class="spacer"></span>
+    <button class="navbtn" id="navopen" aria-haspopup="dialog">Contents <span class="chev">▼</span></button>
+  </div>
+</div>
+
+<dialog class="drawer" id="drawer" aria-label="Contents">
+  <div class="drawer-panel">
+    <div class="drawer-head">
+      <strong>Contents</strong>
+      <button class="closebtn" id="navclose" aria-label="Close contents">&times;</button>
+    </div>
+    <div class="navlist" id="drawernav"></div>
+  </div>
+</dialog>
+
+<div class="wrap" id="top">
+
+  <nav class="rail" aria-label="Chapters">
+    <div class="rail-in"><div class="navlist" id="railnav"></div></div>
+  </nav>
+
+  <main>
+    <div class="front">
+      <p class="eyebrow">Official documentation</p>
+      <h1>Verification Backbone Handbook</h1>
+      <p class="standfirst">Everything the platform does, in plain English, with the steps to do it. Verify people by <strong>face or palm</strong> from an ordinary phone camera &mdash; no scanner hardware, and no internet unless you want one.</p>
+      <p class="standfirst">Written for whoever is reading: the platform owner, an operator at a desk, an integrating developer, or the person being enrolled. Every chapter says up front who it is for.</p>
+    </div>
+
+    <!-- ================= CONTENTS ================= -->
+    <div class="contents">
+      <h2>Contents</h2>
+      <p class="hint">Thirty chapters in eight parts. Jump anywhere &mdash; chapters cross-reference each other rather than assuming you read in order.</p>
+      <div class="toc-grid">
+        <div class="toc-part">
+          <p class="toc-part-label">Part I &middot; Foundations</p>
+          <ol>
+            <li><span class="toc-num">1</span><a href="#ch1">How it fits together</a></li>
+            <li><span class="toc-num">2</span><a href="#ch2">What you hand someone</a></li>
+          </ol>
+          <p class="toc-part-label">Part II &middot; Administration</p>
+          <ol>
+            <li><span class="toc-num">3</span><a href="#ch3">Admin accounts</a></li>
+            <li><span class="toc-num">4</span><a href="#ch4">Creating a tenant</a></li>
+            <li><span class="toc-num">5</span><a href="#ch5">Issuing API keys</a></li>
+            <li><span class="toc-num">6</span><a href="#ch6">Tenant self-service</a></li>
+            <li><span class="toc-num">7</span><a href="#ch7">Offboarding</a></li>
+          </ol>
+          <p class="toc-part-label">Part III &middot; Building on the API</p>
+          <ol>
+            <li><span class="toc-num">8</span><a href="#ch8">Quick start</a></li>
+            <li><span class="toc-num">9</span><a href="#ch9">Face or palm</a></li>
+            <li><span class="toc-num">10</span><a href="#ch10">Two ways to integrate</a></li>
+            <li><span class="toc-num">11</span><a href="#ch11">Core endpoints</a></li>
+            <li><span class="toc-num">12</span><a href="#ch12">Bursts &amp; liveness</a></li>
+            <li><span class="toc-num">13</span><a href="#ch13">Trusting a result</a></li>
+            <li><span class="toc-num">14</span><a href="#ch14">Errors &amp; retries</a></li>
+            <li><span class="toc-num">15</span><a href="#ch15">Browsers, webhooks, widget</a></li>
+          </ol>
+          <p class="toc-part-label">Part IV &middot; Enrolling people</p>
+          <ol>
+            <li><span class="toc-num">16</span><a href="#ch16">Five ways to enrol</a></li>
+            <li><span class="toc-num">17</span><a href="#ch17">Invite links</a></li>
+          </ol>
+        </div>
+        <div class="toc-part">
+          <p class="toc-part-label">Part V &middot; Running it day to day</p>
+          <ol>
+            <li><span class="toc-num">18</span><a href="#ch18">After the match</a></li>
+            <li><span class="toc-num">19</span><a href="#ch19">Devices</a></li>
+            <li><span class="toc-num">20</span><a href="#ch20">Guests</a></li>
+            <li><span class="toc-num">21</span><a href="#ch21">Guardians</a></li>
+            <li><span class="toc-num">22</span><a href="#ch22">Access policies</a></li>
+            <li><span class="toc-num">23</span><a href="#ch23">Audit, usage &amp; quotas</a></li>
+          </ol>
+          <p class="toc-part-label">Part VI &middot; The service subsystems</p>
+          <ol>
+            <li><span class="toc-num">24</span><a href="#ch24">Calling a subsystem</a></li>
+            <li><span class="toc-num">25</span><a href="#ch25">What the 166 do</a></li>
+            <li><span class="toc-num">26</span><a href="#ch26">Gates, and trying one safely</a></li>
+          </ol>
+          <p class="toc-part-label">Part VII &middot; Working offline</p>
+          <ol>
+            <li><span class="toc-num">27</span><a href="#ch27">QR credentials</a></li>
+            <li><span class="toc-num">28</span><a href="#ch28">Air-gapped devices</a></li>
+            <li><span class="toc-num">29</span><a href="#ch29">The Android apps</a></li>
+          </ol>
+          <p class="toc-part-label">Part VIII &middot; Privacy &amp; compliance</p>
+          <ol>
+            <li><span class="toc-num">30</span><a href="#ch30">Consent &amp; data-subject rights</a></li>
+          </ol>
+          <p class="toc-part-label">Appendices</p>
+          <ol>
+            <li><span class="toc-num">A</span><a href="#apxA">Command-line tools</a></li>
+            <li><span class="toc-num">B</span><a href="#apxB">Health &amp; reference</a></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PART I ================= -->
+    <div class="partdiv"><span class="pn">Part I</span><h2>Foundations</h2>
+      <p>Four words that everything else depends on, and the direct answer to "what do I actually give the developer?"</p></div>
+
+    <section class="ch" id="ch1">
+      <h3><span class="chn">CH 1</span> How it fits together</h3>
+      <p class="lede">Read this first &mdash; every other chapter assumes these four words.</p>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Word</th><th>What it means</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Platform owner</strong></td><td>You. You run the server, create tenants, issue keys. You sign in at <code>/admin</code>.</td><td>You</td></tr>
+          <tr><td><strong>Tenant</strong></td><td>A customer or organisation. Their people, keys, settings and logs are completely separate from every other tenant's.</td><td>"Acme Clinic"</td></tr>
+          <tr><td><strong>API key</strong></td><td>What an application uses to reach the API. Belongs to one tenant, carries a role.</td><td><code>fk_live_9a3f…</code></td></tr>
+          <tr><td><strong>User</strong></td><td>A person enrolled inside a tenant, under a <code>user_id</code> you choose. Stored as maths, never photographs.</td><td><code>alice</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <h4>What "tenant" really means</h4>
+      <p>A tenant is a <strong>sealed box</strong>. Creating one gives it its own template store, its own encryption key, its own signing identity, its own audit log and its own usage counters.</p>
+      <ul>
+        <li>A key for tenant A <strong>cannot reach</strong> anything belonging to tenant B &mdash; not by accident, not by crafting a clever request. The isolation lives in the storage layout, not in a filter someone could forget to apply.</li>
+        <li>Deleting a tenant destroys its encryption key, making the data unrecoverable even from a backup. That is deliberate (<a href="#ch7">Chapter 7</a>) and dangerous.</li>
+      </ul>
+      <p>Running this for a single organisation? You still have a tenant &mdash; there is just one. Nothing else changes.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch2">
+      <h3><span class="chn">CH 2</span> What you hand someone</h3>
+      <p class="lede">Yes &mdash; nobody can touch the API until you give them something from the admin console. Exactly three things.</p>
+      <div class="card">
+        <ol class="steps">
+          <li><strong>The base URL</strong> of your deployment, e.g. <code>https://verify.example.com</code></li>
+          <li><strong>An API key</strong> (<code>fk_…</code>), minted at <code>/admin</code> &rarr; Keys. <em>Shown once and never again</em> &mdash; the server keeps only a hash.</li>
+          <li><strong>The tenant id</strong> the key belongs to, so they know which box they are writing into.</li>
+        </ol>
+      </div>
+      <p>Optionally two more: a <strong>signing secret</strong> if they want to prove a result really came from your server (<a href="#ch13">Chapter 13</a>), and a <strong>portal password</strong> if they should manage their own keys (<a href="#ch6">Chapter 6</a>).</p>
+      <div class="callout warn">
+        <p><strong>Give out a <code>verify</code> key, not an <code>admin</code> key</strong>, unless they genuinely need to enrol people. A <code>verify</code> key can check identities and nothing else &mdash; it cannot enrol, delete, or read your user list. If it leaks, the damage is bounded. Details in <a href="#ch5">Chapter 5</a>.</p>
+      </div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART II ================= -->
+    <div class="partdiv"><span class="pn">Part II</span><h2>Administration</h2>
+      <p>For the platform owner. Setting up operators, customers, keys and limits &mdash; and ending a relationship cleanly.</p></div>
+
+    <section class="ch" id="ch3">
+      <h3><span class="chn">CH 3</span> Admin accounts</h3>
+      <p class="lede">Who is allowed to sign in to the console.</p>
+      <p>The console at <code>/admin</code> is where all of Part II happens. Before any accounts exist you can get in with a bootstrap password from the environment variable <code>FACE_ADMIN_PASSWORD</code>.</p>
+      <div class="callout stop">
+        <p><strong>Create a real account immediately.</strong> Once at least one named account exists, the bootstrap password stops working. Until then, anyone who learns that one environment variable is a full administrator.</p>
+      </div>
+<pre><code>python manage_admins.py create alice        <span class="c"># prompts for a password</span>
+python manage_admins.py list
+python manage_admins.py remove alice</code></pre>
+      <p>Passwords are stored hashed in <code>admins.json</code>, never committed to source control. You can also add and remove operators from the console once signed in.</p>
+      <p>Named accounts matter for a second reason: the audit log records <em>which operator</em> did each thing (<a href="#ch23">Chapter 23</a>). With a shared password, the log can only ever say "admin".</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch4">
+      <h3><span class="chn">CH 4</span> Creating a tenant</h3>
+      <p class="lede">Setting up a new customer.</p>
+      <p>A tenant comes into existence the first time you mint a key for it &mdash; there is no separate "create" step to forget. What you control explicitly is its <strong>entitlement</strong>: the green light and the limits.</p>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>enabled</code></td><td>The master switch. Off means every call from that tenant's keys is refused. Your paywall and your suspension lever.</td></tr>
+          <tr><td><code>plan</code></td><td>A label you choose, for your own billing records.</td></tr>
+          <tr><td><code>max_keys</code></td><td>How many keys they may hold. Minting past it is refused &mdash; including in their own portal.</td></tr>
+          <tr><td><code>allowed_roles</code></td><td>Which roles they may mint. Restrict a customer to <code>verify</code> if they should never enrol.</td></tr>
+          <tr><td><code>allow_export</code></td><td>Whether they may export provisioning bundles and credential data.</td></tr>
+          <tr><td><code>palm_enabled</code></td><td>Whether palm works for them at all, or face only.</td></tr>
+          <tr><td><code>match_policy</code></td><td>How strict matching is for this tenant.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>All on one console screen. Changes take effect immediately &mdash; no restart, no redeploy.</p>
+      <h4>Two settings the tenant controls</h4>
+      <ul>
+        <li><strong>Allowed browser origins</strong> &mdash; the web addresses their browser app may call from (<a href="#ch15">Chapter 15</a>).</li>
+        <li><strong>A webhook URL</strong> &mdash; optional; receives every enrol, verify and identify event.</li>
+      </ul>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch5">
+      <h3><span class="chn">CH 5</span> Issuing API keys</h3>
+      <p class="lede">The thing you actually hand over.</p>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Role</th><th>May</th><th>Give it to</th></tr></thead>
+        <tbody>
+          <tr><td><code>verify</code></td><td>Verify and identify people.</td><td>Door terminals, kiosks, phones &mdash; anything physically out in the world.</td></tr>
+          <tr><td><code>admin</code></td><td>Everything: enrol, verify, delete, manage settings, and the subsystems in <a href="#ch24">Chapter 24</a>.</td><td>Their backend. Their registration desk.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>In the console: <strong>Keys &rarr; New key</strong>. Name it something you will recognise later ("Acme kiosk fleet"), pick the tenant and role. Or from a terminal:</p>
+<pre><code>python manage_keys.py create <span class="s">"Acme App"</span> --tenant acme
+python manage_keys.py list
+python manage_keys.py revoke acme</code></pre>
+      <div class="callout">
+        <p><strong>The raw key appears exactly once.</strong> Copy it straight into wherever it is going. The server stores only a hash, so there is no "show it again" &mdash; you revoke and mint another.</p>
+      </div>
+      <h4>Batches and revocation</h4>
+      <p>For a customer rolling out twenty kiosks, <strong>bulk mint</strong> gives you 1 admin + 20 verify keys as one download. Each is separate, so you can revoke one bad kiosk without disturbing the other nineteen. Revoking is instant; revoking by tenant kills all their keys at once.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch6">
+      <h3><span class="chn">CH 6</span> Tenant self-service</h3>
+      <p class="lede">Letting a customer manage themselves.</p>
+      <p>You need not be the bottleneck for every key. Give a tenant a <strong>portal password</strong> and they sign in at <code>/portal</code>.</p>
+      <ol class="steps">
+        <li><strong>Set their password</strong> in the console: Tenants &rarr; Portal access. Minimum six characters.</li>
+        <li><strong>Send them <code>/portal</code></strong> and the password, ideally not by email.</li>
+        <li><strong>They manage themselves</strong> &mdash; minting keys, checking usage, adjusting settings.</li>
+      </ol>
+      <p>They stay inside the limits you set in <a href="#ch4">Chapter 4</a>. Capped at five keys, the portal refuses the sixth exactly as your console would &mdash; the entitlement is enforced in one place, so the two views cannot disagree.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch7">
+      <h3><span class="chn">CH 7</span> Offboarding a tenant</h3>
+      <p class="lede">Ending a customer relationship, permanently.</p>
+      <p>One button does all of this: revokes every key, revokes every outstanding invite, deletes the entire template store, <strong>destroys the encryption key</strong>, and removes the signing identity, issued credentials, devices, policies and settings.</p>
+      <div class="callout stop">
+        <p><strong>This is a crypto-erase, not a delete.</strong> Because the encryption key is destroyed, the data is unrecoverable even from a backup taken five minutes earlier. Exactly what you want for a right-to-erasure request, and exactly what you do not want if you clicked the wrong row. There is no undo.</p>
+      </div>
+      <p>To merely <em>suspend</em> someone &mdash; unpaid invoice, contract dispute &mdash; set <code>enabled</code> to off instead. Everything stops, nothing is destroyed, and flipping it back restores them completely.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART III ================= -->
+    <div class="partdiv"><span class="pn">Part III</span><h2>Building on the API</h2>
+      <p>For the integrating developer. This is the part to forward when someone asks "how do I use this in my app?"</p></div>
+
+    <section class="ch" id="ch8">
+      <h3><span class="chn">CH 8</span> Quick start</h3>
+      <p class="lede">Three calls cover most integrations.</p>
+<pre><code><span class="c"># 1. Enrol - one or more captures of the same person</span>
+curl -X POST https://your-host/v1/enroll \
+  -H <span class="s">"X-API-Key: fk_yourkey"</span> -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"user_id": "alice", "images": ["&lt;base64&gt;", "&lt;base64&gt;"]}'</span>
+
+<span class="c"># 2. Verify a claim - "is this alice?"  (1:1)</span>
+curl -X POST https://your-host/v1/verify \
+  -H <span class="s">"X-API-Key: fk_yourkey"</span> \
+  -d <span class="s">'{"user_id": "alice", "image": "&lt;base64&gt;"}'</span>
+
+<span class="c"># 3. Or identify - "who is this?"  (1:N, omit user_id)</span>
+curl -X POST https://your-host/v1/identify \
+  -H <span class="s">"X-API-Key: fk_yourkey"</span> -d <span class="s">'{"image": "&lt;base64&gt;"}'</span></code></pre>
+      <p>Every endpoint except <code>/v1/health</code> needs <code>X-API-Key</code>. Images are base64; a <code>data:</code> prefix is accepted and stripped.</p>
+<pre><code><span class="k">from</span> faceverify <span class="k">import</span> FaceVerifyClient
+fv = FaceVerifyClient(<span class="s">"https://your-host"</span>, <span class="s">"fk_yourkey"</span>)
+fv.enroll(<span class="s">"alice"</span>, [<span class="s">"a1.jpg"</span>, <span class="s">"a2.jpg"</span>])
+r = fv.verify(<span class="s">"alice"</span>, <span class="s">"probe.jpg"</span>)
+<span class="k">if</span> r[<span class="s">"success"</span>]: print(<span class="s">"granted via"</span>, r[<span class="s">"modality"</span>])</code></pre>
+      <p><strong>Sandbox keys</strong> return realistic responses without touching the model or storage &mdash; point your test suite at one and it will never create a real biometric record.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch9">
+      <h3><span class="chn">CH 9</span> Face or palm &mdash; you never say which</h3>
+      <p class="lede">The one idea that keeps the rest of the API small.</p>
+      <p>You do not tell the server which it is. It detects that per image and routes accordingly.</p>
+      <ul>
+        <li>One <code>user_id</code> can hold <strong>a face and a palm</strong>. Presenting either verifies them &mdash; a match is a match.</li>
+        <li>One person may enrol <strong>both palms</strong> (capped at two, because people have two). Either hand works.</li>
+        <li>A single photo containing a face <em>and</em> an open palm enrols both.</li>
+      </ul>
+      <p>The response says which modality decided, in <code>modality</code>. You can pin it with <code>"modality": "face"</code> or <code>"palm"</code>, but the default is to let the server decide.</p>
+      <p>Why it matters beyond convenience: someone wearing a face covering, or whose face is hard to capture in harsh sun, is still served &mdash; without your app branching on which body part is available.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch10">
+      <h3><span class="chn">CH 10</span> Two ways to integrate</h3>
+      <p class="lede">Decide who is allowed to hold biometric data.</p>
+      <div class="grid2">
+        <div class="card">
+          <h4>Managed &mdash; the server stores templates</h4>
+          <p>You send images and a <code>user_id</code>; the server keeps the template and matches. Simplest to build.</p>
+          <div class="ep"><span class="m">POST</span><span>/v1/enroll</span></div>
+          <div class="ep"><span class="m">POST</span><span>/v1/verify</span></div>
+          <div class="ep"><span class="m">POST</span><span>/v1/identify</span></div>
+          <div class="ep"><span class="m get">GET</span><span>/v1/users</span></div>
+        </div>
+        <div class="card">
+          <h4>Stateless &mdash; you store everything</h4>
+          <p>Nothing is persisted server-side. You get a vector, keep it in your own database, send it back to compare.</p>
+          <div class="ep"><span class="m">POST</span><span>/v1/embed</span><span class="note">&rarr; embedding[]</span></div>
+          <div class="ep"><span class="m">POST</span><span>/v1/compare</span><span class="note">probe vs references[]</span></div>
+        </div>
+      </div>
+      <div class="callout">
+        <p>An embedding is not a photograph and you cannot rebuild a face from it &mdash; but it <em>is</em> biometric data under most privacy law. Store it as carefully as you would the photo.</p>
+      </div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch11">
+      <h3><span class="chn">CH 11</span> Core endpoints</h3>
+<pre><code>POST /v1/enroll
+{ <span class="k">"user_id"</span>: <span class="s">"alice"</span>, <span class="k">"images"</span>: [<span class="s">"&lt;base64&gt;"</span>, …],
+  <span class="k">"expires_in_days"</span>: 30 }               <span class="c">// optional: a guest, see Ch 20</span>
+
+{ <span class="k">"success"</span>: true, <span class="k">"enrolled"</span>: 2, <span class="k">"of"</span>: 2, <span class="k">"results"</span>: [ … ] }</code></pre>
+      <p>Compare <code>enrolled</code> with <code>of</code>. "2 of 3" is normal &mdash; one blurry frame rejected, the others fine &mdash; and still a usable enrolment. <code>results</code> explains each rejection so you can coach the person: hold steadier, more light, move closer.</p>
+      <h4>Verify (1:1) vs identify (1:N)</h4>
+      <p>Pass <code>user_id</code> to ask "is this that person?". Omit it to ask "who is this?" across everyone enrolled.</p>
+      <p>Identify is genuinely harder: the person must beat every other enrolled person, not merely clear a bar. Expect it to grow more conservative as the population grows. Prefer verify wherever your app already knows who the person claims to be &mdash; a card, a booking, a typed name.</p>
+      <div class="ep"><span class="m get">GET</span><span>/v1/users</span><span class="note">who is enrolled</span></div>
+      <div class="ep"><span class="m">POST</span><span>/v1/users/delete</span><span class="note">remove one person</span></div>
+      <div class="ep"><span class="m">POST</span><span>/v1/users/purge</span><span class="note">bulk removal</span></div>
+      <div class="ep"><span class="m">POST</span><span>/v1/users/export</span><span class="note">everything held on one person</span></div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch12">
+      <h3><span class="chn">CH 12</span> Bursts &amp; liveness</h3>
+      <p class="lede">Sending several frames instead of one.</p>
+      <ul>
+        <li><strong>Palm</strong> &mdash; the sharpest usable frame is chosen, so one soft or blurred frame does not sink the attempt.</li>
+        <li><strong>Face</strong> &mdash; with active liveness on, the burst is checked against a head-turn challenge, defeating someone holding up a photo.</li>
+      </ul>
+<pre><code>GET  /v1/challenge          <span class="c">// -&gt; { token, instruction }</span>
+POST /v1/verify  { <span class="k">"user_id"</span>: <span class="s">"alice"</span>, <span class="k">"frames"</span>: [ … ], <span class="k">"token"</span>: <span class="s">"…"</span> }</code></pre>
+      <p>Tokens expire. A <code>liveness</code> error means "get a fresh token and retry", not "this person is a fraud" &mdash; word your interface accordingly.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch13">
+      <h3><span class="chn">CH 13</span> Trusting a result</h3>
+<pre><code>{ <span class="k">"success"</span>: true, <span class="k">"user_id"</span>: <span class="s">"alice"</span>, <span class="k">"score"</span>: 0.83,
+  <span class="k">"signature"</span>: { <span class="k">"alg"</span>: <span class="s">"HMAC-SHA256"</span>, <span class="k">"ts"</span>: 1786…, <span class="k">"nonce"</span>: <span class="s">"…"</span>, <span class="k">"hmac"</span>: <span class="s">"…"</span> } }</code></pre>
+      <div class="callout warn">
+        <p>If a decision travels from somewhere you do not control &mdash; a phone, a kiosk, a browser &mdash; to your backend, <strong>check the signature server-side</strong>. Otherwise anyone who can post JSON at your endpoint can simply claim they were granted access. The SDKs expose <code>verify_signature(response)</code>; the timestamp and nonce let you reject replays.</p>
+      </div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch14">
+      <h3><span class="chn">CH 14</span> Errors &amp; retries</h3>
+<pre><code>{ <span class="k">"success"</span>: false, <span class="k">"code"</span>: <span class="s">"no_face"</span>,
+  <span class="k">"message"</span>: <span class="s">"No face detected. Move closer, with light on your face."</span> }</code></pre>
+      <p><code>message</code> is written to be shown to the person at the camera &mdash; it says what to do next. <code>code</code> is what your application branches on. Never branch on <code>message</code>; the wording will change.</p>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Situation</th><th>HTTP</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>Capture unusable &mdash; <code>no_face</code>, <code>no_hand</code>, blur</td><td>400</td><td>Show the message, recapture. Not the person's fault.</td></tr>
+          <tr><td>Not recognised</td><td>200</td><td><code>success: false</code>. A normal outcome, not an HTTP error.</td></tr>
+          <tr><td>Recognised but not permitted</td><td>200</td><td>Guest expired, consent withdrawn, policy denied &mdash; see <a href="#ch18">Chapter 18</a>.</td></tr>
+          <tr><td>Wrong key for the job</td><td>403</td><td>A <code>verify</code> key used for an admin action.</td></tr>
+          <tr><td>Bad or revoked key</td><td>401</td><td>Check the key, and that the tenant is still enabled.</td></tr>
+          <tr><td>Too many requests</td><td>429</td><td>Back off and retry &mdash; the SDKs do this for you.</td></tr>
+          <tr><td>Body too large</td><td>413</td><td>Downscale before sending; 1280px on the long edge is plenty.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="callout warn">
+        <p><strong>A denial is an HTTP 200.</strong> The request succeeded; the answer was no. Treating any non-200 as "denied" will make your integration behave strangely the first time a camera sends a blurry frame.</p>
+      </div>
+      <h4>Retrying safely</h4>
+      <p>Send an <code>Idempotency-Key</code> header on writes. The first response for that key is remembered for 24 hours and replayed on retry, so a network timeout cannot enrol the same person twice.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch15">
+      <h3><span class="chn">CH 15</span> Browsers, webhooks &amp; the widget</h3>
+      <h4>Calling from a browser</h4>
+      <p>You can call the API straight from a web page, but the tenant must first register the origin (e.g. <code>https://app.acme.com</code>) in their settings, or the browser blocks it. The API key still governs what the caller may do &mdash; origin registration only controls which pages may ask.</p>
+      <h4>Webhooks</h4>
+      <p>Set a webhook URL and every enrol, verify and identify event is posted to it as signed JSON. Delivery is best-effort on a background thread; it never blocks or fails the original call. This is the <em>only</em> outbound network call the system makes &mdash; with no webhook set, a deployment never phones home at all.</p>
+      <h4>The drop-in widget</h4>
+      <p>For a site that just needs a verification box, <code>/widget.js</code> gives you one without writing capture code.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART IV ================= -->
+    <div class="partdiv"><span class="pn">Part IV</span><h2>Enrolling people</h2>
+      <p>Getting real humans into the system &mdash; at a desk, on their own phone, or a thousand at a time.</p></div>
+
+    <section class="ch" id="ch16">
+      <h3><span class="chn">CH 16</span> Five ways to enrol</h3>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Way</th><th>Use when</th><th>Who does it</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Admin console</strong></td><td>An operator sits with the person at a desk.</td><td>Operator, signed in</td></tr>
+          <tr><td><strong>Invite link</strong></td><td>The person enrols themselves, nobody present. <a href="#ch17">Ch 17</a></td><td>The person</td></tr>
+          <tr><td><strong>API</strong></td><td>Your app already has photos or its own capture screen.</td><td>Their backend</td></tr>
+          <tr><td><strong>Bulk upload</strong></td><td>You already have a folder of photos for hundreds of people.</td><td>You, once</td></tr>
+          <tr><td><strong>Android app</strong></td><td>In the field, possibly with no internet. <a href="#ch29">Ch 29</a></td><td>Field operator</td></tr>
+        </tbody>
+      </table>
+      </div>
+<pre><code>dataset/
+    alice/   img1.jpg  img2.jpg
+    bob/     photo.png
+
+python bulk_enroll.py dataset/          <span class="c"># folder name becomes the user_id</span></code></pre>
+      <p>Bulk import is far faster than calling the API per photo: it writes in batches and builds the search index once at the end.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch17">
+      <h3><span class="chn">CH 17</span> Invite links</h3>
+      <p class="lede">Self-enrolment without handing out the admin password.</p>
+      <p>An invite is a private link letting one named person enrol themselves, once, on their own device. It answers "how do I enrol two hundred students without sitting with each one?"</p>
+      <ol class="steps">
+        <li><strong>Create the invite.</strong> Console &rarr; Invites &rarr; New. Type the person's name or id, optionally how long the link lives.</li>
+        <li><strong>Send the link.</strong> Message, email, printed QR &mdash; whatever reaches them.</li>
+        <li><strong>They enrol themselves.</strong> The page walks them through capturing face and/or palm. No password, no operator.</li>
+        <li><strong>The link burns.</strong> Once finished it cannot be reused.</li>
+      </ol>
+      <div class="callout">
+        <p><strong>The identity comes from the link, never from a form field.</strong> The person cannot choose or type who they are &mdash; the invite fixed it when you created it. That is what makes unsupervised enrolment safe: they can prove their biometric, but cannot claim someone else's name.</p>
+      </div>
+      <p>Invites can be generated in <strong>bulk</strong> for a whole list, <strong>revoked</strong> while unused, and can optionally issue a <a href="#ch27">QR credential</a> at the end. Someone already fully enrolled is refused a new invite &mdash; delete them first if you deliberately want to re-enrol, which stops a stray link quietly overwriting good biometrics.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART V ================= -->
+    <div class="partdiv"><span class="pn">Part V</span><h2>Running it day to day</h2>
+      <p>What happens after a match, and the moving parts an operator touches.</p></div>
+
+    <section class="ch" id="ch18">
+      <h3><span class="chn">CH 18</span> After the match</h3>
+      <p class="lede">Why a recognised person can still be turned away.</p>
+      <div class="pipe">
+        <div class="gate first"><span class="n">STEP 1</span><span class="t">Biometric</span><span class="d">Is this the person? Pure matching, nothing else considered.</span></div>
+        <div class="gate"><span class="n">STEP 2</span><span class="t">Guest expiry</span><span class="d">Was this a time-boxed identity that has run out?</span></div>
+        <div class="gate"><span class="n">STEP 3</span><span class="t">Consent</span><span class="d">Is their consent still standing, or withdrawn?</span></div>
+        <div class="gate"><span class="n">STEP 4</span><span class="t">Access policy</span><span class="d">Do the rules admit them here, now?</span></div>
+      </div>
+      <p>The order is deliberate. The biometric decision is made <em>first and in isolation</em>, so it can be audited on its own terms and no policy change can quietly weaken matching. Policy is applied afterwards and can only narrow a grant, never widen one.</p>
+      <div class="callout warn">
+        <p><strong>Do not tell a recognised-but-expired visitor "not recognised".</strong> Both return <code>success: false</code>, and only <code>code</code> distinguishes them. Getting this wrong makes people re-present their palm over and over at a door that was never going to open.</p>
+      </div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch19">
+      <h3><span class="chn">CH 19</span> Devices</h3>
+      <p class="lede">Knowing which kiosks exist, and killing a lost one.</p>
+      <p>Without this, every kiosk shares one key: nothing records which physical device did what, and cutting off a stolen one means rotating the whole fleet.</p>
+      <ol class="steps">
+        <li><strong>Mint a pairing code</strong> in the console &mdash; single-use, fifteen minutes.</li>
+        <li><strong>Enter it on the device.</strong> It redeems the code and receives <em>its own</em> verify key and signing secret, shown once.</li>
+        <li><strong>It checks in</strong> periodically, so the console shows which devices are alive and when each was last seen.</li>
+        <li><strong>Rename or disable</strong> any device. Disabling revokes that one device's key immediately, leaving every other device working.</li>
+      </ol>
+      <p>Because the device authenticates with its own key, there is no device id anyone could spoof &mdash; the key <em>is</em> the identity.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch20">
+      <h3><span class="chn">CH 20</span> Guests &mdash; identities that expire</h3>
+      <p>Nothing in the store ages on its own: enrol someone once and they verify forever. Right for staff, wrong for visitors, contractors, exam candidates and event passes.</p>
+      <p>Add <code>expires_in_days</code> or <code>expires_in_hours</code> at enrolment and that person becomes a <strong>guest</strong>. After expiry, verification returns <code>identity_expired</code> instead of a grant. The template is untouched &mdash; expiry is a separate gate checked after matching (<a href="#ch18">Chapter 18</a>). Purge expired guests in bulk from the console when you want the records actually gone.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch21">
+      <h3><span class="chn">CH 21</span> Guardians &mdash; verifying for someone else</h3>
+      <p>In welfare distribution, clinics and schools the same case recurs: the entitled person cannot present a biometric &mdash; a child, an elderly parent, a patient. The usual options are to turn them away or abandon verification entirely.</p>
+      <p>A <strong>guardianship link</strong> is a third option: an admin explicitly links a guardian to a beneficiary, and the record is audited.</p>
+<pre><code>POST /v1/verify
+{ <span class="k">"user_id"</span>: <span class="s">"mary"</span>, <span class="k">"on_behalf_of"</span>: <span class="s">"child_ama"</span>, <span class="k">"image"</span>: <span class="s">"&lt;base64&gt;"</span> }</code></pre>
+      <p>Mary presents <em>her own</em> face or palm. The biometric decision is hers; the entitlement checks run against the beneficiary. Nothing is weakened &mdash; an impostor cannot collect for Ama, because they would still have to be Mary.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch22">
+      <h3><span class="chn">CH 22</span> Access policies</h3>
+      <p>Verification answers "who is this?". A policy answers "and are they allowed here, now?" &mdash; opening hours, groups, which door.</p>
+      <p>Policies are evaluated strictly after the biometric decision, so they can never touch thresholds, liveness or routing. A policy can only narrow an already-granted match. Manage groups and rules in the console or through <code>/v1/policies</code>. For far more specialised rules &mdash; shift rosters, anti-passback, escorts, occupancy caps &mdash; see <a href="#ch25">Chapter 25</a>.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch23">
+      <h3><span class="chn">CH 23</span> Audit, usage &amp; quotas</h3>
+      <p><strong>Audit log</strong> &mdash; every meaningful action is recorded: enrolments, deletions, key minting, entitlement changes, offboarding, device changes. Each entry names the operator, which is the real reason to give every admin their own account (<a href="#ch3">Chapter 3</a>).</p>
+      <p><strong>Usage and quotas</strong> &mdash; billable calls (enrol, verify, identify, embed, compare) are counted per tenant per calendar month. Show a customer their usage, or cap it.</p>
+      <p><strong>Duplicate detection</strong> &mdash; at enrolment the platform checks whether this face or palm is already enrolled under a <em>different</em> name and refuses if so. That is what stops one person quietly holding two identities, which matters anywhere entitlements are handed out per person.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART VI ================= -->
+    <div class="partdiv"><span class="pn">Part VI</span><h2>The service subsystems</h2>
+      <p>166 additional subsystems &mdash; occupancy, shifts, lockers, geofencing, watchlists, billing, incident handling &mdash; reachable through one uniform API.</p></div>
+
+    <section class="ch" id="ch24">
+      <h3><span class="chn">CH 24</span> Calling a subsystem</h3>
+      <p class="lede">One door to 166 subsystems and 851 operations. Requires an <code>admin</code> key.</p>
+      <p>Rather than 851 hand-written endpoints, the subsystems are mounted generically. Three calls give you discovery and execution:</p>
+      <div class="ep"><span class="m get">GET</span><span>/v1/services</span><span class="note">catalogue: every subsystem + summary</span></div>
+      <div class="ep"><span class="m get">GET</span><span>/v1/services/&lt;name&gt;</span><span class="note">its functions and their arguments</span></div>
+      <div class="ep"><span class="m">POST</span><span>/v1/services/&lt;name&gt;/&lt;function&gt;</span><span class="note">call it; JSON body = arguments</span></div>
+      <p>Discover what something takes, then call it:</p>
+<pre><code><span class="c"># What can the locker subsystem do?</span>
+curl -H <span class="s">"X-API-Key: fk_admin"</span> https://your-host/v1/services/lockers
+
+<span class="c"># Assign locker 12 to alice</span>
+curl -X POST https://your-host/v1/services/lockers/assign \
+  -H <span class="s">"X-API-Key: fk_admin"</span> -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"locker_id": "12", "user_id": "alice"}'</span>
+
+<span class="c"># -&gt; { "success": true, "service": "lockers",</span>
+<span class="c">#      "function": "assign", "result": { … } }</span></code></pre>
+      <div class="callout">
+        <p><strong>You never pass the tenant.</strong> It is taken from your API key and injected. A body containing <code>tenant</code> is rejected outright rather than ignored, so nobody can read or write another tenant's data by guessing a parameter name.</p>
+      </div>
+      <p>Other guarantees worth knowing: only public functions on mounted subsystems are callable, everything needs the <code>manage</code> scope (an admin key), and unknown arguments are refused with a message pointing at the discovery endpoint rather than failing obscurely.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch25">
+      <h3><span class="chn">CH 25</span> What the 166 do</h3>
+      <p class="lede">Grouped by what you would actually want them for. Each name is the <code>&lt;name&gt;</code> in the calls above.</p>
+
+      <div class="subsys">
+        <div class="box">
+          <h4>Who may enter, and when</h4>
+          <p>Rules layered on top of a match. Most expose a gate (<a href="#ch26">Ch 26</a>).</p>
+          <div class="chips"><span class="chip g">schedules</span><span class="chip g">shifts</span><span class="chip g">blackout</span><span class="chip g">holidays</span><span class="chip g">leave</span><span class="chip g">expiry</span><span class="chip g">maintenance</span><span class="chip g">changefreeze</span><span class="chip g">quiethours</span></div>
+        </div>
+        <div class="box">
+          <h4>Movement &amp; physical space</h4>
+          <p>Where a person is, where they may go, and what they may open.</p>
+          <div class="chips"><span class="chip g">occupancy</span><span class="chip g">antipassback</span><span class="chip g">turnstile</span><span class="chip g">zonegraph</span><span class="chip g">floors</span><span class="chip g">parking</span><span class="chip">lockers</span><span class="chip g">dwell</span><span class="chip g">mustering</span><span class="chip">waitlist</span></div>
+        </div>
+        <div class="box">
+          <h4>Visitors &amp; hosts</h4>
+          <p>Expected guests, sponsorship, and being escorted.</p>
+          <div class="chips"><span class="chip">previsit</span><span class="chip g">hosting</span><span class="chip g">escort</span><span class="chip">bookings</span><span class="chip">reservations</span><span class="chip">assets</span><span class="chip">emergencycontacts</span></div>
+        </div>
+        <div class="box">
+          <h4>Risk &amp; anti-fraud</h4>
+          <p>Signals that something is off, and demanding more proof when it is.</p>
+          <div class="chips"><span class="chip g">risk</span><span class="chip">riskengine</span><span class="chip g">stepup</span><span class="chip g">velocity</span><span class="chip g">impossibletravel</span><span class="chip g">cooldown</span><span class="chip g">lockout</span><span class="chip g">duress</span><span class="chip g">honeytokens</span><span class="chip g">threatfeed</span><span class="chip g">watchlist</span><span class="chip g">quarantine</span><span class="chip">sanctions</span></div>
+        </div>
+        <div class="box">
+          <h4>Where the person is standing</h4>
+          <p>Accept a verification only from somewhere plausible.</p>
+          <div class="chips"><span class="chip g">geofence</span><span class="chip g">georules</span><span class="chip g">polygon</span><span class="chip">geozones</span><span class="chip">sitedirectory</span><span class="chip">iprules</span></div>
+        </div>
+        <div class="box">
+          <h4>Extra factors</h4>
+          <p>Something you know or hold, added to something you are.</p>
+          <div class="chips"><span class="chip g">pinfactor</span><span class="chip">totp</span><span class="chip">otp</span><span class="chip">passkeys</span><span class="chip">recovery</span><span class="chip">sessions</span><span class="chip">ssohandoff</span><span class="chip g">attestation</span><span class="chip g">challenge</span><span class="chip g">quality</span></div>
+        </div>
+        <div class="box">
+          <h4>People &amp; their records</h4>
+          <p>Everything you attach to an identity beyond their biometric.</p>
+          <div class="chips"><span class="chip">aliases</span><span class="chip">tags</span><span class="chip">segments</span><span class="chip">customfields</span><span class="chip">notes</span><span class="chip">orgunits</span><span class="chip">dedupe</span><span class="chip">phonetics</span><span class="chip">textsim</span><span class="chip">kyc</span><span class="chip">savedqueries</span></div>
+        </div>
+        <div class="box">
+          <h4>Authority &amp; approval</h4>
+          <p>Who may act, who must agree first, and emergency overrides.</p>
+          <div class="chips"><span class="chip g">roles</span><span class="chip">abac</span><span class="chip">apiscopes</span><span class="chip">delegation</span><span class="chip">admindelegation</span><span class="chip">approvals</span><span class="chip">quorum</span><span class="chip">twoperson</span><span class="chip">breakglass</span><span class="chip g">reasoncodes</span><span class="chip">accessreview</span></div>
+        </div>
+        <div class="box">
+          <h4>Privacy &amp; legal duties</h4>
+          <p>The paperwork a regulator asks for, as working code.</p>
+          <div class="chips"><span class="chip">dsar</span><span class="chip">ropa</span><span class="chip">dpia</span><span class="chip">breach</span><span class="chip">legalhold</span><span class="chip">retention</span><span class="chip">consentreceipt</span><span class="chip">proxyconsent</span><span class="chip g">agreements</span><span class="chip g">declarations</span><span class="chip">anonymize</span><span class="chip">piiscrub</span><span class="chip">classification</span><span class="chip">appeals</span></div>
+        </div>
+        <div class="box">
+          <h4>Money</h4>
+          <p>Charging for it, and tracking what has been consumed.</p>
+          <div class="chips"><span class="chip">plans</span><span class="chip">ratecards</span><span class="chip">invoicing</span><span class="chip">wallet</span><span class="chip">budgets</span><span class="chip">metering</span><span class="chip">coupons</span><span class="chip">vouchers</span><span class="chip">seats</span><span class="chip">slacredits</span><span class="chip">money</span></div>
+        </div>
+        <div class="box">
+          <h4>Telling people things</h4>
+          <p>Alerts, escalation, and not waking someone at 3am for nothing.</p>
+          <div class="chips"><span class="chip">alerts</span><span class="chip">escalation</span><span class="chip">oncall</span><span class="chip">digest</span><span class="chip">notifyprefs</span><span class="chip">messaging</span><span class="chip">messagetemplates</span><span class="chip">reminders</span><span class="chip">announcements</span><span class="chip">surveys</span></div>
+        </div>
+        <div class="box">
+          <h4>Fleet &amp; hardware</h4>
+          <p>The readers and kiosks themselves.</p>
+          <div class="chips"><span class="chip">heartbeat</span><span class="chip">firmware</span><span class="chip">provisioning</span><span class="chip">devicegroups</span><span class="chip g">tamper</span><span class="chip">health</span><span class="chip">loneworker</span></div>
+        </div>
+        <div class="box">
+          <h4>Running the service</h4>
+          <p>Reliability, incidents and the operational discipline around them.</p>
+          <div class="chips"><span class="chip">sla</span><span class="chip">errorbudget</span><span class="chip">tickets</span><span class="chip">postmortem</span><span class="chip">jobs</span><span class="chip">outbox</span><span class="chip">circuitbreaker</span><span class="chip">backoff</span><span class="chip">loadbalancer</span><span class="chip">migrations</span><span class="chip">flags</span><span class="chip">experiments</span><span class="chip">significance</span><span class="chip">adoption</span><span class="chip">driftmonitor</span><span class="chip">latency</span><span class="chip">peakanalysis</span></div>
+        </div>
+        <div class="box">
+          <h4>Building blocks</h4>
+          <p>Small, sharp tools the rest is built from. Useful on their own.</p>
+          <div class="chips"><span class="chip">ulid</span><span class="chip">checkdigit</span><span class="chip">duration</span><span class="chip">timezone</span><span class="chip">cronparser</span><span class="chip">jsonpatch</span><span class="chip">dag</span><span class="chip">statemachine</span><span class="chip">hashchain</span><span class="chip">hashring</span><span class="chip">bloomfilter</span><span class="chip">countminsketch</span><span class="chip">hyperloglog</span><span class="chip">reservoir</span><span class="chip">slidingwindow</span><span class="chip">smoothing</span><span class="chip">ratelimit</span><span class="chip">sealbox</span><span class="chip">secretsharing</span><span class="chip">keyrotation</span><span class="chip">eventlog</span><span class="chip">pipeline</span><span class="chip g">thresholds</span><span class="chip g">revocation</span><span class="chip">receipts</span><span class="chip g">certifications</span><span class="chip">timesheet</span></div>
+        </div>
+      </div>
+      <p>A <span class="chip g">teal chip</span> marks a subsystem that exposes a <strong>gate</strong> &mdash; it can turn a granted match into a refusal. Read <a href="#ch26">Chapter 26</a> before adopting one.</p>
+      <p>Full, always-current detail for any of these: <code>GET /v1/services/&lt;name&gt;</code> on your own deployment. That is generated from the code, so it cannot go stale the way a written list can.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch26">
+      <h3><span class="chn">CH 26</span> Gates, and trying one safely</h3>
+      <p class="lede">44 subsystems can refuse a person who genuinely matched. None is switched on.</p>
+      <p>A <strong>gate</strong> takes a verification result and may turn success into refusal &mdash; "yes that is Ama, but she is off-shift", "yes that is Kwame, but he is already inside". They are the mechanism behind <a href="#ch18">Chapter 18</a>.</p>
+      <div class="callout stop">
+        <p><strong>None of the 44 is wired into live verification.</strong> Adding a gate changes who gets through a door, so it stays a deliberate act rather than something that happens because a subsystem exists. Nothing in Part VI can currently refuse anybody.</p>
+      </div>
+      <h4>Rehearsing a gate</h4>
+      <p>Before adopting one, see what it <em>would</em> decide without it deciding anything:</p>
+<pre><code>POST /v1/services/occupancy/gate_preview
+{ <span class="k">"result"</span>: { <span class="k">"success"</span>: true, <span class="k">"user_id"</span>: <span class="s">"alice"</span> }, <span class="k">"direction"</span>: <span class="s">"in"</span> }
+
+<span class="c">// -&gt; { "before": {…}, "after": {…}, "would_change": true }</span></code></pre>
+      <p>Feed it the match you expect and read <code>would_change</code>. If a gate would have turned away half your staff on day one, you find that out here rather than at the door.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART VII ================= -->
+    <div class="partdiv"><span class="pn">Part VII</span><h2>Working offline</h2>
+      <p>The part that matters where there is no signal: credentials on paper, air-gapped devices, and phones that never talk to a server.</p></div>
+
+    <section class="ch" id="ch27">
+      <h3><span class="chn">CH 27</span> QR credentials</h3>
+      <p class="lede">Proving identity with no network at all.</p>
+      <p>A credential is a signed QR carrying the person's own protected template. A verifier checks it <strong>completely offline</strong> &mdash; no server, no signal, no lookup.</p>
+      <ol class="steps">
+        <li><strong>Issue it</strong> from the console, the API, or automatically at the end of an <a href="#ch17">invite enrolment</a>.</li>
+        <li><strong>The person keeps it</strong> &mdash; on their phone, or printed. Paper matters: it works with no battery.</li>
+        <li><strong>A verifier scans it</strong> at <code>/verify-credential</code> or in the Android app, and captures the person live.</li>
+        <li><strong>The check runs locally</strong>: signature, then expiry, then revocation, then the live capture against the template inside the QR.</li>
+      </ol>
+      <ul>
+        <li><strong>Issuer keys</strong> &mdash; each tenant has its own signing identity. Rotating retires the old private key but keeps the public half, so credentials already issued keep verifying.</li>
+        <li><strong>Trust store</strong> &mdash; the issuers a verifier accepts, so an offline device can check a credential from another organisation.</li>
+        <li><strong>Revocation</strong> &mdash; revoked credentials ship inside the trust store, so a cancelled credential stops working even on a device that has never been online since.</li>
+        <li><strong>Wallet card</strong> &mdash; <code>/card</code> renders it in a form the person can save or print.</li>
+      </ul>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch28">
+      <h3><span class="chn">CH 28</span> Air-gapped devices</h3>
+      <p><strong>Provisioning bundles</strong> &mdash; the air-gapped Android build never talks to a server. To load it with people, export a bundle: a passphrase-encrypted file of templates, never images. Move it by USB or device management and import it with the same passphrase. No network path is ever opened; the bundle is the only thing that crosses, and it is useless without the passphrase.</p>
+      <p><strong>Sync</strong> &mdash; the hybrid build can pull a dataset copy and push back what it recorded offline, reconciling later. For sites where connectivity exists but cannot be relied on.</p>
+      <p><strong>Glance index</strong> &mdash; an exported index for fast local lookup without the full store.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="ch29">
+      <h3><span class="chn">CH 29</span> The Android apps</h3>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Build</th><th>Matching</th><th>Needs internet?</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td><strong>online</strong></td><td>On the server</td><td>Yes</td><td>~73 MB</td></tr>
+          <tr><td><strong>offline</strong> (fp16 / fp32)</td><td>On the device</td><td>Never &mdash; no internet permission at all</td><td>308 / 513 MB</td></tr>
+          <tr><td><strong>hybrid</strong> (fp16 / fp32)</td><td>On the device</td><td>Optional, for sync</td><td>308 / 513 MB</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>All five install side by side, so you can compare them on one phone. fp16 is a half-precision model: half the download, effectively the same decisions &mdash; start there unless you have a reason not to.</p>
+      <p>The offline builds are the point of the whole system: a phone with no signal, in a place with no scanner hardware, still verifying people correctly.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= PART VIII ================= -->
+    <div class="partdiv"><span class="pn">Part VIII</span><h2>Privacy &amp; compliance</h2>
+      <p>Biometric data is special-category data almost everywhere. This is what the platform gives you to handle that properly.</p></div>
+
+    <section class="ch" id="ch30">
+      <h3><span class="chn">CH 30</span> Consent &amp; data-subject rights</h3>
+      <p>Encryption protects the data; consent records establish that the person <em>agreed</em> &mdash; which is what an auditor asks for and what the person can later withdraw.</p>
+      <ul>
+        <li>Each tenant registers the <strong>consent statement</strong> they show people, with a version.</li>
+        <li>Consent is <strong>recorded automatically at enrolment</strong>, against whichever version was current.</li>
+        <li>A person can <strong>withdraw</strong> it. From then on their matches stop being granted &mdash; enforced in the pipeline (<a href="#ch18">Chapter 18</a>), not just noted in a file.</li>
+      </ul>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>They ask</th><th>You use</th></tr></thead>
+        <tbody>
+          <tr><td>"What do you hold on me?"</td><td><code>/v1/users/export</code>, or they visit <code>/my-data</code> themselves</td></tr>
+          <tr><td>"Delete me."</td><td><code>/v1/users/delete</code></td></tr>
+          <tr><td>"I withdraw consent."</td><td><code>/v1/consent/withdraw</code></td></tr>
+          <tr><td>"Delete our whole organisation."</td><td>Tenant offboarding &mdash; <a href="#ch7">Chapter 7</a></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <h4>Template protection</h4>
+      <p>Stored templates are kept in a <strong>protected, cancelable</strong> form. If one ever leaked it can be <em>reissued</em>: the person keeps their face and palm, but the stored maths changes and the leaked copy stops matching. A password can be changed after a breach; a face cannot &mdash; this stands in for that. Reissuing also revokes that person's QR credentials, since whatever leak prompted it taints those too.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <!-- ================= APPENDICES ================= -->
+    <div class="partdiv"><span class="pn">Appendices</span><h2>Reference</h2>
+      <p>Tools and endpoints you will want at hand.</p></div>
+
+    <section class="ch" id="apxA">
+      <h3><span class="chn">APX A</span> Command-line tools</h3>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>manage_admins.py</code></td><td>Create, list and remove console operator accounts.</td></tr>
+          <tr><td><code>manage_keys.py</code></td><td>Mint, list and revoke API keys from a terminal.</td></tr>
+          <tr><td><code>manage_templates.py</code></td><td>Maintenance on stored templates &mdash; upgrade older rows to the protected form.</td></tr>
+          <tr><td><code>manage_remote.py</code></td><td>List and delete users on a live remote deployment, using the operator password.</td></tr>
+          <tr><td><code>bulk_enroll.py</code></td><td>Import a folder of photos, one sub-folder per person.</td></tr>
+          <tr><td><code>pull_production.py</code></td><td>Bring recorded captures and decisions back for accuracy analysis.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <section class="ch" id="apxB">
+      <h3><span class="chn">APX B</span> Health &amp; reference</h3>
+      <div class="ep"><span class="m get">GET</span><span>/v1/health</span><span class="note">no key needed &mdash; for load balancers</span></div>
+      <div class="ep"><span class="m get">GET</span><span>/readyz</span><span class="note">is the model loaded, and which matching settings are live</span></div>
+      <div class="ep"><span class="m get">GET</span><span>/v1/openapi.yaml</span><span class="note">the full machine-readable contract</span></div>
+      <div class="ep"><span class="m get">GET</span><span>/v1/services</span><span class="note">the live subsystem catalogue</span></div>
+      <p>Point any OpenAPI client generator at <code>/v1/openapi.yaml</code> to generate a client in your language.</p>
+      <p><code>/readyz</code> reports the matching settings actually in force &mdash; useful because an environment variable can be set on a container running an image too old to understand it, and everything will still look healthy.</p>
+      <a class="backtop" href="#top">↑ Contents</a>
+    </section>
+
+    <footer>
+      <p>Every endpoint except <code>/v1/health</code> requires an <code>X-API-Key</code> header. Tenants are fully isolated; keys carry roles; verification results are signed. The machine-readable contract lives at <code>/v1/openapi.yaml</code> and the live subsystem catalogue at <code>/v1/services</code> on your own deployment.</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  // Build both navigations from the chapter headings, so the contents can never
+  // drift out of step with the document itself.
+  var parts = [];
+  document.querySelectorAll(".partdiv, .ch").forEach(function (el) {
+    if (el.classList.contains("partdiv")) {
+      parts.push({ label: el.querySelector(".pn").textContent + " · " +
+                          el.querySelector("h2").textContent, items: [] });
+    } else if (parts.length) {
+      var h = el.querySelector("h3");
+      var n = h.querySelector(".chn");
+      parts[parts.length - 1].items.push({
+        id: el.id,
+        num: n ? n.textContent.trim() : "",
+        text: h.textContent.replace(n ? n.textContent : "", "").trim()
+      });
+    }
+  });
+
+  function render(target) {
+    var html = "";
+    parts.forEach(function (p) {
+      html += '<p class="rail-part">' + p.label + "</p>";
+      p.items.forEach(function (i) {
+        html += '<a href="#' + i.id + '">' + i.text + "</a>";
+      });
+    });
+    target.innerHTML = html;
+  }
+  var rail = document.getElementById("railnav");
+  var drawernav = document.getElementById("drawernav");
+  if (rail) render(rail);
+  if (drawernav) render(drawernav);
+
+  // Drawer for narrow screens.
+  var drawer = document.getElementById("drawer");
+  var open = document.getElementById("navopen");
+  var close = document.getElementById("navclose");
+  if (drawer && open) {
+    open.addEventListener("click", function () {
+      if (drawer.showModal) { drawer.showModal(); } else { drawer.setAttribute("open", ""); }
+    });
+    close.addEventListener("click", function () {
+      if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
+    });
+    drawernav.addEventListener("click", function (e) {
+      if (e.target.tagName === "A") {
+        if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
+      }
+    });
+    drawer.addEventListener("click", function (e) {
+      if (e.target === drawer) {
+        if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
+      }
+    });
+  }
+
+  // Highlight the chapter currently in view.
+  var links = {};
+  if (rail) {
+    rail.querySelectorAll("a").forEach(function (a) {
+      links[a.getAttribute("href").slice(1)] = a;
+    });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var a = links[en.target.id];
+        if (!a) return;
+        if (en.isIntersecting) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+          a.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    document.querySelectorAll(".ch").forEach(function (s) { obs.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
