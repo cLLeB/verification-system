@@ -34,6 +34,24 @@ class PalmEmbedder private constructor(
             val lum = 0.299f * ((p shr 16) and 0xFF) + 0.587f * ((p shr 8) and 0xFF) + 0.114f * (p and 0xFF)
             arr[i] = lum / 255f                          // [0,1]
         }
+        // CCNet is trained through NormSingleROI: zero mean / unit std over the ROI's
+        // NON-ZERO pixels (the black corners the ROI warp leaves are padding, not palm,
+        // and letting them into the statistics puts the lighting back in). Must mirror
+        // palm/engine.py::_preprocess exactly - an offline APK that embedded differently
+        // from the server would build templates in a different space, and hybrid sync
+        // would then compare vectors that are not comparable.
+        if (PalmConfig.INPUT_NORM_ROI) {
+            var sum = 0f
+            var n = 0
+            for (v in arr) if (v > 0f) { sum += v; n++ }
+            if (n > 0) {
+                val mean = sum / n
+                var sq = 0f
+                for (v in arr) if (v > 0f) { val d = v - mean; sq += d * d }
+                val std = kotlin.math.sqrt(sq / n)
+                for (i in arr.indices) if (arr[i] > 0f) arr[i] = (arr[i] - mean) / (std + 1e-6f)
+            }
+        }
         buf.rewind()
         val shape = longArrayOf(1, 1, dim.toLong(), dim.toLong())
         return OnnxTensor.createTensor(env, buf, shape).use { input ->

@@ -109,16 +109,28 @@ object PalmConfig {
     // enrolled as 'caleb' score 0.26 against caleb and 0.67-0.71 against Edwina).
     // Those pairs inflated the apparent impostor ceiling and pushed the threshold up
     // until it rejected real people.
-    // Method = what verify computes: probe vs that hand's OTHER captures, MAX over
-    // anchors, leave-one-out. GENUINE n=10 min 0.7161 mean 0.8003 max 0.8653 -
-    // INCLUDING probes 27 HOURS apart at 0.8380 and 0.8653. IMPOSTOR n=80 max 0.6462.
-    // 0.65/0.68/0.70 all give 10/10 genuine and 0/80 impostors; 0.75 rejected 4 of 10
-    // genuine. 0.68 is the midpoint of the gap [0.6462, 0.7161].
-    // NOTE: time is NOT the variable - a 27-hour pair scores 0.84 while two shots 36
-    // seconds apart score 0.73. Hand POSE is, and max-over-anchors absorbs it, which
-    // is why enrolling several DIFFERENT presentations matters.
+    // Encoder input scaling. MUST equal the server's PALM_INPUT_NORM (palm/config.py
+    // input_norm) whenever the two ever share templates - a hybrid build that embedded
+    // differently from the server would sync vectors that are not comparable. CCNet is
+    // trained through NormSingleROI (zero mean / unit std over non-zero ROI pixels);
+    // feeding it plain [0,1] costs cross-day matching badly. Flip this and the server
+    // env var TOGETHER, and re-enrol - the two modes are different embedding spaces.
+    const val INPUT_NORM_ROI = true
+
+    // Threshold for INPUT_NORM_ROI = true, chosen to hold the false-accept rate the
+    // previous 0.68 gave rather than to look good: on 191 real pilot captures (15
+    // people, 955 genuine attempts, hand-aware) 0.68 in the old space ran at FAR 5.45%,
+    // and 0.625 in this space runs at the same 5.45% while accepting 73.3% vs 69.6%.
+    //
+    // CORRECTION to the old note here, which said "time is NOT the variable" off n=10:
+    // on 191 frames it clearly is. Same palm, mean agreement against its own template -
+    // 0.875 at 2-5 minutes, 0.748 at 1-24 hours, 0.651 beyond a day, where 66% of
+    // genuine attempts fall under 0.68. Two different people (Mariam/Edwina) reach
+    // 0.759. Cross-day agreement sits BELOW the cross-person maximum, which is the real
+    // failure mode and what NormSingleROI above partly repairs (cross-day acceptance at
+    // a 1% FAR operating point 25.5% -> 52.4%).
     // Mirrors palm/calibration.json - keep the two in sync.
-    const val MATCH_THRESHOLD = 0.68f
+    const val MATCH_THRESHOLD = 0.625f
     const val IDENTIFY_MARGIN = 0.08f
     const val SAMPLES_PER_USER = 3            // anchor captures per HAND
     // A person has at most two palms; one identity may enrol both (present either to
