@@ -36,13 +36,17 @@ class PalmConfig:
     # How the ROI is scaled before it enters the encoder. CCNet is TRAINED through
     # NormSingleROI (models/dataset.py): each ROI standardised to zero mean and unit
     # std over its non-zero pixels. We have always fed it "unit" ([0,1]) instead, which
-    # is a different input distribution than the weights ever saw, and it costs exactly
-    # what you would predict: with no per-image standardisation the embedding keeps the
-    # frame's absolute brightness and contrast, so captures under one lighting stay
-    # close and captures under another drift apart - fine within a session, bad across
-    # days. Measured on 191 real pilot frames, switching to "roi" moves cross-day
-    # acceptance at a 1% false-accept operating point from 25.5% to 52.4%, with the
-    # impostor ceiling slightly LOWER (0.742 vs 0.759).
+    # is a different input distribution than the weights ever saw. With no per-image
+    # standardisation the embedding keeps the frame's absolute brightness and contrast,
+    # so captures under one condition stay close and captures under another drift apart.
+    # Measured on 191 real pilot frames, switching to "roi" moves acceptance of the HARD
+    # genuine pairs (different capture session) at a 1% false-accept operating point from
+    # 25.5% to 52.4%, with the impostor ceiling slightly LOWER (0.742 vs 0.759).
+    #
+    # NB those hard pairs are NOT evidence that palms age. In this dataset every
+    # long-gap pair is also a different-device pair, so time and device are perfectly
+    # confounded, and within different-device pairs more elapsed time does not lower the
+    # score (0.600 under an hour vs 0.651 over a day). Do not describe this as decay.
     #
     # It stays default "unit" because the two are DIFFERENT EMBEDDING SPACES: flipping
     # this invalidates every stored palm template and the calibrated threshold with it.

@@ -113,8 +113,8 @@ object PalmConfig {
     // input_norm) whenever the two ever share templates - a hybrid build that embedded
     // differently from the server would sync vectors that are not comparable. CCNet is
     // trained through NormSingleROI (zero mean / unit std over non-zero ROI pixels);
-    // feeding it plain [0,1] costs cross-day matching badly. Flip this and the server
-    // env var TOGETHER, and re-enrol - the two modes are different embedding spaces.
+    // feeding it plain [0,1] measurably costs matching on the HARD pairs. Flip this and
+    // the server env var TOGETHER, and re-enrol - the two modes are different spaces.
     const val INPUT_NORM_ROI = true
 
     // Threshold for INPUT_NORM_ROI = true, chosen to hold the false-accept rate the
@@ -122,13 +122,17 @@ object PalmConfig {
     // people, 955 genuine attempts, hand-aware) 0.68 in the old space ran at FAR 5.45%,
     // and 0.625 in this space runs at the same 5.45% while accepting 73.3% vs 69.6%.
     //
-    // CORRECTION to the old note here, which said "time is NOT the variable" off n=10:
-    // on 191 frames it clearly is. Same palm, mean agreement against its own template -
-    // 0.875 at 2-5 minutes, 0.748 at 1-24 hours, 0.651 beyond a day, where 66% of
-    // genuine attempts fall under 0.68. Two different people (Mariam/Edwina) reach
-    // 0.759. Cross-day agreement sits BELOW the cross-person maximum, which is the real
-    // failure mode and what NormSingleROI above partly repairs (cross-day acceptance at
-    // a 1% FAR operating point 25.5% -> 52.4%).
+    // The old note here - "time is NOT the variable" - STANDS, and a previous revision
+    // of this comment wrongly overrode it with a "palm decays across days" claim. It
+    // does not. In the pilot data every long-gap pair is ALSO a different-capture-device
+    // pair, so day and device are perfectly confounded and the data cannot separate
+    // them; and WITHIN different-device pairs more time does not lower the score
+    // (0.600 under an hour vs 0.651 over a day). Same-device pairs sit at 0.842.
+    // What is real, and what the threshold above is calibrated against, is that SOME
+    // genuine pairs are hard (different sessions/conditions) while two different people
+    // (Mariam/Edwina) reach 0.759 - i.e. the hard genuine pairs overlap the impostor
+    // ceiling. NormSingleROI narrows that overlap; it does not fix ageing, because
+    // there is no ageing to fix.
     // Mirrors palm/calibration.json - keep the two in sync.
     const val MATCH_THRESHOLD = 0.625f
     const val IDENTIFY_MARGIN = 0.08f
