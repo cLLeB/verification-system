@@ -33,6 +33,22 @@ class PalmConfig:
     hand_model_hf_repo: str = ""             # e.g. "your-org/palm-ccnet-onnx"
     hand_model_hf_file: str = "hand_landmarker.task"
     providers: Tuple[str, ...] = ("CPUExecutionProvider",)
+    # How the ROI is scaled before it enters the encoder. CCNet is TRAINED through
+    # NormSingleROI (models/dataset.py): each ROI standardised to zero mean and unit
+    # std over its non-zero pixels. We have always fed it "unit" ([0,1]) instead, which
+    # is a different input distribution than the weights ever saw, and it costs exactly
+    # what you would predict: with no per-image standardisation the embedding keeps the
+    # frame's absolute brightness and contrast, so captures under one lighting stay
+    # close and captures under another drift apart - fine within a session, bad across
+    # days. Measured on 191 real pilot frames, switching to "roi" moves cross-day
+    # acceptance at a 1% false-accept operating point from 25.5% to 52.4%, with the
+    # impostor ceiling slightly LOWER (0.742 vs 0.759).
+    #
+    # It stays default "unit" because the two are DIFFERENT EMBEDDING SPACES: flipping
+    # this invalidates every stored palm template and the calibrated threshold with it.
+    # Switch with PALM_INPUT_NORM=roi, then re-enrol every palm and recalibrate. Set it
+    # back to "unit" and the old templates are correct again, unchanged.
+    input_norm: str = "unit"                 # "unit" = ROI/255 | "roi" = NormSingleROI
     # Embedding dimension the exported model outputs. MUST match the ONNX output
     # width; the engine validates this on load. Cosine matching is scale-free, so
     # the exact value only needs to be consistent across enrol + verify.
@@ -201,6 +217,11 @@ def load_config() -> PalmConfig:
     env_hand = os.environ.get("PALM_HAND_MODEL")
     if env_hand:
         cfg = replace(cfg, hand_model_path=env_hand)
+    # Encoder input scaling. Only the two known modes are honoured; anything else keeps
+    # the default rather than silently feeding the model something it never saw.
+    env_norm = (os.environ.get("PALM_INPUT_NORM") or "").strip().lower()
+    if env_norm in ("unit", "roi"):
+        cfg = replace(cfg, input_norm=env_norm)
     env_dim = os.environ.get("PALM_EMBED_DIM")
     if env_dim:
         try:

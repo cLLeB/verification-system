@@ -136,6 +136,17 @@ def _preprocess(roi_bgr: np.ndarray, cfg: PalmConfig) -> np.ndarray:
     else:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     arr = img.astype(np.float32) / 255.0
+    if cfg.input_norm == "roi":
+        # NormSingleROI, the normalisation CCNet was trained through: zero mean and
+        # unit std over the NON-ZERO pixels only, so the black corners the ROI warp
+        # leaves behind do not drag the statistics. This is what removes per-frame
+        # brightness/contrast from the embedding, which is where cross-day matching
+        # was being lost. See PalmConfig.input_norm before changing it - the two modes
+        # are different embedding spaces.
+        idx = arr > 0
+        if idx.any():
+            vals = arr[idx]
+            arr[idx] = (vals - vals.mean()) / (vals.std() + 1e-6)
     arr = np.transpose(arr, (2, 0, 1))           # HWC -> CHW
     return arr[None, ...]                         # add batch dim
 

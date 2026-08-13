@@ -4,6 +4,8 @@ and graceful degradation when the encoder model is absent.
 These run WITHOUT the trained ONNX weights: the geometry/quality/liveness helpers
 are exercised directly, and the model-dependent paths are checked to fail soft.
 """
+import os
+
 import numpy as np
 
 from biometric import profile as bio
@@ -197,3 +199,52 @@ def test_palm_enroll_degrades_gracefully(tmp_path):
     out = palm_api.enroll("alice", np.zeros((200, 200, 3), np.uint8), cfg)
     assert out["success"] is False and out["modality"] == "palm"
     assert out["code"] in ("no_hand", "palm_unavailable", "palm_too_small")
+
+
+def test_input_norm_defaults_to_unit_and_is_opt_in():
+    """The encoder's input scaling is a switch, and its default must not move.
+
+    "unit" ([0,1]) and "roi" (NormSingleROI, the normalisation CCNet was trained
+    through) are DIFFERENT EMBEDDING SPACES - flipping the mode invalidates every
+    stored template. So the default has to stay "unit", and only the two known
+    values may be honoured; a typo in the env var must not silently feed the model
+    a distribution it never saw.
+    """
+    from palm.config import load_config
+    assert PalmConfig().input_norm == "unit"
+
+    prev = os.environ.get("PALM_INPUT_NORM")
+    try:
+        for value, expected in (("roi", "roi"), ("ROI", "roi"), ("unit", "unit"),
+                                ("nonsense", "unit"), ("", "unit")):
+            os.environ["PALM_INPUT_NORM"] = value
+            assert load_config().input_norm == expected, value
+    finally:
+        if prev is None:
+            os.environ.pop("PALM_INPUT_NORM", None)
+        else:
+            os.environ["PALM_INPUT_NORM"] = prev
+
+
+def test_input_norm_roi_standardises_only_nonzero_pixels():
+    """NormSingleROI must ignore the black corners the ROI warp leaves behind:
+    they are padding, not palm, and letting them into the mean/std would put the
+    lighting back into the embedding that this mode exists to remove."""
+    rng = np.random.default_rng(3)
+    roi = np.zeros((40, 40, 3), np.uint8)
+    # a TEXTURED patch: a flat one has zero variance, which standardisation collapses
+    roi[10:30, 10:30] = rng.integers(60, 240, (20, 20, 1), dtype=np.uint8)
+    cfg = PalmConfig(input_norm="roi")
+    palm_engine._meta.update({"size": 40, "channels": 1})   # noqa: SLF001
+    arr = palm_engine._preprocess(roi, cfg)                 # noqa: SLF001
+    assert arr.shape == (1, 1, 40, 40)
+
+    body = arr[0, 0][10:30, 10:30]
+    assert abs(float(body.mean())) < 1e-3       # zero mean over the palm pixels
+    assert abs(float(body.std()) - 1.0) < 1e-2  # ...and unit std
+    assert (arr[0, 0][:10, :] == 0).all()       # padding stayed exactly zero
+
+    # and the default mode must leave the same ROI in plain [0, 1]
+    plain = palm_engine._preprocess(roi, PalmConfig(input_norm="unit"))   # noqa: SLF001
+    assert 0.0 <= float(plain.min()) and float(plain.max()) <= 1.0
+    assert float(plain.max()) > 0.2
