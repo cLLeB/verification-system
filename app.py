@@ -54,6 +54,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 _log = logging.getLogger("face")
 
 app = Flask(__name__)
+# Hard cap on request bodies. This is an image API: every capture endpoint takes a
+# base64 payload, so the natural failure mode is a client posting something far
+# larger than a photo - by accident with an un-resized DSLR frame, or deliberately.
+# Without a cap the whole body is buffered, then base64-decoded into a second copy,
+# then handed to OpenCV, and a single request can exhaust a small container. Rate
+# limits do not help here: they bound how OFTEN a caller asks, not how big one ask is.
+#
+# 24 MB fits a burst of full-resolution phone frames with room to spare (base64 costs
+# ~33% over the raw bytes) while staying far below what hurts. Werkzeug rejects
+# anything larger before the body is read, and the 413 handler below returns it in the
+# normal JSON envelope. Override with FACE_MAX_UPLOAD_MB.
+app.config["MAX_CONTENT_LENGTH"] = int(float(
+    os.environ.get("FACE_MAX_UPLOAD_MB", "24")) * 1024 * 1024)
 # Behind a TLS-terminating proxy (Hugging Face / Caddy), trust X-Forwarded-* so
 # request.is_secure is correct and the admin session cookie gets the Secure flag.
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -134,6 +147,19 @@ def _e404(e):
 def _e405(e):
     if request.path.startswith(_API_PREFIXES):
         return _json_error(405, "method_not_allowed", "Method not allowed on this endpoint.")
+    return e
+
+
+@app.errorhandler(413)
+def _e413(e):
+    # Werkzeug raises this before the body is read, so nothing large was ever
+    # buffered. The message names the limit and the fix, because the caller's next
+    # move is to downscale the capture - not to retry the same payload.
+    limit_mb = app.config["MAX_CONTENT_LENGTH"] / (1024 * 1024)
+    if request.path.startswith(_API_PREFIXES):
+        return _json_error(413, "payload_too_large",
+                           f"Request body exceeds {limit_mb:.0f} MB. Downscale the "
+                           f"capture before sending (1280px on the long edge is plenty).")
     return e
 
 

@@ -62,6 +62,43 @@ def _store(cfg):
     return FaceStore(cfg)
 
 
+_MAX_PIXELS = int(float(os.environ.get("FACE_MAX_IMAGE_MP", "80")) * 1_000_000)
+
+
+def _declared_pixels(raw: bytes):
+    """Pixel count from the file HEADER, without decoding. None if unrecognised.
+
+    A body-size cap does not bound decoded size, because image formats compress: a
+    solid-colour 30000x30000 PNG is a few hundred KB on the wire and ~2.7 GB once
+    expanded to three channels. OpenCV's own ceiling is about 1G pixels, far above
+    what this container can survive, and it applies only after allocating. So read
+    the dimensions from the header bytes - which costs nothing and allocates nothing
+    - and refuse absurd ones before OpenCV ever sees the buffer.
+
+    Parsed without Pillow on purpose: it is not in requirements, so importing it here
+    would work locally and fail in the container.
+    """
+    if raw[:8] == b"\x89PNG\r\n\x1a\n" and len(raw) >= 24:
+        # IHDR is always the first chunk: width/height are big-endian at byte 16.
+        return int.from_bytes(raw[16:20], "big") * int.from_bytes(raw[20:24], "big")
+    if raw[:2] == b"\xff\xd8":                       # JPEG: walk to the SOFn marker
+        i, n = 2, len(raw)
+        while i + 9 < n:
+            if raw[i] != 0xFF:
+                i += 1
+                continue
+            marker = raw[i + 1]
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                return (int.from_bytes(raw[i + 5:i + 7], "big")
+                        * int.from_bytes(raw[i + 7:i + 9], "big"))
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            i += 2 + int.from_bytes(raw[i + 2:i + 4], "big")
+        return None
+    return None                                      # unknown format: size cap governs
+
+
 def _decode(b64: str):
     if not b64:
         return None
@@ -71,6 +108,9 @@ def _decode(b64: str):
         raw = base64.b64decode(b64)
     except (ValueError, TypeError):
         return None
+    px = _declared_pixels(raw)
+    if px is not None and px > _MAX_PIXELS:
+        return None                                  # 80 MP is ~10x a flagship phone
     return cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
 
 

@@ -691,6 +691,25 @@ paths:
         - { name: device_id, in: path, required: true, schema: { type: string } }
       responses:
         "200": { description: "{ device }" }
+  /v1/devices/{device_id}/rename:
+    post:
+      summary: "Rename one device (role: admin)"
+      description: >
+        The label operators see in the fleet list. Renaming never touches the
+        device's key or pairing - it keeps working throughout.
+      parameters:
+        - { name: device_id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: "Main gate - north" }
+      responses:
+        "200": { description: "{ device }" }
+        "404": { description: "not_found - no such device for this tenant, or an empty name" }
   /v1/guardians:
     get:
       summary: "Guardianship links (?beneficiary= or ?guardian= to filter) (role: admin)"
