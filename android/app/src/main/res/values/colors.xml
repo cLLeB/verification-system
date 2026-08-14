@@ -1,5 +1,10 @@
 <resources>
-    <color name="bg">#0B1020</color>
-    <color name="ic_bg">#1A1033</color>
-    <color name="violet">#8B7CF6</color>
+    <!-- Window chrome, matching the web client's tokens (static/app.css).
+         "bg" is the page background token and is what the window, status bar and
+         navigation bar are painted with before Compose draws: a stale value here shows
+         up as a band of the wrong colour behind the real UI. -->
+    <color name="bg">#050911</color>
+    <!-- Launcher icon: deep ink plate, iris-blue mark (the brand token). -->
+    <color name="ic_bg">#0A1730</color>
+    <color name="brand">#5598FF</color>
 </resources>

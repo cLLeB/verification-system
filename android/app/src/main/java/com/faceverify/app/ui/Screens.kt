@@ -13,15 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
@@ -35,12 +34,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.faceverify.app.R
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,14 +56,27 @@ fun MainScreen() {
     val adminGate = remember { AdminGate(ctx) }
     var tab by remember { mutableIntStateOf(0) }
 
+    val pal = Tok.current
     Scaffold(
+        containerColor = pal.bg0,
+        topBar = { TopBar() },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(tab == 0, { tab = 0 },
+            // The bar sits ON the page background, not on a lighter slab: Material's
+            // default container is an elevated surface, which read as a grey band under
+            // the tabs (and under the gesture area) that exists nowhere on the web.
+            NavigationBar(containerColor = pal.bg0, tonalElevation = 0.dp) {
+                val items = NavigationBarItemDefaults.colors(
+                    selectedIconColor = pal.onBrand,
+                    selectedTextColor = pal.brand,
+                    indicatorColor = pal.brand,
+                    unselectedIconColor = pal.txt2,
+                    unselectedTextColor = pal.txt2,
+                )
+                NavigationBarItem(tab == 0, { tab = 0 }, colors = items,
                     icon = { Icon(Icons.Filled.Face, null) }, label = { Text("Scan") })
-                NavigationBarItem(tab == 1, { tab = 1; vm.refreshPeople() },
+                NavigationBarItem(tab == 1, { tab = 1; vm.refreshPeople() }, colors = items,
                     icon = { Icon(Icons.Filled.People, null) }, label = { Text("People") })
-                NavigationBarItem(tab == 2, { tab = 2 },
+                NavigationBarItem(tab == 2, { tab = 2 }, colors = items,
                     icon = { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") })
             }
         }
@@ -84,8 +100,36 @@ fun MainScreen() {
     }
 }
 
+/** The light/dark switch, and nothing else.
+ *
+ *  The web's `.topbar` also carries a brand mark, but a phone app does not need to tell
+ *  you which app you opened - the launcher icon and the task switcher already did - and
+ *  that row was costing the capture screen height it needed for the shutter. So the bar
+ *  is one control, kept as short as a touch target allows. */
+@Composable
+private fun TopBar() {
+    val pal = Tok.current
+    val theme = LocalThemeController.current
+    Row(
+        Modifier.fillMaxWidth().padding(end = 6.dp, top = 2.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = { theme.toggle() }, modifier = Modifier.size(40.dp)) {
+            // The icon shows the theme you would switch TO - the same rule as the site.
+            Icon(
+                painterResource(if (theme.isDark) R.drawable.ic_sun else R.drawable.ic_moon),
+                contentDescription = "Switch light/dark theme",
+                tint = pal.txt2,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
+    val pal = Tok.current
     var adminUnlocked by remember { mutableStateOf(false) }
     var showPin by remember { mutableStateOf(false) }
     var lensFacing by remember { mutableIntStateOf(androidx.camera.core.CameraSelector.LENS_FACING_FRONT) }
@@ -93,30 +137,53 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
         if (uri != null) vm.enrollFromPhoto(uri)
     }
 
+    // The web reclaims height in enrol mode on a short viewport rather than letting
+    // the shutter fall under the fold (`@media (max-height: 800px)` on
+    // `html[data-mode="enroll"]`). Same rule, same trigger.
+    val compact = vm.mode == Mode.ENROLL && LocalConfiguration.current.screenHeightDp <= 800
+    val gap = if (compact) 8.dp else 12.dp
+
     Column(
-        Modifier.fillMaxSize().padding(16.dp),
+        // NOT scrollable, and nothing here is allowed to reflow. Everything except the
+        // camera has a fixed height and the oval absorbs whatever is left - so a longer
+        // status line, a retry countdown, or the enrol dots filling in can never push
+        // the shutter down (or under the navigation bar). That is the same trade the
+        // web makes when it shrinks the oval instead of growing the page.
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Mode toggle. "Check card" and "Glance" both match on-device, against a
+        // Mode switch. "Check card" and "Glance" both match on-device, against a
         // credential's own template or a downloaded index - neither is possible on the
         // online build, which bundles no recognition model, so they are not offered.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(vm.mode == Mode.VERIFY, { vm.selectMode(Mode.VERIFY) }, { Text("Verify") })
-            FilterChip(vm.mode == Mode.ENROLL, { vm.selectMode(Mode.ENROLL) }, { Text("Enrol") })
-            if (!vm.isOnline) {
-                FilterChip(vm.mode == Mode.CREDENTIAL, {
-                    vm.selectMode(Mode.CREDENTIAL)
-                    // cards are scanned with the BACK camera; flip automatically
-                    lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
-                }, { Text("Check card") })
-                FilterChip(vm.mode == Mode.GLANCE, {
-                    vm.selectMode(Mode.GLANCE)
-                    // glance points at OTHER people - back camera
-                    lensFacing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
-                }, { Text("Glance") })
+        val modes = remember(vm.isOnline) {
+            if (vm.isOnline) listOf(Mode.VERIFY, Mode.ENROLL)
+            else listOf(Mode.VERIFY, Mode.ENROLL, Mode.CREDENTIAL, Mode.GLANCE)
+        }
+        val labels = remember(modes) {
+            modes.map {
+                when (it) {
+                    Mode.VERIFY -> "Verify"
+                    Mode.ENROLL -> "Enrol"
+                    Mode.CREDENTIAL -> "Check card"
+                    Mode.GLANCE -> "Glance"
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        SegmentedControl(
+            options = labels,
+            selectedIndex = modes.indexOf(vm.mode).coerceAtLeast(0),
+            onSelect = { i ->
+                val m = modes[i]
+                vm.selectMode(m)
+                // Cards are scanned with the BACK camera, and Glance points at OTHER
+                // people - both flip automatically; the face modes flip back.
+                lensFacing = if (m == Mode.CREDENTIAL || m == Mode.GLANCE)
+                    androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                else androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(gap))
         if (vm.mode == Mode.CREDENTIAL && vm.credPayload != null && vm.result == null) {
             // card accepted - the live person is captured with the front camera
             LaunchedEffect(vm.credPayload) {
@@ -146,9 +213,13 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
                     enabled = vm.enrollName.isNotBlank(),
                 ) { Icon(Icons.Filled.Image, "Enrol from a photo") }
             }
-            Spacer(Modifier.height(8.dp))
-            Dots(captured = vm.captured, total = vm.enrollTarget)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(gap))
+            // Fixed-height row: dots filling in as samples are taken must not change
+            // the height of anything below them.
+            Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.Center) {
+                Dots(captured = vm.captured, total = vm.enrollTarget)
+            }
+            Spacer(Modifier.height(gap))
         }
 
         // A palm matching neither of this name's enrolled hands: confirm binding it as
@@ -163,42 +234,37 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
             )
         }
 
-        // Camera oval + result overlay
-        Box(
-            Modifier.fillMaxWidth(0.8f).aspectRatio(0.8f)
-                .clip(CircleShape)
-                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                .background(Color.Black),
-            contentAlignment = Alignment.Center,
+        // The scanner stage - halo, oval, scan light, dashed guide, swap (see
+        // ScannerStage.kt, ported from the web client's .scanner-stage). This is the
+        // ONE flexible box on the screen: it takes the height the fixed chrome leaves,
+        // is never wider than the web's 300px, and keeps its 7:9 shape either way.
+        ScannerStage(
+            lensFacing = lensFacing,
+            busy = vm.capturing,
+            capturing = vm.capturing,
+            showSwap = vm.result == null,
+            onSwap = {
+                lensFacing = if (lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT)
+                    androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                else androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+            },
+            shouldProcess = { vm.tryBeginFrame() },
+            onBitmap = { vm.processFrame(it) },
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .sizeIn(maxWidth = 300.dp)
+                .aspectRatio(7f / 9f, matchHeightConstraintsFirst = true),
         ) {
-            CameraPreview(
-                modifier = Modifier.fillMaxSize(),
-                lensFacing = lensFacing,
-                shouldProcess = { vm.tryBeginFrame() },
-                onBitmap = { vm.processFrame(it) },
-            )
-            if (vm.result == null) {
-                IconButton(
-                    onClick = {
-                        lensFacing = if (lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT)
-                            androidx.camera.core.CameraSelector.LENS_FACING_BACK
-                        else androidx.camera.core.CameraSelector.LENS_FACING_FRONT
-                    },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                ) {
-                    Icon(Icons.Filled.Cameraswitch, "Flip camera", tint = Color.White)
-                }
-            }
-            vm.result?.let { ResultOverlay(it) { vm.scanAgain() } }
+            vm.result?.let { ResultOverlay(it.ok, it.title, it.sub) { vm.scanAgain() } }
             // Glance: a live name chip instead of a frozen verdict - batch friendly
             if (vm.mode == Mode.GLANCE && vm.glanceHit != null) {
                 Surface(
-                    color = Ok, shape = MaterialTheme.shapes.large,
+                    color = pal.ok, shape = MaterialTheme.shapes.large,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
                 ) {
                     Text(
                         vm.glanceHit ?: "",
-                        color = Color.Black,
+                        color = pal.onBrand,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
@@ -206,38 +272,65 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-        if (vm.result == null) {
-            // One line of guidance. During a pending auto-retry it carries the
-            // countdown, so the retry is never a surprise.
-            Text(
-                if (vm.retryIn > 0) "${vm.status} - retrying in ${vm.retryIn}…" else vm.status,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Spacer(Modifier.height(gap))
 
-            if (vm.mode == Mode.VERIFY || vm.mode == Mode.ENROLL) {
-                Spacer(Modifier.height(12.dp))
-                QualityChips(vm.quality)
-                Spacer(Modifier.height(12.dp))
-                Shutter(
-                    ready = vm.quality.allGood,
-                    busy = vm.capturing,
-                    progress = vm.captureProgress,
-                    enabled = vm.mode != Mode.ENROLL || vm.enrollName.isNotBlank(),
-                    onClick = {
-                        // Enrolling is the operator's action and stays PIN-gated;
-                        // verifying is open, exactly as on the web.
-                        if (vm.mode == Mode.ENROLL && !adminUnlocked) showPin = true
-                        else vm.requestCapture()
-                    },
+        // `.hint` - the line of guidance. On the web it reserves its own line
+        // (`min-height: 1.2em`) so it cannot shove the page around; two lines' worth
+        // here, because "Couldn't detect a face" style copy wraps on a phone and the
+        // shutter must not move for the second or two that it shows.
+        Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
+            if (vm.result == null) {
+                Text(
+                    if (vm.retryIn > 0) "${vm.status} - retrying in ${vm.retryIn}…" else vm.status,
+                    textAlign = TextAlign.Center,
+                    // `.hint` is 0.9rem/500 on the web. At the default body size two
+                    // lines did not fit the reserved slot and the second one was cut.
+                    fontSize = 14.4.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    color = if (vm.retryIn > 0) pal.warn else pal.txt2,
                 )
-            } else if (vm.mode == Mode.CREDENTIAL) {
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress = { vm.livenessProgress },
-                    modifier = Modifier.fillMaxWidth(0.6f),
-                )
+            }
+        }
+
+        Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
+
+        Box(Modifier.fillMaxWidth().height(if (compact) 26.dp else 30.dp), contentAlignment = Alignment.Center) {
+            if (vm.result == null && (vm.mode == Mode.VERIFY || vm.mode == Mode.ENROLL)) {
+                QualityChips(vm.quality, compact = compact)
+            }
+        }
+
+        Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
+
+        // The capture control keeps its slot whatever the mode, so switching modes
+        // does not move the shutter either.
+        Box(
+            Modifier.fillMaxWidth().height(if (compact) 68.dp else 78.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (vm.result == null) {
+                if (vm.mode == Mode.VERIFY || vm.mode == Mode.ENROLL) {
+                    Shutter(
+                        ready = vm.quality.allGood,
+                        busy = vm.capturing,
+                        progress = vm.captureProgress,
+                        enabled = vm.mode != Mode.ENROLL || vm.enrollName.isNotBlank(),
+                        compact = compact,
+                        onClick = {
+                            // Enrolling is the operator's action and stays PIN-gated;
+                            // verifying is open, exactly as on the web.
+                            if (vm.mode == Mode.ENROLL && !adminUnlocked) showPin = true
+                            else vm.requestCapture()
+                        },
+                    )
+                } else if (vm.mode == Mode.CREDENTIAL) {
+                    LinearProgressIndicator(
+                        progress = { vm.livenessProgress },
+                        modifier = Modifier.fillMaxWidth(0.6f),
+                    )
+                }
             }
         }
     }
@@ -257,41 +350,6 @@ private fun ScanScreen(vm: ScannerViewModel, adminGate: AdminGate) {
             ok
         },
     )
-}
-
-@Composable
-private fun ResultOverlay(result: ScanResult, onAgain: () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().background(Color(0xE60B1020)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(20.dp)) {
-            Icon(
-                if (result.ok) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
-                contentDescription = null,
-                tint = if (result.ok) Ok else Bad,
-                modifier = Modifier.size(64.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(result.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
-            Text(result.sub, color = Color(0xFF9AA8BD), textAlign = TextAlign.Center)
-            Spacer(Modifier.height(14.dp))
-            Button(onClick = onAgain) { Text("Scan again") }
-        }
-    }
-}
-
-@Composable
-private fun Dots(captured: Int, total: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        repeat(total) { i ->
-            Box(
-                Modifier.size(10.dp).clip(CircleShape).background(
-                    if (i < captured) Ok else MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
-        }
-    }
 }
 
 @Composable
@@ -665,6 +723,7 @@ private fun SyncSection(vm: ScannerViewModel, ctx: android.content.Context) {
 @Composable
 private fun OnlineSection(vm: ScannerViewModel) {
     var url by remember { mutableStateOf(vm.onlineServerUrl()) }
+    var user by remember { mutableStateOf(vm.onlineAdminUser()) }
     var password by remember { mutableStateOf("") }
 
     Text("Server", style = MaterialTheme.typography.titleMedium)
@@ -681,10 +740,16 @@ private fun OnlineSection(vm: ScannerViewModel) {
     )
     Spacer(Modifier.height(8.dp))
     OutlinedTextField(
+        value = user, onValueChange = { user = it },
+        label = { Text("Operator name (leave blank for \"admin\")") }, singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    OutlinedTextField(
         value = password, onValueChange = { password = it },
         label = {
             Text(
-                if (vm.onlineAdminPasswordSet()) "Admin password (set - blank keeps it)"
+                if (vm.onlineAdminPasswordSet()) "Admin password (stored - blank keeps it)"
                 else "Admin password (optional)"
             )
         },
@@ -692,9 +757,29 @@ private fun OnlineSection(vm: ScannerViewModel) {
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth(),
     )
+    // A stored secret is never shown back, so say plainly that there is one - the empty
+    // field on the way back in is otherwise indistinguishable from having lost it.
+    if (vm.onlineAdminPasswordSet()) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "A password is stored on this device. Typing a new one replaces it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "Enrolling needs this only when the deployment closes open enrolment. " +
+            "The People tab always needs it - the server keeps the roster admin-only.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { vm.saveOnlineConfig(url, password); password = "" }) { Text("Save") }
+        Button(
+            onClick = { vm.saveOnlineConfig(url, user, password); password = "" },
+            enabled = !vm.onlineBusy,
+        ) { Text("Save") }
         OutlinedButton(onClick = { vm.testOnline() }, enabled = !vm.onlineBusy) { Text("Test") }
         if (vm.onlineAdminPasswordSet()) {
             TextButton(onClick = { vm.clearOnlineAdminPassword() }) { Text("Forget password") }

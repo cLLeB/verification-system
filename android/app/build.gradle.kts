@@ -15,8 +15,8 @@ android {
         applicationId = "com.faceverify.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
         vectorDrawables { useSupportLibrary = true }
 
         // Ship only the ABIs real phones use. x86/x86_64 exist for emulators and were

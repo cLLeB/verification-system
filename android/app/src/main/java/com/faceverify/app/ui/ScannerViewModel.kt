@@ -292,7 +292,12 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
                 peopleMsg = ""
                 remote?.listUsers() ?: emptyList()
             } catch (e: ApiClient.AuthRequired) {
-                peopleMsg = "Add the admin password in Settings to see who is enrolled."
+                // Not a misconfiguration, and not affected by open enrolment: the server
+                // gates the roster on an admin session ALWAYS (/api/users), because
+                // listing everyone enrolled is not a walk-up action even where adding
+                // yourself is. Say so, so this doesn't read as a broken setting.
+                peopleMsg = "The roster is always admin-only, even while enrolment is open. " +
+                    "Add the admin password in Settings to see who is enrolled."
                 emptyList()
             } catch (e: Exception) {
                 peopleMsg = "Could not reach the server."
@@ -1015,13 +1020,37 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     var onlineBusy by mutableStateOf(false); private set
 
     fun onlineServerUrl(): String = onlinePrefs.serverUrl
+    fun onlineAdminUser(): String = onlinePrefs.adminUser
     fun onlineAdminPasswordSet(): Boolean = onlinePrefs.hasAdminPassword
 
-    fun saveOnlineConfig(url: String, password: String) {
+    /** Save, then - if a password was typed - actually try it against the server and
+     *  say what happened. The screen never shows a stored password back (a secret you
+     *  can read off a screen is not stored safely), so without this confirmation the
+     *  field simply going blank looks exactly like the app discarding it. */
+    fun saveOnlineConfig(url: String, username: String, password: String) {
         if (url.isNotBlank()) onlinePrefs.serverUrl = url
+        onlinePrefs.adminUser = username
         if (password.isNotBlank()) onlinePrefs.adminPassword = password
         remote?.forgetSession()          // credentials changed - drop any stale session
-        onlineMsg = "Saved. Use Test to check the connection."
+
+        if (password.isBlank()) {
+            onlineMsg = "Saved. Use Test to check the connection."
+            return
+        }
+        onlineBusy = true
+        onlineMsg = "Saved - checking the password…"
+        viewModelScope.launch(Dispatchers.IO) {
+            onlineMsg = try {
+                if (remote?.checkAdminPassword(password, username) == true)
+                    "Password accepted and stored on this device."
+                else
+                    "Stored, but the server refused it. Check the password" +
+                        (if (username.isBlank()) " (and the operator name, if your deployment uses named operators)." else " for \"$username\".")
+            } catch (e: Exception) {
+                "Stored, but could not reach ${onlinePrefs.serverUrl} to check it."
+            }
+            onlineBusy = false
+        }
     }
 
     fun clearOnlineAdminPassword() {

@@ -7,20 +7,29 @@
 #   Verify-hybrid-fp16.apk    the same, half-size model
 #   Verify-online.apk         server-side matching, no model bundled (small download)
 #
+# Finished APKs land in your Downloads folder, not in the repo: they are build
+# output, they are large, and a signed binary sitting in a working tree is one
+# careless `git add -A` away from being committed.
+#
 # Usage:
 #   .\build-apks.ps1                       # all five
 #   .\build-apks.ps1 -Only online          # just the online build
 #   .\build-apks.ps1 -ServerUrl https://…  # bake a different default server in
+#   .\build-apks.ps1 -OutDir D:\somewhere  # somewhere other than Downloads
 #
 # Requires JDK 17 and the signing config in keystore.properties.
 
 param(
     [string]$Only = "",
-    [string]$ServerUrl = ""
+    [string]$ServerUrl = "",
+    [string]$OutDir = (Join-Path $env:USERPROFILE "Downloads")
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+
+if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
+$OutDir = (Resolve-Path $OutDir).Path
 
 # variant task suffix -> output apk name
 $variants = [ordered]@{
@@ -54,13 +63,13 @@ foreach ($variant in $variants.Keys) {
     $built = Get-ChildItem -Path $dir -Filter *.apk -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $built) { throw "No APK found in $dir" }
 
-    Copy-Item $built.FullName (Join-Path $PSScriptRoot $apkName) -Force
+    Copy-Item $built.FullName (Join-Path $OutDir $apkName) -Force
     $mb = [math]::Round($built.Length / 1MB, 1)
     Write-Host "    $apkName  ($mb MB)" -ForegroundColor Green
 }
 
 Write-Host ""
-Write-Host "Done. APKs in $PSScriptRoot" -ForegroundColor Green
-Get-ChildItem -Path $PSScriptRoot -Filter "Verify-*.apk" |
+Write-Host "Done. APKs in $OutDir" -ForegroundColor Green
+Get-ChildItem -Path $OutDir -Filter "Verify-*.apk" |
     Sort-Object Length |
     Format-Table Name, @{ Name = "Size"; Expression = { "{0:N1} MB" -f ($_.Length / 1MB) } }
