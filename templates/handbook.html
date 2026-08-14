@@ -59,7 +59,7 @@
   .navbtn:hover { border-color:var(--accent); color:var(--accent); }
   .navbtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .navbtn .chev { font-size:10px; }
-  @media (min-width:1080px) { .navbtn { display:none; } }
+  @media (min-width:1024px) { .navbtn { display:none; } }
 
   /* drawer for narrow screens */
   .drawer { display:none; position:fixed; inset:0; z-index:60; }
@@ -75,25 +75,75 @@
   .closebtn { background:none; border:0; font-size:22px; line-height:1; cursor:pointer; color:var(--text-dim); padding:2px 6px; }
   .closebtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
-  .wrap { max-width:1240px; margin:0 auto; padding:0 20px 110px;
-          display:grid; grid-template-columns:1fr; gap:0 52px; }
-  @media (min-width:1080px) { .wrap { grid-template-columns:236px minmax(0,1fr); } .rail { display:block; } }
+  .wrap { max-width:1280px; margin:0 auto; padding:0 20px 110px;
+          display:grid; grid-template-columns:1fr; gap:0 46px; }
+  @media (min-width:1024px) { .wrap { grid-template-columns:276px minmax(0,1fr); } .rail { display:block; } }
 
-  /* ---------- side rail (desktop) ---------- */
+  /* ---------- side rail: the document outline ----------
+     The outline lives here, beside the text, the whole way down - not as a
+     one-off list at the top that you have to scroll back up to reach. */
   .rail { display:none; }
-  .rail-in { position:sticky; top:64px; max-height:calc(100vh - 84px); overflow-y:auto;
-             font-size:13.1px; line-height:1.42; padding-right:6px; }
-  .rail-part { font-family:ui-monospace,Consolas,monospace; font-size:10px; letter-spacing:.15em;
-               text-transform:uppercase; color:var(--text-faint); margin:18px 0 6px; }
-  .rail-part:first-child { margin-top:0; }
-  .navlist a { display:block; color:var(--text-dim); text-decoration:none;
-               padding:4px 0 4px 11px; border-left:2px solid var(--line); }
-  .navlist a:hover { color:var(--accent); border-left-color:var(--accent); }
-  .navlist a.active { color:var(--accent); border-left-color:var(--accent); font-weight:600; }
-  .navlist a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .rail-in { position:sticky; top:52px; height:calc(100vh - 52px); overflow-y:auto;
+             padding:20px 12px 48px 0; border-right:1px solid var(--line-soft);
+             scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  .rail-in::-webkit-scrollbar { width:9px; }
+  .rail-in::-webkit-scrollbar-thumb { background:var(--line); border-radius:5px;
+                                      border:3px solid transparent; background-clip:content-box; }
+
+  /* filter box - 32 chapters is more than anyone scans by eye */
+  .navfilter { position:relative; margin:0 8px 16px 0; }
+  .navfilter input { width:100%; font:inherit; font-size:13.2px; color:var(--text);
+                     background:var(--surface); border:1px solid var(--line); border-radius:8px;
+                     padding:7px 26px 7px 30px; }
+  .navfilter input::placeholder { color:var(--text-faint); }
+  .navfilter input:focus { outline:none; border-color:var(--accent);
+                           box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .navfilter .mag { position:absolute; left:10px; top:50%; transform:translateY(-50%);
+                    font-size:12.5px; color:var(--text-faint); pointer-events:none; }
+  .navfilter .clr { position:absolute; right:5px; top:50%; transform:translateY(-50%);
+                    background:none; border:0; cursor:pointer; color:var(--text-faint);
+                    font-size:16px; line-height:1; padding:2px 5px; display:none; }
+  .navfilter.has-q .clr { display:block; }
+  .navfilter .clr:hover { color:var(--text); }
+
+  .navtree { font-size:13.4px; line-height:1.45; }
+  .nav-group[hidden], .nav-ch[hidden], .nav-sub[hidden] { display:none; }
+  .nav-part { display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+              font:inherit; font-family:ui-monospace,Consolas,monospace; font-size:10.5px;
+              letter-spacing:.13em; text-transform:uppercase; font-weight:700;
+              color:var(--text-faint); background:none; border:0; cursor:pointer;
+              padding:10px 4px 6px 0; }
+  .nav-part:hover { color:var(--accent); }
+  .nav-part:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:5px; }
+  .nav-part .chev { flex:none; font-size:8.5px; transition:transform .16s ease; }
+  @media (prefers-reduced-motion: reduce) { .nav-part .chev { transition:none; } }
+  .nav-group.collapsed .nav-part .chev { transform:rotate(-90deg); }
+  .nav-group.collapsed .nav-items { display:none; }
+  .nav-group.in-view .nav-part { color:var(--accent); }
+  .nav-part .lbl { flex:1; }
+
+  .nav-items { border-left:1px solid var(--line); margin-left:3px; }
+  .nav-ch { display:flex; gap:9px; color:var(--text-dim); text-decoration:none;
+            padding:5px 8px 5px 13px; margin-left:-1px; border-left:2px solid transparent; }
+  .nav-ch .n { font-family:ui-monospace,Consolas,monospace; font-size:11px;
+               color:var(--text-faint); flex:none; min-width:16px; padding-top:1px; }
+  .nav-ch:hover { color:var(--accent); }
+  .nav-ch.active { color:var(--accent); font-weight:650; border-left-color:var(--accent); }
+  .nav-ch.active .n { color:var(--accent); }
+  .nav-ch:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+
+  /* sub-headings appear only under the chapter you are actually in */
+  .nav-subs { display:none; margin:1px 0 5px; }
+  .nav-ch.active + .nav-subs, .navtree.filtering .nav-subs { display:block; }
+  .nav-sub { display:block; color:var(--text-faint); text-decoration:none;
+             font-size:12.5px; padding:3px 8px 3px 38px; }
+  .nav-sub:hover { color:var(--accent); }
+  .nav-sub.active { color:var(--accent); font-weight:600; }
+  .nav-sub:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+  .navtree .noresult { color:var(--text-faint); font-size:12.8px; padding:10px 0 0 4px; }
 
   main { grid-column:1/-1; min-width:0; }
-  @media (min-width:1080px) { main { grid-column:2; } }
+  @media (min-width:1024px) { main { grid-column:2; } }
 
   /* ---------- front matter ---------- */
   .front { padding:56px 0 34px; border-bottom:1px solid var(--line); margin-bottom:38px; }
@@ -105,22 +155,19 @@
   .standfirst { font-size:1.12rem; color:var(--text-dim); max-width:64ch; margin:0 0 14px; }
   .standfirst strong { color:var(--text); font-weight:600; }
 
-  /* ---------- contents page ---------- */
-  .contents { background:var(--surface); border:1px solid var(--line); border-radius:14px;
-              padding:26px 28px; margin:0 0 52px; box-shadow:var(--shadow); }
-  .contents h2 { font-family:Georgia,ui-serif,serif; font-size:1.3rem; margin:0 0 4px; font-weight:600; }
-  .contents .hint { color:var(--text-faint); font-size:13.5px; margin:0 0 20px; }
-  .toc-grid { display:grid; grid-template-columns:1fr; gap:22px 34px; }
-  @media (min-width:700px) { .toc-grid { grid-template-columns:1fr 1fr; } }
-  .toc-part-label { font-family:ui-monospace,Consolas,monospace; font-size:10.5px; letter-spacing:.14em;
-                    text-transform:uppercase; color:var(--accent); margin:0 0 7px;
-                    padding-bottom:6px; border-bottom:1px solid var(--line-soft); }
-  .toc-part ol { list-style:none; margin:0; padding:0; }
-  .toc-part li { margin:0 0 5px; display:flex; gap:9px; font-size:14.3px; }
-  .toc-num { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--text-faint);
-             padding-top:3px; min-width:17px; }
-  .toc-part a { color:var(--text); text-decoration:none; }
-  .toc-part a:hover { color:var(--accent); text-decoration:underline; }
+  /* ---------- parts strip on the front matter ----------
+     Orientation only. The chapter-by-chapter contents is the sidebar (and, on
+     narrow screens, the Contents drawer), so it is never more than a glance away. */
+  .partchips { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 12px; }
+  .partchips a { display:flex; flex-direction:column; gap:2px; text-decoration:none;
+                 background:var(--surface); border:1px solid var(--line); border-radius:10px;
+                 padding:9px 14px; color:var(--text); box-shadow:var(--shadow); }
+  .partchips a:hover { border-color:var(--accent); color:var(--accent); }
+  .partchips a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .partchips .pl { font-family:ui-monospace,Consolas,monospace; font-size:9.5px; letter-spacing:.14em;
+                   text-transform:uppercase; color:var(--text-faint); }
+  .partchips .pt { font-size:13.8px; font-weight:600; letter-spacing:-.005em; }
+  .front-hint { color:var(--text-faint); font-size:13.2px; margin:0 0 46px; }
 
   /* ---------- parts & chapters ---------- */
   .partdiv { margin:64px 0 30px; padding:22px 0 0; border-top:2px solid var(--accent); }
@@ -231,14 +278,26 @@
       <strong>Contents</strong>
       <button class="closebtn" id="navclose" aria-label="Close contents">&times;</button>
     </div>
-    <div class="navlist" id="drawernav"></div>
+    <div class="navfilter">
+      <span class="mag" aria-hidden="true">&#9906;</span>
+      <input type="search" id="drawerfilter" placeholder="Filter chapters" aria-label="Filter chapters">
+      <button class="clr" type="button" aria-label="Clear filter">&times;</button>
+    </div>
+    <div class="navtree" id="drawernav"></div>
   </div>
 </dialog>
 
 <div class="wrap" id="top">
 
-  <nav class="rail" aria-label="Chapters">
-    <div class="rail-in"><div class="navlist" id="railnav"></div></div>
+  <nav class="rail" aria-label="Contents">
+    <div class="rail-in">
+      <div class="navfilter">
+        <span class="mag" aria-hidden="true">&#9906;</span>
+        <input type="search" id="railfilter" placeholder="Filter chapters" aria-label="Filter chapters">
+        <button class="clr" type="button" aria-label="Clear filter">&times;</button>
+      </div>
+      <div class="navtree" id="railnav"></div>
+    </div>
   </nav>
 
   <main>
@@ -249,76 +308,11 @@
       <p class="standfirst">Written for whoever is reading: the platform owner, an operator at a desk, an integrating developer, or the person being enrolled. Every chapter says up front who it is for.</p>
     </div>
 
-    <!-- ================= CONTENTS ================= -->
-    <div class="contents">
-      <h2>Contents</h2>
-      <p class="hint">Thirty chapters in eight parts. Jump anywhere &mdash; chapters cross-reference each other rather than assuming you read in order.</p>
-      <div class="toc-grid">
-        <div class="toc-part">
-          <p class="toc-part-label">Part I &middot; Foundations</p>
-          <ol>
-            <li><span class="toc-num">1</span><a href="#ch1">How it fits together</a></li>
-            <li><span class="toc-num">2</span><a href="#ch2">What you hand someone</a></li>
-          </ol>
-          <p class="toc-part-label">Part II &middot; Administration</p>
-          <ol>
-            <li><span class="toc-num">3</span><a href="#ch3">Admin accounts</a></li>
-            <li><span class="toc-num">4</span><a href="#ch4">Creating a tenant</a></li>
-            <li><span class="toc-num">5</span><a href="#ch5">Issuing API keys</a></li>
-            <li><span class="toc-num">6</span><a href="#ch6">Tenant self-service</a></li>
-            <li><span class="toc-num">7</span><a href="#ch7">Offboarding</a></li>
-          </ol>
-          <p class="toc-part-label">Part III &middot; Building on the API</p>
-          <ol>
-            <li><span class="toc-num">8</span><a href="#ch8">Quick start</a></li>
-            <li><span class="toc-num">9</span><a href="#ch9">Face or palm</a></li>
-            <li><span class="toc-num">10</span><a href="#ch10">Two ways to integrate</a></li>
-            <li><span class="toc-num">11</span><a href="#ch11">Core endpoints</a></li>
-            <li><span class="toc-num">12</span><a href="#ch12">Bursts &amp; liveness</a></li>
-            <li><span class="toc-num">13</span><a href="#ch13">Trusting a result</a></li>
-            <li><span class="toc-num">14</span><a href="#ch14">Errors &amp; retries</a></li>
-            <li><span class="toc-num">15</span><a href="#ch15">Browsers, webhooks, widget</a></li>
-          </ol>
-          <p class="toc-part-label">Part IV &middot; Enrolling people</p>
-          <ol>
-            <li><span class="toc-num">16</span><a href="#ch16">Five ways to enrol</a></li>
-            <li><span class="toc-num">17</span><a href="#ch17">Invite links</a></li>
-          </ol>
-        </div>
-        <div class="toc-part">
-          <p class="toc-part-label">Part V &middot; Running it day to day</p>
-          <ol>
-            <li><span class="toc-num">18</span><a href="#ch18">After the match</a></li>
-            <li><span class="toc-num">19</span><a href="#ch19">Devices</a></li>
-            <li><span class="toc-num">20</span><a href="#ch20">Guests</a></li>
-            <li><span class="toc-num">21</span><a href="#ch21">Guardians</a></li>
-            <li><span class="toc-num">22</span><a href="#ch22">Access policies</a></li>
-            <li><span class="toc-num">23</span><a href="#ch23">Audit, usage &amp; quotas</a></li>
-          </ol>
-          <p class="toc-part-label">Part VI &middot; The service subsystems</p>
-          <ol>
-            <li><span class="toc-num">24</span><a href="#ch24">Calling a subsystem</a></li>
-            <li><span class="toc-num">25</span><a href="#ch25">What the 166 do</a></li>
-            <li><span class="toc-num">26</span><a href="#ch26">Gates, and trying one safely</a></li>
-          </ol>
-          <p class="toc-part-label">Part VII &middot; Working offline</p>
-          <ol>
-            <li><span class="toc-num">27</span><a href="#ch27">QR credentials</a></li>
-            <li><span class="toc-num">28</span><a href="#ch28">Air-gapped devices</a></li>
-            <li><span class="toc-num">29</span><a href="#ch29">The Android apps</a></li>
-          </ol>
-          <p class="toc-part-label">Part VIII &middot; Privacy &amp; compliance</p>
-          <ol>
-            <li><span class="toc-num">30</span><a href="#ch30">Consent &amp; data-subject rights</a></li>
-          </ol>
-          <p class="toc-part-label">Appendices</p>
-          <ol>
-            <li><span class="toc-num">A</span><a href="#apxA">Command-line tools</a></li>
-            <li><span class="toc-num">B</span><a href="#apxB">Health &amp; reference</a></li>
-          </ol>
-        </div>
-      </div>
-    </div>
+    <!-- The contents lives in the sidebar (and the Contents drawer on narrow
+         screens), where it stays reachable from every chapter. This strip is
+         orientation only: the eight parts, in order. -->
+    <nav class="partchips" id="partchips" aria-label="Parts of the handbook"></nav>
+    <p class="front-hint">Thirty chapters in eight parts. Jump anywhere &mdash; chapters cross-reference each other rather than assuming you read in order.</p>
 
     <!-- ================= PART I ================= -->
     <div class="partdiv"><span class="pn">Part I</span><h2>Foundations</h2>
@@ -961,80 +955,205 @@ curl -X POST https://your-host/v1/services/lockers/assign \
 
 <script>
 (function () {
-  // Build both navigations from the chapter headings, so the contents can never
-  // drift out of step with the document itself.
+  // The outline is built from the document itself, so it can never drift out of
+  // step with it: parts -> chapters -> the sub-headings inside a chapter.
   var parts = [];
   document.querySelectorAll(".partdiv, .ch").forEach(function (el) {
     if (el.classList.contains("partdiv")) {
-      parts.push({ label: el.querySelector(".pn").textContent + " · " +
-                          el.querySelector("h2").textContent, items: [] });
+      if (!el.id) { el.id = "part" + (parts.length + 1); }
+      parts.push({
+        id: el.id,
+        num: el.querySelector(".pn").textContent.trim(),
+        title: el.querySelector("h2").textContent.trim(),
+        items: []
+      });
     } else if (parts.length) {
       var h = el.querySelector("h3");
       var n = h.querySelector(".chn");
+      var subs = [];
+      // Only the headings that belong to the chapter itself - not the ones inside
+      // cards and boxes, which are labels rather than structure.
+      el.querySelectorAll(":scope > h4").forEach(function (h4, i) {
+        if (!h4.id) { h4.id = el.id + "-s" + (i + 1); }
+        h4.style.scrollMarginTop = "66px";
+        subs.push({ id: h4.id, text: h4.textContent.trim() });
+      });
       parts[parts.length - 1].items.push({
         id: el.id,
-        num: n ? n.textContent.trim() : "",
-        text: h.textContent.replace(n ? n.textContent : "", "").trim()
+        num: n ? n.textContent.replace(/^CH\s*/i, "").trim() : "",
+        text: h.textContent.replace(n ? n.textContent : "", "").trim(),
+        subs: subs
       });
     }
   });
 
-  function render(target) {
-    var html = "";
-    parts.forEach(function (p) {
-      html += '<p class="rail-part">' + p.label + "</p>";
-      p.items.forEach(function (i) {
-        html += '<a href="#' + i.id + '">' + i.text + "</a>";
-      });
-    });
-    target.innerHTML = html;
+  function esc(t) {
+    return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
-  var rail = document.getElementById("railnav");
-  var drawernav = document.getElementById("drawernav");
-  if (rail) render(rail);
-  if (drawernav) render(drawernav);
 
-  // Drawer for narrow screens.
+  var treeHTML = parts.map(function (p) {
+    var items = p.items.map(function (i) {
+      var subs = i.subs.map(function (s) {
+        return '<a class="nav-sub" href="#' + s.id + '" data-target="' + s.id + '">' +
+               esc(s.text) + "</a>";
+      }).join("");
+      return '<a class="nav-ch" href="#' + i.id + '" data-target="' + i.id + '">' +
+             '<span class="n">' + esc(i.num) + "</span><span>" + esc(i.text) + "</span></a>" +
+             (subs ? '<div class="nav-subs">' + subs + "</div>" : "");
+    }).join("");
+    return '<div class="nav-group" data-part="' + p.id + '">' +
+             '<button class="nav-part" type="button" aria-expanded="true">' +
+               '<span class="chev" aria-hidden="true">&#9660;</span>' +
+               '<span class="lbl">' + esc(p.num) + " &middot; " + esc(p.title) + "</span>" +
+             "</button>" +
+             '<div class="nav-items">' + items + "</div>" +
+           "</div>";
+  }).join("") + '<p class="noresult" hidden>No chapter matches that.</p>';
+
+  // The front-matter strip: the eight parts, nothing more.
+  var chips = document.getElementById("partchips");
+  if (chips) {
+    chips.innerHTML = parts.map(function (p) {
+      return '<a href="#' + p.id + '"><span class="pl">' + esc(p.num) + "</span>" +
+             '<span class="pt">' + esc(p.title) + "</span></a>";
+    }).join("");
+  }
+
+  // ---- one behaviour, wired into each copy of the tree (rail + drawer) ----
+  var trees = [];
+
+  function wire(treeEl, filterEl, onNavigate) {
+    if (!treeEl) return;
+    treeEl.innerHTML = treeHTML;
+    trees.push(treeEl);
+
+    treeEl.addEventListener("click", function (e) {
+      var part = e.target.closest(".nav-part");
+      if (part) {
+        var group = part.parentNode;
+        var collapsed = group.classList.toggle("collapsed");
+        part.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        return;
+      }
+      if (e.target.closest("a") && onNavigate) { onNavigate(); }
+    });
+
+    if (!filterEl) return;
+    var wrap = filterEl.parentNode;
+    var clear = wrap.querySelector(".clr");
+    function apply() {
+      var q = filterEl.value.trim().toLowerCase();
+      wrap.classList.toggle("has-q", q !== "");
+      treeEl.classList.toggle("filtering", q !== "");
+      var hits = 0;
+      treeEl.querySelectorAll(".nav-group").forEach(function (g) {
+        var shown = 0;
+        g.querySelectorAll(".nav-ch").forEach(function (a) {
+          var subsBox = a.nextElementSibling;
+          var subs = subsBox && subsBox.classList.contains("nav-subs")
+                     ? Array.prototype.slice.call(subsBox.children) : [];
+          var chHit = !q || a.textContent.toLowerCase().indexOf(q) !== -1;
+          var subHits = 0;
+          subs.forEach(function (s) {
+            var hit = !q || chHit || s.textContent.toLowerCase().indexOf(q) !== -1;
+            s.hidden = !hit;
+            if (hit) subHits++;
+          });
+          if (subsBox) { subsBox.hidden = q !== "" && subHits === 0; }
+          var keep = chHit || subHits > 0;
+          a.hidden = !keep;
+          if (keep) shown++;
+        });
+        g.hidden = shown === 0;
+        if (q) { g.classList.remove("collapsed"); }
+        hits += shown;
+      });
+      treeEl.querySelector(".noresult").hidden = hits !== 0;
+    }
+    filterEl.addEventListener("input", apply);
+    filterEl.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { filterEl.value = ""; apply(); }
+    });
+    clear.addEventListener("click", function () { filterEl.value = ""; apply(); filterEl.focus(); });
+  }
+
+  // ---- drawer for narrow screens ----
   var drawer = document.getElementById("drawer");
   var open = document.getElementById("navopen");
   var close = document.getElementById("navclose");
+  function shut() {
+    if (!drawer) return;
+    if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
+  }
+  wire(document.getElementById("railnav"), document.getElementById("railfilter"), null);
+  wire(document.getElementById("drawernav"), document.getElementById("drawerfilter"), shut);
+
   if (drawer && open) {
     open.addEventListener("click", function () {
       if (drawer.showModal) { drawer.showModal(); } else { drawer.setAttribute("open", ""); }
     });
-    close.addEventListener("click", function () {
-      if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
-    });
-    drawernav.addEventListener("click", function (e) {
-      if (e.target.tagName === "A") {
-        if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
-      }
-    });
-    drawer.addEventListener("click", function (e) {
-      if (e.target === drawer) {
-        if (drawer.close) { drawer.close(); } else { drawer.removeAttribute("open"); }
-      }
-    });
+    close.addEventListener("click", shut);
+    drawer.addEventListener("click", function (e) { if (e.target === drawer) shut(); });
   }
 
-  // Highlight the chapter currently in view.
-  var links = {};
-  if (rail) {
-    rail.querySelectorAll("a").forEach(function (a) {
-      links[a.getAttribute("href").slice(1)] = a;
+  // ---- follow the reader: highlight where they are, in both trees ----
+  var marks = [];
+  document.querySelectorAll(".ch").forEach(function (ch) {
+    marks.push({ id: ch.id, el: ch, chapter: ch.id });
+    ch.querySelectorAll(":scope > h4").forEach(function (h4) {
+      marks.push({ id: h4.id, el: h4, chapter: ch.id });
     });
-    var obs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        var a = links[en.target.id];
-        if (!a) return;
-        if (en.isIntersecting) {
-          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
-          a.classList.add("active");
+  });
+
+  var current = null, ticking = false;
+  function spy() {
+    ticking = false;
+    if (!marks.length) return;
+    var line = 96, active = marks[0];
+    for (var i = 0; i < marks.length; i++) {
+      if (marks[i].el.getBoundingClientRect().top <= line) { active = marks[i]; } else { break; }
+    }
+    // At the very bottom the last heading wins even if it never crosses the line.
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) {
+      active = marks[marks.length - 1];
+    }
+    if (active.id === current) return;
+    current = active.id;
+
+    trees.forEach(function (tree) {
+      tree.querySelectorAll(".active").forEach(function (a) { a.classList.remove("active"); });
+      tree.querySelectorAll(".in-view").forEach(function (g) { g.classList.remove("in-view"); });
+      var chLink = tree.querySelector('.nav-ch[data-target="' + active.chapter + '"]');
+      if (!chLink) return;
+      chLink.classList.add("active");
+      var group = chLink.closest(".nav-group");
+      if (group) {
+        group.classList.add("in-view");
+        if (group.classList.contains("collapsed")) {
+          group.classList.remove("collapsed");
+          group.querySelector(".nav-part").setAttribute("aria-expanded", "true");
         }
-      });
-    }, { rootMargin: "-70px 0px -70% 0px" });
-    document.querySelectorAll(".ch").forEach(function (s) { obs.observe(s); });
+      }
+      if (active.id !== active.chapter) {
+        var subLink = tree.querySelector('.nav-sub[data-target="' + active.id + '"]');
+        if (subLink) { subLink.classList.add("active"); }
+      }
+      // Keep the active entry inside the rail's own scroll window.
+      var box = tree.parentNode;
+      if (box && box.scrollHeight > box.clientHeight + 4) {
+        var top = chLink.getBoundingClientRect().top -
+                  box.getBoundingClientRect().top + box.scrollTop;
+        if (top < box.scrollTop + 40 || top > box.scrollTop + box.clientHeight - 80) {
+          box.scrollTop = top - box.clientHeight / 2;
+        }
+      }
+    });
   }
+  window.addEventListener("scroll", function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(spy); }
+  }, { passive: true });
+  window.addEventListener("resize", spy, { passive: true });
+  spy();
 })();
 </script>
 </body>
