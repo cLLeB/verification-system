@@ -44,7 +44,7 @@ class RemoteBackend(private val prefs: OnlinePrefs) {
      *  no-op when the deployment still has open enrolment. */
     private fun ensureAdmin(): Boolean {
         val pw = prefs.adminPassword
-        return if (pw.isEmpty()) false else api().login(pw)
+        return if (pw.isEmpty()) false else api().login(pw, prefs.adminUser)
     }
 
     private fun outcome(o: JSONObject): Outcome = Outcome(
@@ -124,10 +124,11 @@ class RemoteBackend(private val prefs: OnlinePrefs) {
         }
     }
 
-    /** Verify the stored admin password against the server, for the Settings screen. */
-    suspend fun checkAdminPassword(password: String): Boolean = withContext(Dispatchers.IO) {
-        api().login(password)
-    }
+    /** Verify admin credentials against the server, for the Settings screen. Saving a
+     *  password that the server will refuse is worse than not saving one: the failure
+     *  then only shows up later, on a tab that blames the setting you just filled in. */
+    suspend fun checkAdminPassword(password: String, username: String = ""): Boolean =
+        withContext(Dispatchers.IO) { api().login(password, username) }
 
     fun forgetSession() = api().forgetSession()
 

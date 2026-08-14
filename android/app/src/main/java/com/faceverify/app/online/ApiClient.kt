@@ -25,8 +25,16 @@ class ApiClient(private val baseUrl: String) {
      *  "add the admin password in Settings" rather than a raw 401. */
     class AuthRequired(message: String) : Exception(message)
 
-    @Volatile
-    private var sessionCookie: String? = null
+    /** Every cookie the server has set, by name.
+     *
+     *  It used to keep only a cookie literally called `session=`, which is Flask's
+     *  DEFAULT signed-session name - but this server does not use it. `/admin/login`
+     *  issues `face_admin` (face_service/admin.py), so the one cookie that mattered was
+     *  the one being thrown away: login answered `{"success": true}`, the retry went out
+     *  with no credential, came back 401, and the People tab said "add the admin
+     *  password in Settings" no matter how many times you added it. Keeping the jar by
+     *  name means a rename or an extra cookie on the server cannot break it again. */
+    private val cookies = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun open(method: String, path: String, timeoutMs: Int): HttpURLConnection {
         val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
@@ -34,7 +42,9 @@ class ApiClient(private val baseUrl: String) {
         conn.connectTimeout = timeoutMs
         conn.readTimeout = timeoutMs
         conn.setRequestProperty("Accept", "application/json")
-        sessionCookie?.let { conn.setRequestProperty("Cookie", it) }
+        if (cookies.isNotEmpty()) {
+            conn.setRequestProperty("Cookie", cookies.entries.joinToString("; ") { "${it.key}=${it.value}" })
+        }
         return conn
     }
 
@@ -43,11 +53,20 @@ class ApiClient(private val baseUrl: String) {
         return stream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
     }
 
-    /** Keep any session cookie the server hands back (Flask's signed session). */
+    /** Keep whatever cookies the server hands back, whatever they are called.
+     *  A `Set-Cookie` with an empty value (or an expiry in the past) is the server
+     *  clearing one - drop it rather than sending an empty credential back. */
     private fun captureCookie(conn: HttpURLConnection) {
-        val setCookie = conn.headerFields["Set-Cookie"] ?: return
-        val session = setCookie.firstOrNull { it.startsWith("session=") } ?: return
-        sessionCookie = session.substringBefore(';')
+        val headers = conn.headerFields ?: return
+        val set = headers.entries.firstOrNull { it.key?.equals("Set-Cookie", true) == true }?.value
+            ?: return
+        for (line in set) {
+            val pair = line.substringBefore(';')
+            val name = pair.substringBefore('=').trim()
+            val value = pair.substringAfter('=', "").trim()
+            if (name.isEmpty()) continue
+            if (value.isEmpty()) cookies.remove(name) else cookies[name] = value
+        }
     }
 
     fun get(path: String, timeoutMs: Int = 20_000): JSONObject {
@@ -97,21 +116,26 @@ class ApiClient(private val baseUrl: String) {
         } finally { conn.disconnect() }
     }
 
-    /** Exchange the admin password for a session cookie. Safe to call repeatedly. */
-    fun login(password: String): Boolean {
+    /** Exchange the admin credentials for a session cookie. Safe to call repeatedly.
+     *
+     *  [username] is sent explicitly: the server falls back to "admin" for a blank one,
+     *  but a deployment that has created named operator accounts stops accepting the
+     *  bootstrap admin altogether, and then the name is the only way in. */
+    fun login(password: String, username: String = "admin"): Boolean {
         if (password.isEmpty()) return false
         return try {
-            val r = post("/admin/login", JSONObject().put("password", password), 20_000)
+            val body = JSONObject().put("username", username.ifBlank { "admin" }).put("password", password)
+            val r = post("/admin/login", body, 20_000)
             val ok = r.optBoolean("success", false)
-            if (!ok) sessionCookie = null
+            if (!ok) cookies.clear()
             ok
         } catch (_: Exception) {
-            sessionCookie = null
+            cookies.clear()
             false
         }
     }
 
-    fun forgetSession() { sessionCookie = null }
+    fun forgetSession() = cookies.clear()
 
     companion object {
         /** Encode a frame the way the web client does: a JPEG data URL. The server's

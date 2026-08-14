@@ -36,6 +36,12 @@ class OnlinePrefs(context: Context) {
         get() = prefs.getString("admin_password", "") ?: ""
         set(v) { prefs.edit().putString("admin_password", v).apply() }
 
+    /** Which operator account the password belongs to. Deployments that never created
+     *  named operators use the built-in "admin", which is why that is the default. */
+    var adminUser: String
+        get() = prefs.getString("admin_user", "") ?: ""
+        set(v) { prefs.edit().putString("admin_user", v.trim()).apply() }
+
     val hasAdminPassword: Boolean get() = adminPassword.isNotEmpty()
 
     fun clearAdminPassword() { prefs.edit().remove("admin_password").apply() }
