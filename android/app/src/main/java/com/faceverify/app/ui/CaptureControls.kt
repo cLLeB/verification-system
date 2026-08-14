@@ -40,6 +40,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.faceverify.app.capture.CaptureQuality
@@ -101,9 +103,17 @@ fun SegmentedControl(
                     Text(
                         label,
                         color = if (active) pal.txt else pal.txt2,
-                        fontSize = 14.7.sp,
+                        // The web only ever has two segments. The on-device builds have
+                        // four, which puts "Check card" in an ~80dp cell - about what it
+                        // needs at the web's 0.92rem, and less than it needs the moment
+                        // the reader has font scaling turned up. Step down past two, and
+                        // ellipsize rather than clip mid-glyph if it still does not fit.
+                        fontSize = if (options.size > 2) 12.4.sp else 14.7.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 2.dp),
                     )
                 }
             }
