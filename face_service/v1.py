@@ -144,6 +144,28 @@ def _sign(payload: dict) -> dict:
     return {**payload, "signature": {"alg": "HMAC-SHA256", "ts": ts, "nonce": nonce, "hmac": digest}}
 
 
+def _verdict(results: list, ok: int) -> dict:
+    """Lift the decisive per-capture outcome onto the envelope.
+
+    Callers read the envelope. With the outcome buried in ``results[]``, "this face
+    already belongs to someone else" and "that photo was unusable" both arrive as
+    ``success: false, enrolled: 0`` - so the one failure that must never be retried
+    is indistinguishable from the one that should be. A duplicate outranks every
+    other failure here for the same reason.
+    """
+    if ok > 0:
+        return {"code": "enrolled"}
+    dupe = next((r for r in results if r.get("code") == "duplicate"), None)
+    worst = dupe or next((r for r in results if not r.get("success")), None)
+    if worst is None:
+        return {"code": "no_biometric"}
+    out = {"code": worst.get("code") or "enroll_failed"}
+    for key in ("hint", "message", "conflict_user_id"):
+        if worst.get(key):
+            out[key] = worst[key]
+    return out
+
+
 def _dupe_conflict(index, emb, uid: str, thr: float):
     """The name of a DIFFERENT user whose enrolled biometric matches ``emb`` at/above
     ``thr`` (a duplicate), else None. Used by opt-in bulk dedupe."""
@@ -180,7 +202,35 @@ def _resolve_embedding(item, cfg):
 def health():
     cfg = current_app.config.get("FACE_CONFIG") or load_config()
     return jsonify({"success": True, "status": "ok", "version": "v1",
-                    "active_liveness": cfg.active_liveness})
+                    "active_liveness": cfg.active_liveness,
+                    # Point at the spec from the one endpoint every integrator calls
+                    # first, so the API is discoverable without reading the source.
+                    "spec": "/v1/openapi.json", "docs": "/docs"})
+
+
+@bp.get("/config")
+@require_key
+def effective_config():
+    """The thresholds this tenant is actually judged against.
+
+    An integrator sets their own score floor while these decide the verdict, so
+    leaving them unreadable means two systems making one decision with no way to
+    tell whether they agree. "One biometric, one identity" in particular rests on
+    ``dupe_threshold``, which the customer relying on it could not see.
+    """
+    cfg = _cfg()
+    settings = tenants.get(g.tenant)
+    return jsonify({
+        "success": True,
+        "match_threshold": cfg.match_threshold,        # verify: accept at or above
+        "identify_margin": cfg.identify_margin,        # 1:N: beat the runner-up by
+        "dupe_threshold": cfg.dupe_threshold,          # enrol: same person as someone else
+        "dupe_self_margin": cfg.dupe_self_margin,
+        "samples_per_user": cfg.samples_per_user,
+        "active_liveness": cfg.active_liveness,
+        "palm_enabled": bool(settings.get("palm_enabled")),
+        "sandbox": bool(getattr(g, "sandbox", False)),
+    })
 
 
 @bp.get("/challenge")
@@ -315,7 +365,7 @@ def enroll():
     webhooks.fire(g.tenant, "enroll", {"user_id": user_id, "enrolled": ok,
                                        "success": ok > 0, "request_id": getattr(g, "request_id", "")})
     body = {"success": ok > 0, "user_id": user_id, "enrolled": ok,
-            "of": len(images), "results": results}
+            "of": len(images), "results": results, **_verdict(results, ok)}
     if guest_expiry:
         body["guest_expires"] = guest_expiry
     return jsonify(body)
@@ -335,15 +385,17 @@ def enroll_bulk():
     people = data.get("people") or []
     if not isinstance(people, list) or not people:
         return _err("'people' (non-empty list) is required.")
-    # Bulk import skips the per-capture guards by default (speed). Set ``dedupe: true``
-    # to reject a person whose biometric already belongs to a DIFFERENT enrolled name
-    # (fix D - bulk paths otherwise silently create duplicate identities).
-    dedupe = bool(data.get("dedupe"))
+    # One biometric, one identity - and bulk is exactly where nobody is watching each
+    # face go by, so the cross-user guard is ON unless a caller deliberately turns it
+    # off for a trusted migration. A safety property must not depend on the caller
+    # remembering a flag at the moment of least attention.
+    dedupe = bool(data.get("dedupe", True))
     results, ok = [], 0
     for person in people:
         uid = (person.get("user_id") or "").strip() if isinstance(person, dict) else ""
         if not uid:
-            results.append({"user_id": None, "success": False, "message": "missing user_id"})
+            results.append({"user_id": None, "success": False, "code": "bad_request",
+                            "message": "missing user_id"})
             continue
         mods = set()
         face_embs, palm_embs = [], []
@@ -366,7 +418,7 @@ def enroll_bulk():
             (palm_embs if out.get("modality") == "palm" else face_embs).append(vec)
         if not face_embs and not palm_embs:
             results.append({"user_id": uid, "success": False, "enrolled": 0,
-                            "message": "no usable face or palm"})
+                            "code": "no_biometric", "message": "no usable face or palm"})
             continue
         conflicts = []
         if face_embs:
@@ -409,7 +461,7 @@ def enroll_bulk():
                             "message": "biometric already enrolled under a different name"})
             continue
         ok += 1
-        entry = {"user_id": uid, "success": True,
+        entry = {"user_id": uid, "success": True, "code": "enrolled",
                  "enrolled": (len(face_embs) if "face" in mods else 0) +
                              (len(palm_kept) if "palm" in mods else 0),
                  "modalities": sorted(mods)}
@@ -557,7 +609,8 @@ def identify():
 def users():
     cfg = _cfg()
     palm_enabled = tenants.get(g.tenant)["palm_enabled"]
-    everyone = _modality.list_users(cfg, palm_enabled).get("users", [])   # face + palm union
+    listing = _modality.list_users(cfg, palm_enabled)
+    everyone = listing.get("users", [])                                   # face + palm union
     prefix = (request.args.get("prefix") or "").strip().lower()
     if prefix:
         everyone = [u for u in everyone if u.lower().startswith(prefix)]
@@ -567,8 +620,42 @@ def users():
         limit = min(1000, max(1, int(request.args.get("limit", 100))))
     except ValueError:
         return _err("'limit'/'offset' must be integers.")
-    return jsonify({"success": True, "users": everyone[offset:offset + limit],
+    page = everyone[offset:offset + limit]
+    # Which modality each person holds is already computed above; returning the ids
+    # alone made every integrator page the roster again to answer "face or palm?".
+    mods = listing.get("modalities") or {}
+    return jsonify({"success": True, "users": page,
+                    "modalities": {u: mods.get(u, []) for u in page},
                     "total": total, "offset": offset, "limit": limit})
+
+
+@bp.get("/users/<path:user_id>")
+@require_scope("manage")
+def user_status(user_id: str):
+    """Is this one person enrolled, and with what?
+
+    Without this, the only way to ask about an individual is to page the whole
+    roster, so integrations mirror enrolment state in their own database and the
+    mirror drifts - which reads to the person as being asked to enrol all over
+    again for a template we are still holding.
+    """
+    uid = (user_id or "").strip()
+    if not uid:
+        return _err("'user_id' is required.")
+    cfg = _cfg()
+    palm_enabled = tenants.get(g.tenant)["palm_enabled"]
+    record = _modality.export_record(uid, cfg, palm_enabled)
+    if not record:
+        return jsonify({"success": True, "user_id": uid, "enrolled": False,
+                        "modalities": [], "samples": {}, "code": "not_enrolled"}), 200
+    return jsonify({
+        "success": True, "user_id": uid, "enrolled": True, "code": "enrolled",
+        "modalities": sorted(record.keys()),
+        "samples": {m: r.get("anchors", 0) + r.get("adaptive", 0) for m, r in record.items()},
+        # The two facts that decide whether this enrolment can still be used at all.
+        "consent": _consent.status(g.tenant, uid),
+        "guest_expires": (_guests.get(g.tenant, uid) or {}).get("expires"),
+    })
 
 
 @bp.post("/users/delete")

@@ -40,6 +40,29 @@ components:
 security:
   - ApiKeyAuth: []
 paths:
+  /v1/config:
+    get:
+      summary: "The thresholds this tenant is judged against (any key)"
+      description: >
+        Your own score floor and ours decide the same outcome, so both have to be
+        legible. dupe_threshold in particular is what "one biometric, one identity"
+        rests on - a customer relying on that guarantee should be able to read it.
+      responses:
+        "200":
+          description: Effective configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  match_threshold: { type: number, description: "verify: accept at or above" }
+                  identify_margin: { type: number, description: "1:N: beat the runner-up by" }
+                  dupe_threshold: { type: number, description: "enrol: this is someone already enrolled" }
+                  dupe_self_margin: { type: number }
+                  samples_per_user: { type: integer }
+                  active_liveness: { type: boolean }
+                  palm_enabled: { type: boolean }
+                  sandbox: { type: boolean }
   /v1/health:
     get:
       summary: Liveness/readiness probe (no auth)
@@ -150,7 +173,35 @@ paths:
                     image) returns code 'different_hand' for a non-matching hand so an
                     interactive UI can confirm. A third distinct hand is refused with
                     code 'hands_full'. Face is unaffected.
-      responses: { "200": { description: "Enrolment summary. Per-image palm results carry hand (1|2) and samples; a non-matching hand under 'auto' returns success=false code='different_hand'; a third hand returns code='hands_full'. Per-image results also include source ('live'|'id_document')." } }
+      responses:
+        "200":
+          description: >
+            Enrolment summary. The envelope carries the decisive outcome: `code`
+            ('enrolled' on success, otherwise the failure that decided it), plus
+            `hint` and, for code='duplicate', the `conflict_user_id` this biometric
+            already belongs to. Read `code` before `enrolled`: a duplicate identity
+            and an unusable photo are both enrolled=0 and need opposite responses.
+            Per-image `results` keep the detail - palm results carry hand (1|2) and
+            samples; a non-matching hand under 'auto' returns code='different_hand';
+            a third hand returns code='hands_full'; results also include source
+            ('live'|'id_document').
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  code:
+                    type: string
+                    enum: [enrolled, duplicate, no_biometric, no_face, low_quality, liveness, pose, inconsistent, different_hand, hands_full, enroll_failed]
+                  hint: { type: string }
+                  conflict_user_id:
+                    type: string
+                    description: Present when code='duplicate'. Whose identity this biometric already is.
+                  user_id: { type: string }
+                  enrolled: { type: integer }
+                  of: { type: integer }
+                  results: { type: array, items: { type: object } }
   /v1/enroll/bulk:
     post:
       summary: "Managed: enrol many users in one call (role: admin)"
@@ -164,9 +215,14 @@ paths:
               properties:
                 dedupe:
                   type: boolean
+                  default: true
                   description: >
                     Reject a person whose biometric already belongs to a different
-                    name (per modality; reported under `conflicts`). Default false.
+                    name (per modality; reported under `conflicts`, with entry
+                    code='duplicate'). Default TRUE: one biometric belongs to one
+                    identity, and bulk is where that is easiest to lose sight of.
+                    Pass false only for a migration whose identities you already
+                    trust.
                 people:
                   type: array
                   items:
@@ -335,7 +391,55 @@ paths:
   /v1/users:
     get:
       summary: "Managed: list enrolled users for this tenant"
-      responses: { "200": { description: User list } }
+      parameters:
+        - { in: query, name: prefix, schema: { type: string }, description: "Only ids starting with this" }
+        - { in: query, name: limit, schema: { type: integer, default: 100, maximum: 1000 } }
+        - { in: query, name: offset, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: User list, with the modality each person on the page holds.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users: { type: array, items: { type: string } }
+                  modalities:
+                    type: object
+                    additionalProperties: { type: array, items: { type: string, enum: [face, palm] } }
+                    description: "user_id -> modalities held, for the ids on this page"
+                  total: { type: integer }
+                  offset: { type: integer }
+                  limit: { type: integer }
+  /v1/users/{user_id}:
+    get:
+      summary: "Managed: is this one person enrolled, and with what?"
+      description: >
+        The per-person question, answerable without paging the roster. Use it
+        instead of mirroring enrolment state in your own database, where it drifts
+        out of step with the templates actually held here. "Not enrolled" is a 200
+        with enrolled=false, not a 404 - it is an answer, not a failed request.
+      parameters:
+        - { in: path, name: user_id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Enrolment status for one person.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  user_id: { type: string }
+                  enrolled: { type: boolean }
+                  code: { type: string, enum: [enrolled, not_enrolled] }
+                  modalities: { type: array, items: { type: string, enum: [face, palm] } }
+                  samples:
+                    type: object
+                    additionalProperties: { type: integer }
+                    description: "Stored embeddings per modality (anchors + adaptive)"
+                  consent: { type: string, enum: [granted, withdrawn, none] }
+                  guest_expires: { type: string, nullable: true, description: "Set when this identity is time-boxed" }
   /v1/users/delete:
     post:
       summary: "Managed: delete one user or many (role: delete)"

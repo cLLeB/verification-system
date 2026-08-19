@@ -280,9 +280,11 @@ def test_exports_exclude_withdrawn_users(client, make_key, enroll_images):
     from face_service import tenants as _tenants
     admin = make_key("admin", tenant="t_couple2")
     _tenants.set_entitlement("t_couple2", allow_export=True)
-    # bulk import (guards off by design) lets one test image enrol two names
+    # Bulk now refuses one face under two names by default, so this test - which is
+    # about consent withdrawal, not identity - opts out the way a migration would.
     r = client.post("/v1/enroll/bulk", headers=_h(admin),
-                    json={"people": [{"user_id": "keep_me", "images": enroll_images[:1]},
+                    json={"dedupe": False,
+                          "people": [{"user_id": "keep_me", "images": enroll_images[:1]},
                                      {"user_id": "withdrew", "images": enroll_images[:1]}]}
                     ).get_json()
     assert r["enrolled"] == 2

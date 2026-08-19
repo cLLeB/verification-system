@@ -219,6 +219,21 @@ def openapi_spec():
                                "openapi.yaml", mimetype="application/yaml")
 
 
+@app.route("/openapi.json")
+@app.route("/v1/openapi.json")
+def openapi_spec_json():
+    """The same document at the path integrators and code generators try first.
+
+    Serving it only as .yaml means a caller who guesses the conventional path gets
+    a 404 and concludes there is no spec, which is how endpoints end up being found
+    by reading the source.
+    """
+    import yaml
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "openapi.yaml"),
+              encoding="utf-8") as fh:
+        return jsonify(yaml.safe_load(fh))
+
+
 @app.route("/docs")
 def api_docs():
     """The handbook - the whole platform, not just the API.

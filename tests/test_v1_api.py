@@ -36,10 +36,28 @@ def test_enroll_identify_verify_export_delete(client, make_key, enroll_images, p
 
 def test_bulk_enroll(client, make_key, enroll_images, probe_image):
     ak = make_key("admin", "bulk")
-    payload = {"people": [{"user_id": "a", "images": enroll_images[:2]},
+    # The test corpus holds ONE person, so enrolling "a" and "b" from it is exactly
+    # the duplicate identity the guard now refuses by default. This test is about
+    # the bulk mechanics, so it opts out the way a trusted migration would.
+    payload = {"dedupe": False,
+               "people": [{"user_id": "a", "images": enroll_images[:2]},
                           {"user_id": "b", "images": [probe_image]}]}
     r = client.post("/v1/enroll/bulk", headers=_h(ak), json=payload).get_json()
     assert r["success"] and r["enrolled"] == 2
+
+
+def test_bulk_refuses_a_second_identity_for_the_same_face(client, make_key, enroll_images, probe_image):
+    """One biometric, one identity - and bulk is where that is easiest to lose."""
+    ak = make_key("admin", "bulkdupe")
+    r = client.post("/v1/enroll/bulk", headers=_h(ak), json={"people": [
+        {"user_id": "twin_one", "images": enroll_images[:2]},
+        {"user_id": "twin_two", "images": [probe_image]}]}).get_json()
+
+    assert r["enrolled"] == 1
+    refused = [x for x in r["results"] if x["user_id"] == "twin_two"][0]
+    assert refused["success"] is False and refused["code"] == "duplicate"
+    assert refused["conflicts"][0]["conflict_user_id"] == "twin_one"
+    assert "twin_two" not in client.get("/v1/users", headers=_h(ak)).get_json()["users"]
 
 
 def test_quota_returns_429(client, make_key, probe_image):
@@ -54,9 +72,9 @@ def test_quota_returns_429(client, make_key, probe_image):
 
 def test_users_pagination_and_filter(client, make_key, enroll_images, probe_image):
     ak = make_key("admin", "pag")
-    client.post("/v1/enroll/bulk", headers=_h(ak), json={"people": [
+    client.post("/v1/enroll/bulk", headers=_h(ak), json={"dedupe": False, "people": [
         {"user_id": "alice", "images": enroll_images[:1]},
-        {"user_id": "bob", "images": [probe_image]}]})
+        {"user_id": "bob", "images": [probe_image]}]})   # one corpus face, two ids
     page = client.get("/v1/users?limit=1", headers=_h(ak)).get_json()
     assert page["total"] == 2 and len(page["users"]) == 1 and page["limit"] == 1
     filt = client.get("/v1/users?prefix=al", headers=_h(ak)).get_json()
