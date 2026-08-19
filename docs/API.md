@@ -44,12 +44,19 @@ There are two ways to integrate. Pick either or both.
 
 ## 1. Get an API key
 
-The operator mints you a key (kept hashed server-side; shown once):
+You get **two** keys: a live one, and a sandbox twin on the same tenant. Build against
+the sandbox first - it returns deterministic canned responses with no camera, model or
+storage involved, so your tests exercise this contract instead of your assumptions about
+it. Both are kept hashed server-side and shown once:
 
 ```bash
 python manage_keys.py create "Your App" --role verify
-# -> api_key: fk_xxx   key_id: k_xxx   tenant: t_xxx   role: verify   signing_secret: yyy
+# -> api_key: fk_xxx           key_id: k_xxx   tenant: t_xxx   role: verify   signing_secret: yyy
+# -> sandbox:  fk_sandbox_xxx  (same tenant, canned responses - start here)
 ```
+
+Minting through the console (`POST /admin/api/keys`) returns the sandbox twin as
+`sandbox_key` in the same response; pass `"sandbox": false` to skip it.
 
 Send it on every request as a header: `X-API-Key: fk_xxx`. Everything is scoped to your
 **tenant** - your users never collide with another app's.
@@ -61,8 +68,6 @@ a `verify` key and keep `admin` keys server-side.
 > Browse a live, self-contained API reference at **`/docs`** on the running service, and import
 > **`/openapi.yaml`** into Postman or your codegen tool.
 
-**Build without faces (sandbox):** ask for a sandbox key (`manage_keys.py create "Dev" --sandbox`).
-Its key starts `fk_sandbox_` and returns deterministic canned responses (no camera/model needed).
 **No-code option:** drop the `<face-verify>` widget into any page - see `/docs` and `/widget`.
 **Large tenants:** `GET /v1/users?limit=100&offset=0&prefix=a` is paginated. **Safe retries:**
 send an `Idempotency-Key` header on enrol; a retry with the same key replays the first result
@@ -174,15 +179,24 @@ SDK: `fv.challenge()` then `fv.verify_live(frames, token, "alice")`. Each `token
 `signing_secret`. Verify it so a tampered/forged response is rejected:
 
 ```python
-if r["success"] and fv.verify_signature(r):
+if r["success"] and fv.verify_signature(r, expect_token=token):
     ...   # safe to act on
 ```
+
+Pass `expect_token` - the liveness token you sent - and the check also confirms this verdict
+answered **your** challenge. It matters: a signature alone says "this verdict is genuine", not
+"this verdict is yours and is fresh", so a captured response would otherwise stay valid forever
+and replay against a later check. The response carries `signature.bound` (`token`, `request_id`)
+and a second `signature.binding` HMAC chained onto the first, so a binding cannot be lifted onto
+another verdict. The original `signature.hmac` is unchanged - existing verifiers keep working
+and can adopt the binding when convenient.
 
 ## 5b. Bulk enrol & lifecycle (admin keys)
 
 ```bash
-# Enrol many people in one call. Add "dedupe":true to reject a person whose biometric already
-# belongs to a DIFFERENT name (skips that modality, reports under "conflicts"). Default off.
+# Enrol many people in one call. The cross-user duplicate guard is ON by default: a person whose
+# biometric already belongs to a DIFFERENT name is refused (entry code "duplicate", under
+# "conflicts"). Pass "dedupe":false only for a migration whose identities you already trust.
 curl -sk https://HOST:5000/v1/enroll/bulk -H "X-API-Key: fk_xxx" \
   -H "Content-Type: application/json" \
   -d '{"dedupe":true,"people":[{"user_id":"a","images":["<b64>"]},{"user_id":"b","embeddings":[[...]]}]}'
@@ -194,8 +208,31 @@ curl -sk https://HOST:5000/v1/users/purge    -H "X-API-Key: fk_xxx" -d '{"confir
 curl -sk https://HOST:5000/v1/usage          -H "X-API-Key: fk_xxx"   # your monthly usage
 ```
 
-For very large datasets, ask the operator to run the offline `bulk_enroll.py` importer (folder
-of `person/photos`), far faster than the API. Add `--dedupe` to reject duplicates.
+**A cohort that will not fit in one request.** Add `"async": true` and the batch is queued
+instead of held open, so the size of an import stops being decided by how long a gateway keeps a
+socket alive. Poll the job for progress:
+
+    POST /v1/enroll/bulk  {"async": true, "people": [ ...900 people... ]}
+    -> 202 {"job_id": "j_xxx", "status_url": "/v1/jobs/j_xxx"}
+
+    GET /v1/jobs/j_xxx
+    -> {"state": "running", "done": 240, "of": 900, "enrolled": 238}
+    -> {"state": "done", "enrolled": 890, "results": [ ... per person ... ]}
+
+The queue is durable and leased, so a restart mid-import resumes rather than loses the batch, and
+the spooled images are deleted the moment the job finishes. For datasets in the hundreds of
+thousands the offline `bulk_enroll.py` importer (a folder of `person/photos`) is still faster, if
+the operator can take the service down to run it.
+
+**Ask about one person** instead of paging the roster - and instead of mirroring enrolment state
+in your own database, where it drifts out of step with the templates actually held here:
+
+    GET /v1/users/20512345
+    -> {"enrolled": true, "modalities": ["face"], "samples": {"face": 3}, "consent": "granted"}
+    -> {"enrolled": false, "code": "not_enrolled"}     # a 200: an answer, not a failed request
+
+    GET /v1/config
+    -> the thresholds your outcomes are actually judged against (match, dupe, identify margin)
 
 ## 5c. Offline provisioning bundle (air-gapped devices)
 

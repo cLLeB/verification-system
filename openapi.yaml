@@ -32,14 +32,52 @@ components:
         embedding: { type: array, items: { type: number } }
     Signature:
       type: object
+      description: >
+        HMAC-SHA256 over the verdict, keyed by your signing_secret. `hmac` covers
+        (success, match, user_id, score, best_score) and is unchanged. `binding`
+        additionally covers `bound` - the liveness token you sent and the request id -
+        chained onto `hmac` so a binding cannot be lifted onto another verdict. Check
+        it to know the verdict answered YOUR challenge and not merely that it is
+        genuine; without that, a captured response stays valid for any later check.
       properties:
         alg: { type: string, example: HMAC-SHA256 }
         ts: { type: string }
         nonce: { type: string }
         hmac: { type: string }
+        bound:
+          type: object
+          properties:
+            token: { type: string, description: "the liveness token this verdict answered" }
+            request_id: { type: string }
+        binding: { type: string, description: "HMAC over ts.nonce.hmac.bound" }
 security:
   - ApiKeyAuth: []
 paths:
+  /v1/jobs/{job_id}:
+    get:
+      summary: "Progress and results of a queued batch (role: enroll)"
+      parameters:
+        - { in: path, name: job_id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Job state, with results once it has finished.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string }
+                  state: { type: string, enum: [queued, running, done, failed] }
+                  done: { type: integer, description: "people processed so far" }
+                  of: { type: integer }
+                  enrolled: { type: integer }
+                  attempts: { type: integer }
+                  last_error: { type: string, nullable: true }
+                  results:
+                    type: array
+                    description: Present once state is done or failed; one entry per person.
+                    items: { type: object }
+        "404": { description: No such job for this tenant. }
   /v1/config:
     get:
       summary: "The thresholds this tenant is judged against (any key)"
@@ -213,6 +251,14 @@ paths:
               type: object
               required: [people]
               properties:
+                async:
+                  type: boolean
+                  default: false
+                  description: >
+                    Queue the batch instead of holding the request open, and return
+                    202 with a job_id to poll at /v1/jobs/{id}. Use it for anything
+                    larger than a gateway will keep a socket alive for - the size of
+                    a cohort import should not be decided by a timeout.
                 dedupe:
                   type: boolean
                   default: true

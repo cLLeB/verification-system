@@ -3,6 +3,37 @@
 Notable changes, newest first. Dates are approximate milestones, not releases.
 
 ## Unreleased
+### Integration findings (from the first full customer build)
+A university attendance system was built end to end against the managed API. Each
+item below cost work in that integration, and one of them caused a bug the customer
+shipped - so they are fixed at the source rather than documented as gotchas.
+- **The enrol envelope states its verdict.** A face already enrolled under another
+  name and an unusable photo were both `success:false, enrolled:0`, with the
+  difference buried in `results[]` - so the refusal that must never be retried was
+  indistinguishable from the one that should be. `code`, `hint` and
+  `conflict_user_id` now sit on the envelope, `duplicate` outranking other failures.
+- **Bulk dedupe defaults to true.** `/v1/enroll` always ran the cross-user guard;
+  `/v1/enroll/bulk` ran it only when asked, and bulk is where nobody is watching
+  each face go by. Pass `dedupe:false` for a migration you already trust.
+- **`GET /v1/users/{user_id}`** answers for one person (enrolled, modalities,
+  samples, consent, guest expiry), and `GET /v1/users` now returns the modality map
+  it already computed. Without either, integrators mirror enrolment state locally
+  and the mirror drifts - which reaches the person as being asked to enrol again for
+  a template we still hold.
+- **Queued bulk enrolment.** `"async": true` returns `202 {job_id}`; poll
+  `GET /v1/jobs/{id}` for live progress and per-person results. Durable and leased,
+  so a restart resumes rather than loses a cohort; spooled images are deleted the
+  moment the job ends. The size of an import is no longer set by a gateway timeout.
+- **Verdicts can be bound to their challenge.** `signature.binding` covers the
+  liveness token and request id, chained onto the original `hmac` (which is
+  unchanged, so existing verifiers keep working). Replay protection stops being
+  something every integrator reinvents. SDK: `verify_signature(r, expect_token=...)`.
+- **`GET /v1/config`** exposes the thresholds that decide - including the
+  `dupe_threshold` that "one biometric, one identity" rests on.
+- **Discoverability.** `/openapi.json` serves the spec where generators look,
+  `/v1/health` points at it, and minting a key now returns a sandbox twin so an
+  integrator tests against this contract instead of hand-written mocks of it.
+
 ### Added
 - **Five new service subsystems** - all layered strictly AFTER the biometric
   decision (the face/palm pipeline, thresholds and liveness are untouched; every

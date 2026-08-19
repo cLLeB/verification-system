@@ -401,8 +401,14 @@ class FaceVerifyClient:
         return self._call("GET", "/v1/health")
 
     # --- trust the result --------------------------------------------------
-    def verify_signature(self, payload: dict) -> bool:
-        """Verify the HMAC signature on a verify/compare response (needs signing_secret)."""
+    def verify_signature(self, payload: dict, expect_token: str = None) -> bool:
+        """Verify the HMAC signature on a verify/compare response (needs signing_secret).
+
+        Pass ``expect_token`` - the liveness token you sent - to also require that
+        this verdict answered *your* challenge. Without that check a signed verdict
+        stays valid forever and for any session, so a captured response can be
+        replayed; with it, a replay fails here instead of being counted.
+        """
         sig = payload.get("signature")
         if not sig or not self.signing_secret:
             return False
@@ -410,4 +416,15 @@ class FaceVerifyClient:
                           sort_keys=True, separators=(",", ":"))
         msg = f"{sig['ts']}.{sig['nonce']}.{body}".encode()
         expect = hmac.new(self.signing_secret.encode(), msg, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expect, sig.get("hmac", ""))
+        if not hmac.compare_digest(expect, sig.get("hmac", "")):
+            return False
+        if expect_token is None:
+            return True
+
+        bound = sig.get("bound") or {}
+        if bound.get("token") != expect_token:
+            return False
+        bound_body = json.dumps(bound, sort_keys=True, separators=(",", ":"))
+        bind_msg = f"{sig['ts']}.{sig['nonce']}.{expect}.{bound_body}".encode()
+        bind_expect = hmac.new(self.signing_secret.encode(), bind_msg, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(bind_expect, sig.get("binding", ""))

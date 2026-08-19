@@ -124,3 +124,8 @@ _prod_state/
 _kaggle_upload/
 oracle_retry.log
 pulled_data/
+
+# queued bulk-enrolment spool (batch images, deleted when a job finishes)
+enroll_spool/
+jobs.json
+jobs.json.lock

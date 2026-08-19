@@ -333,6 +333,13 @@ _COLLECT_LABELS = ("live", "spoof", "palm_live", "palm_spoof")
 MODEL_READY = _face_engine.warm(CONFIG)
 LIVENESS_READY = _liveness.warm() if CONFIG.liveness_enabled else False
 
+# Queued bulk enrolments are worked in-process, after the models are warm. The
+# sweeper is idle unless a batch is waiting, and the queue is durable, so nothing
+# is lost if this process restarts mid-import.
+if MODEL_READY:
+    from face_service import enroll_jobs as _enroll_jobs
+    _enroll_jobs.start_worker(app)
+
 
 def decode_image(b64: str):
     if not b64:
@@ -637,6 +644,14 @@ def admin_keys_create():
     if block:
         return jsonify(block), 403
     info = keys.create_key(name, tenant or None, role)
+    # Mint the sandbox twin alongside it, on the same tenant. A sandbox key is the
+    # difference between an integrator testing against this contract and hand-writing
+    # mocks of it, and nobody adopts a facility they are never handed. Opt out with
+    # sandbox:false when a key is being replaced rather than newly issued.
+    if data.get("sandbox", True):
+        twin = keys.create_key(f"{name} (sandbox)", info["tenant"], role, sandbox=True)
+        info["sandbox_key"] = {"api_key": twin["api_key"], "key_id": twin["key_id"],
+                               "signing_secret": twin["signing_secret"]}
     return jsonify({"success": True, **info})    # raw api_key returned ONCE
 
 

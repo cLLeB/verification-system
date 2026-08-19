@@ -157,6 +157,19 @@ def purge_terminal(tenant: Optional[str], keep_dead: bool = True,
     return {"removed": sorted(removed), "count": len(removed)}
 
 
+def get(tenant: Optional[str], job_id: str) -> Optional[dict]:
+    """One job's record, or None. Callers poll this to follow a queued batch."""
+    job = (_reg.load().get(_reg.norm(tenant)) or {}).get((job_id or "").strip())
+    return dict(job) if job else None
+
+
+def tenants_with_work() -> list:
+    """Tenants holding a job that is queued or leased - what a worker sweeps."""
+    data = _reg.load()
+    return [t for t, q in data.items()
+            if any(j.get("state") in ("queued", "leased") for j in q.values())]
+
+
 def stats(tenant: Optional[str]) -> dict:
     out = {"queued": 0, "leased": 0, "done": 0, "dead": 0}
     for job in (_reg.load().get(_reg.norm(tenant)) or {}).values():

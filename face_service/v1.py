@@ -133,7 +133,15 @@ def _err(msg, code="bad_request", status=400, hint=None):
     return jsonify(body), status
 
 
-def _sign(payload: dict) -> dict:
+def _sign(payload: dict, bind: dict = None) -> dict:
+    """Sign a verdict, and optionally bind it to the request that produced it.
+
+    ``hmac`` covers the verdict itself and is unchanged, so existing verifiers keep
+    working. ``binding`` additionally covers the liveness token and request id, which
+    is what stops a captured verdict being replayed against a different check: on its
+    own a signed "success" is true forever and for any session, so every integrator
+    has had to store nonces and reject reuse to get that property back.
+    """
     secret = getattr(g, "signing_secret", "")
     if not secret:
         return payload
@@ -141,7 +149,16 @@ def _sign(payload: dict) -> dict:
     body = json.dumps({k: payload.get(k) for k in ("success", "match", "user_id", "score", "best_score")},
                       sort_keys=True, separators=(",", ":"))
     digest = hmac.new(secret.encode(), f"{ts}.{nonce}.{body}".encode(), hashlib.sha256).hexdigest()
-    return {**payload, "signature": {"alg": "HMAC-SHA256", "ts": ts, "nonce": nonce, "hmac": digest}}
+    sig = {"alg": "HMAC-SHA256", "ts": ts, "nonce": nonce, "hmac": digest}
+    bound = {k: v for k, v in (bind or {}).items() if v}
+    if bound:
+        bound_body = json.dumps(bound, sort_keys=True, separators=(",", ":"))
+        # Chained onto `digest` so a binding cannot be lifted onto another verdict.
+        sig["bound"] = bound
+        sig["binding"] = hmac.new(secret.encode(),
+                                  f"{ts}.{nonce}.{digest}.{bound_body}".encode(),
+                                  hashlib.sha256).hexdigest()
+    return {**payload, "signature": sig}
 
 
 def _verdict(results: list, ok: int) -> dict:
@@ -164,6 +181,12 @@ def _verdict(results: list, ok: int) -> dict:
         if worst.get(key):
             out[key] = worst[key]
     return out
+
+
+def _bind_of(data: dict) -> dict:
+    """The context a verdict belongs to: the liveness token it answered, and this request."""
+    return {"token": (data.get("token") or "").strip(),
+            "request_id": getattr(g, "request_id", "")}
 
 
 def _dupe_conflict(index, emb, uid: str, thr: float):
@@ -371,31 +394,20 @@ def enroll():
     return jsonify(body)
 
 
-@bp.post("/enroll/bulk")
-@require_scope("enroll")
-@idempotent
-@usage.billable("enroll")
-def enroll_bulk():
-    """Enrol many people in one call. Each entry: {user_id, images[]|embeddings[]}.
-    Stores in bulk and keeps the live index in sync. For very large datasets
-    (100k+), prefer the offline ``bulk_enroll.py`` CLI."""
-    cfg = _cfg()
-    palm_enabled = tenants.get(g.tenant)["palm_enabled"]
-    data = request.get_json(silent=True) or {}
-    people = data.get("people") or []
-    if not isinstance(people, list) or not people:
-        return _err("'people' (non-empty list) is required.")
-    # One biometric, one identity - and bulk is exactly where nobody is watching each
-    # face go by, so the cross-user guard is ON unless a caller deliberately turns it
-    # off for a trusted migration. A safety property must not depend on the caller
-    # remembering a flag at the moment of least attention.
-    dedupe = bool(data.get("dedupe", True))
+def _enroll_people(cfg, tenant, palm_enabled, people, dedupe=True, actor="", progress=None):
+    """Enrol a batch of people. Shared by the synchronous route and the job worker.
+
+    ``progress(done, total)`` is called after each person so a long import can be
+    watched while it runs instead of only when it finishes.
+    """
     results, ok = [], 0
     for person in people:
         uid = (person.get("user_id") or "").strip() if isinstance(person, dict) else ""
         if not uid:
             results.append({"user_id": None, "success": False, "code": "bad_request",
                             "message": "missing user_id"})
+            if progress:
+                progress(len(results), len(people))
             continue
         mods = set()
         face_embs, palm_embs = [], []
@@ -419,6 +431,8 @@ def enroll_bulk():
         if not face_embs and not palm_embs:
             results.append({"user_id": uid, "success": False, "enrolled": 0,
                             "code": "no_biometric", "message": "no usable face or palm"})
+            if progress:
+                progress(len(results), len(people))
             continue
         conflicts = []
         if face_embs:
@@ -459,6 +473,8 @@ def enroll_bulk():
             results.append({"user_id": uid, "success": False, "code": "duplicate",
                             "enrolled": 0, "conflicts": conflicts,
                             "message": "biometric already enrolled under a different name"})
+            if progress:
+                progress(len(results), len(people))
             continue
         ok += 1
         entry = {"user_id": uid, "success": True, "code": "enrolled",
@@ -468,13 +484,63 @@ def enroll_bulk():
         if conflicts:
             entry["conflicts"] = conflicts       # a modality was skipped as a duplicate
         results.append(entry)
+        if progress:
+            progress(len(results), len(people))
     for entry in results:
         if entry.get("success") and entry.get("user_id"):
-            _consent.record(g.tenant, entry["user_id"], method="import",
-                            actor=g.key_name)
+            _consent.record(tenant, entry["user_id"], method="import", actor=actor)
+    return ok, results
+
+
+@bp.post("/enroll/bulk")
+@require_scope("enroll")
+@idempotent
+@usage.billable("enroll")
+def enroll_bulk():
+    """Enrol many people in one call. Each entry: {user_id, images[]|embeddings[]}.
+
+    Pass ``async: true`` for a batch too large to sit inside one request: the work
+    is queued and the call returns 202 with a ``job_id`` to poll at /v1/jobs/{id}.
+    A cohort import should not be shaped by how long a gateway will hold a socket
+    open.
+    """
+    cfg = _cfg()
+    palm_enabled = tenants.get(g.tenant)["palm_enabled"]
+    data = request.get_json(silent=True) or {}
+    people = data.get("people") or []
+    if not isinstance(people, list) or not people:
+        return _err("'people' (non-empty list) is required.")
+    # One biometric, one identity - and bulk is exactly where nobody is watching each
+    # face go by, so the cross-user guard is ON unless a caller deliberately turns it
+    # off for a trusted migration. A safety property must not depend on the caller
+    # remembering a flag at the moment of least attention.
+    dedupe = bool(data.get("dedupe", True))
+
+    if bool(data.get("async")):
+        from . import enroll_jobs
+        job = enroll_jobs.submit(g.tenant, people, dedupe=dedupe, actor=g.key_name)
+        audit.log(g.tenant, "enroll_bulk_queued", actor=g.key_name, success=True,
+                  detail=f"{len(people)} people, job {job['id']}")
+        return jsonify({"success": True, "queued": True, "job_id": job["id"],
+                        "people": len(people), "status_url": f"/v1/jobs/{job['id']}"}), 202
+
+    ok, results = _enroll_people(cfg, g.tenant, palm_enabled, people, dedupe=dedupe,
+                                 actor=g.key_name)
     audit.log(g.tenant, "enroll_bulk", actor=g.key_name, success=ok > 0,
               detail=f"{ok}/{len(people)} people")
     return jsonify({"success": ok > 0, "people": len(people), "enrolled": ok, "results": results})
+
+
+@bp.get("/jobs/<job_id>")
+@require_scope("enroll")
+def job_status(job_id: str):
+    """Progress and results of a queued batch."""
+    from . import enroll_jobs
+    state = enroll_jobs.status(g.tenant, job_id)
+    if state is None:
+        return jsonify({"success": False, "code": "not_found",
+                        "message": f"No job '{job_id}'."}), 404
+    return jsonify({"success": True, **state})
 
 
 def _verify_dispatch(cfg, store, data, user_id):
@@ -572,7 +638,7 @@ def verify():
                                            "success": bool(out.get("success")),
                                            "score": out.get("score"),
                                            "request_id": getattr(g, "request_id", "")})
-        return jsonify(_sign(out))
+        return jsonify(_sign(out, bind=_bind_of(data)))
 
     out = _verify_dispatch(cfg, _store(cfg), data, uid)
     out = _subject_gates(g.tenant, out)
@@ -583,7 +649,7 @@ def verify():
     webhooks.fire(g.tenant, "verify", {"user_id": out.get("user_id") or uid,
                                        "success": bool(out.get("success")), "score": out.get("score"),
                                        "request_id": getattr(g, "request_id", "")})
-    return jsonify(_sign(out))
+    return jsonify(_sign(out, bind=_bind_of(data)))
 
 
 @bp.post("/identify")
