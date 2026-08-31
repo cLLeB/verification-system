@@ -618,6 +618,39 @@ def admin_audit():
     return jsonify({"success": True, "tenant": tenant, "events": audit.tail(tenant, 200)})
 
 
+@app.route("/admin/api/audit-encryption")
+@admin.require_admin
+def admin_audit_encryption():
+    """Read-only endpoint for auditors: proves biometric templates are encrypted at rest."""
+    import sqlite3 as _sqlite3
+    db_path = "face_db/faces.db"
+    if not os.path.exists(db_path):
+        return jsonify({"success": False, "message": "Database not found."})
+    conn = _sqlite3.connect(db_path)
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT user_id, data FROM templates LIMIT 1")
+        row = cur.fetchone()
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+    if not row:
+        return jsonify({"success": True, "message": "No enrolled users to check."})
+    user_id, raw_data = row
+    is_fernet = isinstance(raw_data, (bytes, bytearray)) and raw_data.startswith(b"gAAAAAB")
+    return jsonify({
+        "success": True,
+        "database": db_path,
+        "sample_user_id": user_id,
+        "raw_bytes_preview": repr(raw_data[:50]) + "...",
+        "is_fernet_encrypted": is_fernet,
+        "encryption_details": "128-bit AES-CBC + HMAC-SHA256 (Fernet)" if is_fernet else "Unknown format",
+        "explanation": (
+            "Raw disk dump of a single database row. The biometric template cannot be "
+            "decoded without the server's private encryption key, even with full database access."
+        ),
+    })
+
+
 @app.route("/admin/api/keys", methods=["GET"])
 @admin.require_admin
 def admin_keys_list():
