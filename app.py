@@ -623,9 +623,14 @@ def admin_audit():
 def admin_audit_encryption():
     """Read-only endpoint for auditors: proves biometric templates are encrypted at rest."""
     import sqlite3 as _sqlite3
-    db_path = "face_db/faces.db"
+    # Resolve the same db path the app itself uses:
+    # FACE_DB_PATH env overrides everything; otherwise it's {FACE_PERSIST_DIR}/face_db/faces.db
+    # (FACE_PERSIST_DIR defaults to "." locally and "/data" on Azure via the deploy script).
+    _cfg = load_config()
+    db_dir = _cfg.db_path   # e.g. "face_db" locally, "/data/face_db" on Azure
+    db_path = os.path.join(db_dir, "faces.db")
     if not os.path.exists(db_path):
-        return jsonify({"success": False, "message": "Database not found."})
+        return jsonify({"success": False, "message": f"Database not found at {db_path}."})
     conn = _sqlite3.connect(db_path)
     cur = conn.cursor()
     try:
