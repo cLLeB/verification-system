@@ -241,7 +241,7 @@ stop. (Your own cards are always accepted.)
 <a id="7-glance"></a>
 ## 7. Identify People Continuously in a Crowd (Glance)
 
-What it does: Point the camera at people walking past 
+**What it does:** Point the camera at people walking past 
 and their **names appear in real time** — like a friendly name tag
 that follows whoever is in view. This is useful for checkpoints, 
 class registration, or quickly finding a specific person. It is
