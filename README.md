@@ -253,7 +253,7 @@ How:
 * **On a laptop or phone browser:** Open `/glance`, press
   Start Glancing, and point the camera at people.
    Their names appear on screen as they are recognised.
-* **On the Android app:** Open the **Glance tab. It identifies
+* **On the Android app:** Open the Glance tab. It identifies
 * people continuously on the phone and can work **fully offline**,
 *  including in airplane mode once the required
 *   data is available on the device.
