@@ -241,7 +241,7 @@ stop. (Your own cards are always accepted.)
 <a id="7-glance"></a>
 ## 7. Identify People Continuously in a Crowd (Glance)
 
-*What it does: Point the camera at people walking past 
+What it does: Point the camera at people walking past 
 and their **names appear in real time** — like a friendly name tag
 that follows whoever is in view. This is useful for checkpoints, 
 class registration, or quickly finding a specific person. It is
@@ -251,7 +251,7 @@ control gate.
 How:
 
 * **On a laptop or phone browser:** Open `/glance`, press
-  Start Glancing**, and point the camera at people.
+  Start Glancing, and point the camera at people.
    Their names appear on screen as they are recognised.
 * **On the Android app:** Open the **Glance tab. It identifies
 * people continuously on the phone and can work **fully offline**,
