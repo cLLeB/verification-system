@@ -258,7 +258,7 @@ control gate.
 *  including in airplane mode once the required
 *   data is available on the device.
 
-**#Glance #FaceRecognition #PeopleIdentification #Android #OfflineRecognition**
+
 
 
 <a id="8-reissue"></a>
