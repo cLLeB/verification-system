@@ -239,19 +239,27 @@ organisation's ID. From then on, your verifiers accept their cards too. Remove t
 stop. (Your own cards are always accepted.)
 
 <a id="7-glance"></a>
-## 7. Identify people continuously in a crowd (Glance)
+## 7. Identify People Continuously in a Crowd (Glance)
 
-**What it does:** point the camera at people walking past and their **names appear in
-real time** - like a friendly name-tag that follows whoever is in view. Great for a
-checkpoint, a class register, or finding a specific person quickly. It's an
-*identification aid* (a helper), not an access gate.
+*What it does:** Point the camera at people walking past 
+and their **names appear in real time** — like a friendly name tag
+that follows whoever is in view. This is useful for checkpoints, 
+class registration, or quickly finding a specific person. It is
+designed as an *identification aid* (a helper), not an access-
+control gate.
 
-**How:**
-- **On a laptop or phone browser:** open `/glance`, press **Start glancing**, and point
-  the camera at people. Names pop up as they're recognised.
-- **On the Android app:** open the **Glance** tab - it identifies people continuously,
-  on the phone, in under a second, **fully offline** (it can even work in airplane
-  mode once the phone has the data).
+**How:
+
+* **On a laptop or phone browser:** Open `/glance`, press
+  Start Glancing**, and point the camera at people.
+   Their names appear on screen as they are recognised.
+* **On the Android app:** Open the **Glance** tab. It identifies
+* people continuously on the phone and can work **fully offline**,
+*  including in airplane mode once the required
+*   data is available on the device.
+
+**#Glance #FaceRecognition #PeopleIdentification #Android #OfflineRecognition**
+
 
 <a id="8-reissue"></a>
 ## 8. Cancel and reset biometrics like a password (reissue)
